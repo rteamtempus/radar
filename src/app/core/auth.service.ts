@@ -77,7 +77,7 @@ export class AuthService {
   /** Where to land after auth: onboarding for first-timers, else the app. */
   async postLoginUrl(): Promise<string> {
     const profile = await this.getOrCreateProfile();
-    return profile?.settings?.onboarded ? '/library' : '/onboarding';
+    return profile?.settings?.onboarded ? '/radar' : '/onboarding';
   }
 
   async updateDisplayName(displayName: string): Promise<void> {

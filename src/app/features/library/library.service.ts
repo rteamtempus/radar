@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { AuthService } from '../../core/auth.service';
 import { getSupabase } from '../../core/supabase.client';
+import { SlotsService } from '../radar/slots.service';
 
 export type EngagementStatus =
   | 'want_to'
@@ -50,6 +51,7 @@ const ENTRY_SELECT =
 @Injectable({ providedIn: 'root' })
 export class LibraryService {
   private auth = inject(AuthService);
+  private slots = inject(SlotsService);
 
   readonly entries = signal<LibraryEntry[]>([]);
   readonly loading = signal(false);
@@ -95,6 +97,8 @@ export class LibraryService {
         { onConflict: 'user_id,activity_id' },
       );
     if (error) throw error;
+    // Slots are "active playlists": finishing a title updates its slots.
+    if (status === 'completed') this.slots.handleCompleted(activityId);
     await this.load();
   }
 

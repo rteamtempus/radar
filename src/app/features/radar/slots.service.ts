@@ -1,0 +1,199 @@
+import { Injectable, inject, signal } from '@angular/core';
+import { AuthService } from '../../core/auth.service';
+import { getSupabase } from '../../core/supabase.client';
+import { ToastService } from '../../shared/ui/toast.service';
+
+export type SlotOnComplete = 'remove' | 'loop' | 'keep';
+
+export interface SlotItemActivity {
+  id: string;
+  title: string;
+  image_url: string | null;
+  type: 'movie' | 'tv_show';
+  duration_min: number | null;
+  metadata: { release_year?: number | null };
+}
+
+export interface SlotItem {
+  activity_id: string;
+  position: number;
+  note: string | null;
+  activity: SlotItemActivity;
+}
+
+export interface RadarSlot {
+  id: string;
+  name: string;
+  emoji: string | null;
+  position: number;
+  on_complete: SlotOnComplete;
+  items: SlotItem[];
+}
+
+const SLOT_SELECT =
+  'id, name, emoji, position, on_complete, ' +
+  'items:radar_slot_items(activity_id, position, note, ' +
+  'activity:activities(id, title, image_url, type, duration_min, metadata))';
+
+/** Starter slots created on first visit (ideas doc §2). */
+const DEFAULT_SLOTS: { name: string; emoji: string; on_complete: SlotOnComplete }[] = [
+  { name: 'Watching now', emoji: '📺', on_complete: 'remove' },
+  { name: 'Up next', emoji: '🍿', on_complete: 'remove' },
+  { name: 'Rewatch', emoji: '🔁', on_complete: 'loop' },
+  { name: 'Recommended to me', emoji: '💡', on_complete: 'remove' },
+];
+
+@Injectable({ providedIn: 'root' })
+export class SlotsService {
+  private auth = inject(AuthService);
+  private toast = inject(ToastService);
+
+  readonly slots = signal<RadarSlot[]>([]);
+  readonly loading = signal(false);
+  private loaded = false;
+
+  async load(): Promise<void> {
+    this.loading.set(true);
+    try {
+      const { data, error } = await getSupabase()
+        .from('radar_slots')
+        .select(SLOT_SELECT)
+        .order('position')
+        .order('position', { referencedTable: 'radar_slot_items' });
+      if (error) throw error;
+      this.slots.set((data ?? []) as unknown as RadarSlot[]);
+      this.loaded = true;
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  /** First visit: seed the starter slots. */
+  async ensureDefaults(): Promise<void> {
+    if (!this.loaded) await this.load();
+    if (this.slots().length) return;
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
+    await getSupabase()
+      .from('radar_slots')
+      .insert(
+        DEFAULT_SLOTS.map((s, i) => ({
+          owner_id: userId,
+          name: s.name,
+          emoji: s.emoji,
+          on_complete: s.on_complete,
+          position: i,
+        })),
+      );
+    await this.load();
+  }
+
+  async createSlot(name: string, emoji: string, loop: boolean): Promise<void> {
+    const userId = this.auth.user()?.id;
+    if (!userId || !name.trim()) return;
+    const position = Math.max(-1, ...this.slots().map((s) => s.position)) + 1;
+    const { error } = await getSupabase().from('radar_slots').insert({
+      owner_id: userId,
+      name: name.trim(),
+      emoji: emoji.trim() || null,
+      on_complete: loop ? 'loop' : 'remove',
+      position,
+    });
+    if (error) this.toast.error('Could not create the slot.');
+    await this.load();
+  }
+
+  async deleteSlot(slotId: string): Promise<void> {
+    const { error } = await getSupabase().from('radar_slots').delete().eq('id', slotId);
+    if (error) this.toast.error('Could not delete the slot.');
+    await this.load();
+  }
+
+  async addItem(slotId: string, activityId: string): Promise<void> {
+    const slot = this.slots().find((s) => s.id === slotId);
+    const position = Math.max(-1, ...(slot?.items.map((i) => i.position) ?? [])) + 1;
+    const { error } = await getSupabase()
+      .from('radar_slot_items')
+      .upsert(
+        { slot_id: slotId, activity_id: activityId, position, added_by: this.auth.user()?.id },
+        { onConflict: 'slot_id,activity_id', ignoreDuplicates: true },
+      );
+    if (error) this.toast.error('Could not add to the slot.');
+    await this.load();
+  }
+
+  async removeItem(slotId: string, activityId: string): Promise<void> {
+    await getSupabase()
+      .from('radar_slot_items')
+      .delete()
+      .eq('slot_id', slotId)
+      .eq('activity_id', activityId);
+    await this.load();
+  }
+
+  /** Spotify-queue style reorder: swap with the neighbor above/below. */
+  async move(slotId: string, activityId: string, dir: -1 | 1): Promise<void> {
+    const slot = this.slots().find((s) => s.id === slotId);
+    if (!slot) return;
+    const sorted = [...slot.items].sort((a, b) => a.position - b.position);
+    const index = sorted.findIndex((i) => i.activity_id === activityId);
+    const neighbor = sorted[index + dir];
+    if (index === -1 || !neighbor) return;
+    const me = sorted[index];
+    const supabase = getSupabase();
+    await Promise.all([
+      supabase
+        .from('radar_slot_items')
+        .update({ position: neighbor.position })
+        .eq('slot_id', slotId)
+        .eq('activity_id', me.activity_id),
+      supabase
+        .from('radar_slot_items')
+        .update({ position: me.position })
+        .eq('slot_id', slotId)
+        .eq('activity_id', neighbor.activity_id),
+    ]);
+    await this.load();
+  }
+
+  /**
+   * Called when an engagement flips to completed: 'remove' slots drop the
+   * title, 'loop' slots cycle it to the back, 'keep' slots leave it.
+   * Queries directly (not the signal) so it works from anywhere in the app.
+   */
+  async handleCompleted(activityId: string): Promise<void> {
+    const supabase = getSupabase();
+    const { data } = await supabase
+      .from('radar_slot_items')
+      .select('slot_id, position, slot:radar_slots!inner(on_complete)')
+      .eq('activity_id', activityId);
+    const rows = (data ?? []) as unknown as {
+      slot_id: string;
+      position: number;
+      slot: { on_complete: SlotOnComplete };
+    }[];
+    for (const row of rows) {
+      if (row.slot.on_complete === 'remove') {
+        await supabase
+          .from('radar_slot_items')
+          .delete()
+          .eq('slot_id', row.slot_id)
+          .eq('activity_id', activityId);
+      } else if (row.slot.on_complete === 'loop') {
+        const { data: siblings } = await supabase
+          .from('radar_slot_items')
+          .select('position')
+          .eq('slot_id', row.slot_id)
+          .order('position', { ascending: false })
+          .limit(1);
+        const back = (siblings?.[0]?.position ?? 0) + 1;
+        await supabase
+          .from('radar_slot_items')
+          .update({ position: back })
+          .eq('slot_id', row.slot_id)
+          .eq('activity_id', activityId);
+      }
+    }
+    if (rows.length && this.loaded) await this.load();
+  }
+}

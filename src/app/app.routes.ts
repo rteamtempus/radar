@@ -2,7 +2,12 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/auth.guard';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'library' },
+  { path: '', pathMatch: 'full', redirectTo: 'radar' },
+  {
+    path: 'radar',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/radar/radar-page').then((m) => m.RadarPage),
+  },
   {
     path: 'login',
     loadComponent: () => import('./features/auth/login-page').then((m) => m.LoginPage),
@@ -37,5 +42,5 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/profile/profile-page').then((m) => m.ProfilePage),
   },
-  { path: '**', redirectTo: 'library' },
+  { path: '**', redirectTo: 'radar' },
 ];

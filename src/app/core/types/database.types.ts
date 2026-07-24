@@ -796,6 +796,106 @@ export type Database = {
         }
         Relationships: []
       }
+      radar_slot_items: {
+        Row: {
+          activity_id: string
+          added_at: string
+          added_by: string | null
+          note: string | null
+          position: number
+          slot_id: string
+        }
+        Insert: {
+          activity_id: string
+          added_at?: string
+          added_by?: string | null
+          note?: string | null
+          position?: number
+          slot_id: string
+        }
+        Update: {
+          activity_id?: string
+          added_at?: string
+          added_by?: string | null
+          note?: string | null
+          position?: number
+          slot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_slot_items_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "radar_slot_items_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "radar_slot_items_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "radar_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      radar_slots: {
+        Row: {
+          config: Json
+          created_at: string
+          emoji: string | null
+          group_id: string | null
+          id: string
+          name: string
+          on_complete: string
+          owner_id: string | null
+          position: number
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          emoji?: string | null
+          group_id?: string | null
+          id?: string
+          name: string
+          on_complete?: string
+          owner_id?: string | null
+          position?: number
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          emoji?: string | null
+          group_id?: string | null
+          id?: string
+          name?: string
+          on_complete?: string
+          owner_id?: string | null
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_slots_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "radar_slots_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rainchecks: {
         Row: {
           activity_id: string

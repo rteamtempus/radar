@@ -201,7 +201,7 @@ export class OnboardingPage {
     this.finishing.set(true);
     try {
       await this.auth.markOnboarded();
-      this.router.navigateByUrl('/library');
+      this.router.navigateByUrl('/radar');
     } finally {
       this.finishing.set(false);
     }

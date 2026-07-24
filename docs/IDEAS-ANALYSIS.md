@@ -216,8 +216,8 @@ all slot underneath the Radar-home/slots layer.
 
 ## 9. Recommended build order
 
-1. **Phase A — cards + quick wins** (0006, filters, stale nudge, like/dislike UI, async-party copy) — a few sessions, all low-risk.
-2. **Phase B — Slots + Radar home** (0007) — the identity shift: bottom-nav "Radar" screen becomes home; tabs become default slots.
+1. ✅ **Phase A — cards + quick wins** (2026-07-24): migration 0006 (notes + recommended-by, on the detail page's "My card"), runtime/genre filter chips, 60-day stale-show nudge, explicit love/avoid taste chips in You (source='explicit' affinities), async-party lobby copy.
+2. ✅ **Phase B — Slots + Radar home** (2026-07-24): migration 0007; `SlotsService` + `/radar` home (new default route + nav item). Starter slots seeded on first visit (Watching now / Up next / Rewatch 🔁 / Recommended to me); per-slot inline search-to-add, ▲▼ reorder, two-tap delete, custom slots with loop mode. Completing a title auto-removes it from 'remove' slots and cycles it to the back of 'loop' slots. Library tabs kept as the status/history view underneath (rather than replaced — revisit with real usage). RLS verified owner-only.
 3. **Phase C — Sharing** (0008 groups) + new-episode tracking + quick-add endpoint/Shortcut.
 4. **Phase D — AI slots**, then the first non-media vertical (restaurants) when ready to spend on Places.
 

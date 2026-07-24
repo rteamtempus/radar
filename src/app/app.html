@@ -36,9 +36,17 @@
       class="fixed inset-x-0 bottom-0 z-10 flex items-center justify-around border-t border-line bg-bg-deep/95 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur"
     >
       <a
+        routerLink="/radar"
+        routerLinkActive="text-coral"
+        class="flex flex-col items-center gap-0.5 px-3 text-[11px] font-bold text-muted"
+      >
+        <span class="text-lg leading-none">◉</span>
+        Radar
+      </a>
+      <a
         routerLink="/library"
         routerLinkActive="text-coral"
-        class="flex flex-col items-center gap-0.5 px-4 text-[11px] font-bold text-muted"
+        class="flex flex-col items-center gap-0.5 px-3 text-[11px] font-bold text-muted"
       >
         <span class="text-lg leading-none">▤</span>
         Library
@@ -53,7 +61,7 @@
       <a
         routerLink="/profile"
         routerLinkActive="text-coral"
-        class="flex flex-col items-center gap-0.5 px-4 text-[11px] font-bold text-muted"
+        class="flex flex-col items-center gap-0.5 px-3 text-[11px] font-bold text-muted"
       >
         <span class="text-lg leading-none">○</span>
         You

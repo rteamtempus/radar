@@ -111,7 +111,7 @@ export class LoginPage {
 
   constructor() {
     // Already signed in? Straight to the app.
-    if (this.auth.session()) this.router.navigateByUrl('/library');
+    if (this.auth.session()) this.router.navigateByUrl('/radar');
   }
 
   protected toggleMode() {
