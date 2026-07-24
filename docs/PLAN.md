@@ -119,12 +119,14 @@ production). Free tier allows two projects; create a fresh one for radar.
 The handoff listed history import as a non-goal; promoted to a feature by Rory.
 Netflix: Account → profile → Viewing activity → "Download all" → CSV (Title, Date).
 
-- [ ] Pure CSV parser + episode→show grouping (`netflix-csv.ts`, tsx-tested): 3+ colon
-      segments = series (base = first segment); movies keep full title
-- [ ] `import-history` edge function: batch of titles → TMDB best-match → upsert activity
-      + `user_engagements` (completed, source='import_netflix_csv', never overwrites existing)
-- [ ] Profile page: file picker → parse → batched calls with progress → summary +
-      `recompute_affinities`
+- [x] Pure CSV parser + episode→show grouping (`netflix-csv.ts`, tsx-tested): 3+ colon
+      segments = series (base = first segment); movies keep full title ("Mission: Impossible" safe)
+- [x] `import-history` edge function (deployed): batch ≤25 → TMDB best-match (exact title +
+      kind preference) → upsert activity + `user_engagements` (completed,
+      source='import_netflix_csv', ignoreDuplicates — ratings/want_to survive re-imports)
+- [x] Profile page: file picker → parse/confirm → batched import with progress bar (cap 400
+      most-recent titles) → summary with unmatched list → `recompute_affinities`
+- [x] Verified live: episodes collapse, movie/series kinds match correctly, unmatched reported
 - Value: imported titles are excluded from party candidates ("not-already-seen") and feed affinities (unrated completed counts as 6.5)
 
 ## Non-goals (do not build — handoff §1)
