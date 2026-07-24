@@ -13,16 +13,7 @@ interface ActivityDetail extends ActivitySummary {
   activity_tags?: { tag: { label: string; kind: string } }[];
 }
 
-const HOMEPAGES: Record<string, string> = {
-  netflix: 'https://www.netflix.com',
-  hulu: 'https://www.hulu.com',
-  'prime-video': 'https://www.primevideo.com',
-  max: 'https://play.hbomax.com',
-  'disney-plus': 'https://www.disneyplus.com',
-  'apple-tv-plus': 'https://tv.apple.com',
-  'paramount-plus': 'https://www.paramountplus.com',
-  peacock: 'https://www.peacocktv.com',
-};
+import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
 
 @Component({
   selector: 'pp-activity-detail-page',
@@ -196,7 +187,7 @@ export class ActivityDetailPage {
   }
 
   protected homepage(s: ServiceRef): string {
-    return HOMEPAGES[s.slug] ?? '#';
+    return SERVICE_HOMEPAGES[s.slug] ?? '#';
   }
 
   protected setStatus(status: EngagementStatus) {

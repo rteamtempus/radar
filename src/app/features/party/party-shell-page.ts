@@ -1,16 +1,20 @@
 import { Component, OnDestroy, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { PartyService } from './party.service';
+import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
+import { SubscriptionsService } from '../../core/subscriptions.service';
+import { ServiceBadges } from '../../shared/ui/service-badges';
+import { PartyCandidate, PartyService } from './party.service';
+import { SwipeDeck } from './swipe-deck';
 
 /**
  * The live party room. Renders the stage for parties.status; every client
- * follows along via the party's realtime channel:
- *   gathering → lobby + mood check-in (this milestone)
- *   swiping / voting / decided → milestones 6–7
+ * follows along via the party's realtime channel (handoff §6.3):
+ *   gathering → lobby + mood · swiping → deck · voting → point grid ·
+ *   decided → reveal · completed → thanks
  */
 @Component({
   selector: 'pp-party-shell-page',
-  imports: [FormsModule],
+  imports: [FormsModule, ServiceBadges, SwipeDeck],
   template: `
     @if (party.party(); as p) {
       <div class="mx-auto flex min-h-dvh max-w-md flex-col px-6 py-8">
@@ -83,14 +87,7 @@ import { PartyService } from './party.service';
               </div>
 
               <p class="mt-5 text-xs font-bold tracking-wide text-muted uppercase">Energy level</p>
-              <input
-                type="range"
-                min="1"
-                max="5"
-                step="1"
-                [(ngModel)]="energy"
-                class="mt-2 w-full accent-gold"
-              />
+              <input type="range" min="1" max="5" step="1" [(ngModel)]="energy" class="mt-2 w-full accent-gold" />
               <div class="flex justify-between text-xs font-bold text-muted">
                 <span>😴 Comatose</span>
                 <span class="text-gold">{{ energy }}/5</span>
@@ -128,7 +125,7 @@ import { PartyService } from './party.service';
                   [disabled]="busy() || party.readyCount() === 0"
                   class="w-full rounded-2xl border-2 border-coral py-3.5 font-display text-lg font-semibold text-coral disabled:opacity-40"
                 >
-                  {{ busy() ? 'Summoning suggestions…' : '✨ Generate suggestions' }}
+                  {{ busy() ? 'Summoning suggestions… (~20s)' : '✨ Generate suggestions' }}
                 </button>
                 @if (party.readyCount() < party.members().length) {
                   <p class="mt-2 text-center text-xs text-muted">
@@ -137,31 +134,188 @@ import { PartyService } from './party.service';
                 }
               </div>
             }
-            @if (error()) {
-              <p class="mt-3 text-center text-sm font-bold text-coral">{{ error() }}</p>
+          }
+
+          @case ('swiping') {
+            <!-- ============ swipe deck ============ -->
+            <div class="mb-2 flex items-center justify-between">
+              <span class="text-sm font-bold text-muted-2">Swiping together</span>
+              <span class="text-xs font-bold text-muted">
+                {{ party.finishedCount() }} of {{ party.members().length }} done
+              </span>
+            </div>
+            <div class="mb-4 h-1.5 rounded-full bg-surface-2">
+              <div
+                class="h-full rounded-full bg-gradient-to-r from-green to-gold transition-all"
+                [style.width.%]="
+                  party.members().length ? (party.finishedCount() / party.members().length) * 100 : 0
+                "
+              ></div>
+            </div>
+
+            @if (party.myDeck().length) {
+              <pp-swipe-deck
+                [deck]="party.myDeck()"
+                [vetoAvailable]="!party.myVetoUsed()"
+                [highlight]="subs.mySlugs()"
+                (decision)="party.swipe($event.candidateId, $event.direction)"
+                (veto)="party.veto($event)"
+              />
+            } @else {
+              <div class="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+                <div class="text-4xl">🎉</div>
+                <p class="font-bold">You're done swiping!</p>
+                <p class="text-sm text-muted-2">
+                  Waiting for the others… {{ party.finishedCount() }} of {{ party.members().length }} finished.
+                </p>
+              </div>
+            }
+
+            @if (party.isHost()) {
+              <button
+                (click)="party.advanceToVoting()"
+                class="mt-4 w-full rounded-2xl py-3.5 font-display text-lg font-semibold"
+                [class]="
+                  party.finishedCount() === party.members().length
+                    ? 'bg-gradient-to-br from-violet to-coral text-ink shadow-lg shadow-coral/35'
+                    : 'border-2 border-line text-muted-2'
+                "
+              >
+                {{
+                  party.finishedCount() === party.members().length
+                    ? 'Everyone’s done → Vote!'
+                    : 'Skip ahead to voting →'
+                }}
+              </button>
             }
           }
-          @case ('swiping') {
-            <div class="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-              <div class="text-4xl">🃏</div>
-              <h1 class="font-display text-2xl font-semibold">Swipe deck</h1>
-              <p class="text-sm text-muted-2">Coming in milestone 7.</p>
-            </div>
-          }
+
           @case ('voting') {
-            <div class="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-              <div class="text-4xl">🗳️</div>
-              <h1 class="font-display text-2xl font-semibold">Voting</h1>
-              <p class="text-sm text-muted-2">Coming in milestone 7.</p>
+            <!-- ============ vote grid ============ -->
+            <h1 class="font-display text-2xl font-semibold">Final {{ party.survivors().length }} — vote!</h1>
+            <div class="mt-1.5 mb-4 flex items-center gap-2.5">
+              <span class="text-sm text-muted-2">Your votes:</span>
+              @for (pip of votePips(); track $index) {
+                <span
+                  class="size-4 rounded-full border-2 border-gold"
+                  [class.bg-gold]="pip"
+                ></span>
+              }
+              <span class="text-sm font-bold text-gold">{{ party.myVotesLeft() }} left</span>
+            </div>
+
+            <div class="grid flex-1 auto-rows-min grid-cols-2 gap-3 overflow-y-auto">
+              @for (c of party.survivors(); track c.id) {
+                <button
+                  (click)="party.addVote(c.id)"
+                  class="relative min-h-40 overflow-hidden rounded-2xl bg-surface text-left shadow-lg"
+                >
+                  @if (c.activity.image_url) {
+                    <img [src]="c.activity.image_url" [alt]="c.activity.title" class="absolute inset-0 size-full object-cover" />
+                  }
+                  <div class="absolute top-2 right-2 flex gap-1">
+                    @for (dot of totalDots(c.id); track $index) {
+                      <span class="size-3.5 rounded-full border-2 border-bg/40 bg-gold"></span>
+                    }
+                  </div>
+                  <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg/95 to-transparent p-3 pt-8">
+                    <div class="font-display font-bold drop-shadow">{{ c.activity.title }}</div>
+                    @if (myPoints(c.id); as mine) {
+                      <span
+                        class="mt-1 inline-block rounded-full bg-gold px-2.5 py-0.5 text-[11px] font-bold text-ink"
+                        (click)="$event.stopPropagation(); party.removeVote(c.id)"
+                      >
+                        my {{ mine }} {{ mine === 1 ? 'vote' : 'votes' }} · tap to remove
+                      </span>
+                    }
+                  </div>
+                </button>
+              }
+            </div>
+
+            @if (party.isHost()) {
+              <button
+                (click)="party.revealWinner()"
+                class="mt-4 w-full rounded-2xl bg-gradient-to-br from-violet to-coral py-4 font-display text-lg font-semibold text-ink"
+                [class.opacity-50]="!party.allVoted()"
+              >
+                Reveal the winner ✨
+              </button>
+            } @else {
+              <p class="mt-4 text-center text-xs font-bold text-muted">
+                The host reveals the winner when everyone's voted.
+              </p>
+            }
+          }
+
+          @case ('decided') {
+            <!-- ============ reveal ============ -->
+            <div class="relative flex flex-1 flex-col items-center overflow-hidden pt-4">
+              @for (cf of confetti; track $index) {
+                <span
+                  class="pointer-events-none absolute top-0 rounded-sm"
+                  [style.left.%]="cf.left"
+                  [style.width.px]="cf.w"
+                  [style.height.px]="cf.h"
+                  [style.background]="cf.color"
+                  [style.animation]="'ppConfetti ' + cf.dur + 's ' + cf.delay + 's ease-in forwards'"
+                ></span>
+              }
+              <p class="font-display text-sm font-bold tracking-[0.2em] text-gold">TONIGHT'S PICK</p>
+              @if (party.winnerCandidate(); as w) {
+                <div class="relative mt-5 w-52 overflow-hidden rounded-3xl shadow-2xl">
+                  <span
+                    class="absolute top-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-gold px-3.5 py-1 text-xs font-bold whitespace-nowrap text-ink"
+                    >👑 Winner</span
+                  >
+                  @if (w.activity.image_url) {
+                    <img [src]="w.activity.image_url" [alt]="w.activity.title" class="aspect-[2/3] w-full object-cover" />
+                  } @else {
+                    <div class="aspect-[2/3] w-full bg-surface"></div>
+                  }
+                </div>
+                <h1 class="mt-4 text-center font-display text-3xl font-bold">{{ w.activity.title }}</h1>
+                <p class="mt-1 text-sm text-muted-2">The room agrees. Grab the popcorn.</p>
+
+                @if (watchOn(w); as svc) {
+                  <a
+                    [href]="svc.url"
+                    target="_blank"
+                    rel="noopener"
+                    class="mt-6 w-full rounded-2xl bg-coral py-4 text-center font-display text-lg font-semibold text-ink shadow-lg shadow-coral/40"
+                  >
+                    ▶ Watch on {{ svc.name }}
+                  </a>
+                }
+                <div class="mt-3 flex justify-center">
+                  <pp-service-badges [services]="servicesOf(w)" [highlight]="subs.mySlugs()" />
+                </div>
+              } @else {
+                <p class="mt-8 text-sm text-muted-2">Loading the winner…</p>
+              }
+
+              @if (party.isHost()) {
+                <button
+                  (click)="startOver()"
+                  [disabled]="busy()"
+                  class="mt-auto pt-6 text-sm font-bold text-muted-2 disabled:opacity-50"
+                >
+                  {{ busy() ? 'Summoning fresh picks…' : '↺ Start over with new suggestions' }}
+                </button>
+              }
             </div>
           }
+
           @default {
             <div class="flex flex-1 flex-col items-center justify-center gap-3 text-center">
               <div class="text-4xl">🏁</div>
-              <h1 class="font-display text-2xl font-semibold">{{ p.status }}</h1>
-              <p class="text-sm text-muted-2">Reveal & outcome land in milestone 7.</p>
+              <h1 class="font-display text-2xl font-semibold">That's a wrap</h1>
+              <p class="text-sm text-muted-2">This party is {{ p.status }}.</p>
             </div>
           }
+        }
+        @if (error()) {
+          <p class="mt-3 text-center text-sm font-bold text-coral">{{ error() }}</p>
         }
       </div>
     } @else {
@@ -173,6 +327,7 @@ import { PartyService } from './party.service';
 })
 export class PartyShellPage implements OnDestroy {
   protected readonly party = inject(PartyService);
+  protected readonly subs = inject(SubscriptionsService);
 
   /** Route param. */
   readonly id = input.required<string>();
@@ -184,16 +339,34 @@ export class PartyShellPage implements OnDestroy {
   protected readonly error = signal('');
   protected readonly copied = signal(false);
 
+  protected readonly confetti = Array.from({ length: 18 }, (_, i) => ({
+    left: 4 + i * 5.2,
+    w: 6 + (i % 3) * 3,
+    h: 10 + (i % 2) * 6,
+    color: ['#ff6f5e', '#ffc24b', '#7fce8f', '#b98cff', '#7fb6ce'][i % 5],
+    dur: 1.6 + (i % 4) * 0.35,
+    delay: (i % 5) * 0.12,
+  }));
+
   private readonly openOnIdChange = effect(() => {
     this.party.open(this.id());
   });
 
-  protected readonly isReady = (memberId: string) =>
-    this.party.checkins().some((c) => c.member_id === memberId);
+  constructor() {
+    this.subs.load();
+  }
 
   ngOnDestroy() {
     this.party.close();
   }
+
+  protected readonly isReady = (memberId: string) =>
+    this.party.checkins().some((c) => c.member_id === memberId);
+
+  protected readonly votePips = computed(() => {
+    const used = 3 - this.party.myVotesLeft();
+    return [0, 1, 2].map((i) => i < used);
+  });
 
   protected initial(name: string | undefined | null): string {
     return (name ?? '?').trim().charAt(0).toUpperCase() || '?';
@@ -232,6 +405,33 @@ export class PartyShellPage implements OnDestroy {
     const { error } = await this.party.generateCandidates();
     if (error) this.error.set(error);
     this.busy.set(false);
-    // On success the party row flips to 'swiping' and realtime moves everyone.
+  }
+
+  protected async startOver() {
+    this.busy.set(true);
+    this.error.set('');
+    const { error } = await this.party.generateCandidates();
+    if (error) this.error.set(error);
+    this.busy.set(false);
+  }
+
+  protected myPoints(candidateId: string): number {
+    return this.party.myPointsByCandidate()[candidateId] ?? 0;
+  }
+
+  protected totalDots(candidateId: string): unknown[] {
+    return Array.from({ length: Math.min(this.party.voteTotals()[candidateId] ?? 0, 8) });
+  }
+
+  protected servicesOf(c: PartyCandidate) {
+    return (c.activity.activity_availability ?? []).map((a) => a.service);
+  }
+
+  protected watchOn(c: PartyCandidate): { name: string; url: string } | null {
+    const services = this.servicesOf(c);
+    if (!services.length) return null;
+    const mine = this.subs.mySlugs();
+    const best = services.find((s) => mine.includes(s.slug)) ?? services[0];
+    return { name: best.name, url: SERVICE_HOMEPAGES[best.slug] ?? '#' };
   }
 }

@@ -98,14 +98,14 @@ production). Free tier allows two projects; create a fresh one for radar.
 - [x] Finalists get availability refreshed so swipe cards have service badges
 - [x] End-to-end on seeded TESTP3: 16s, ai_used=true, blurbs reference the mood free-text; party → swiping; $0.003/run. TESTP3 left in `swiping` as seed data for milestone 7.
 
-## Milestone 7 — Swipe / vote / reveal / outcome
+## Milestone 7 — Swipe / vote / reveal / outcome ✅ (2026-07-24)
 
-- [ ] Swipe deck: drag + buttons, score-ring, blurb, veto (1/member, anonymous); progress via realtime
-- [ ] Survivors (≥50% right, no vetoes; floor of top-3) → 3-point vote grid (max 2 per candidate)
-- [ ] Tally + tiebreak by final_score → reveal with light confetti + "Watch on {service}" deeplink
-- [ ] "Start over" regeneration excluding prior candidates
-- [ ] Outcome pulse card >12h later → `party_outcomes`, party → completed
-- [ ] Unit tests: survivor/tally logic
+- [x] Swipe deck: pointer drag (rotate/translate, YES/NOPE stamps) + ✕/★/♥ buttons, score-ring, AI blurb, service badges (mine highlighted), veto 1/member (anonymous, counts as left); live "N of M done" progress; host advance (force or all-done)
+- [x] Survivors (≥50% right, no vetoes; fill to top-3 preferring non-vetoed) → 2-col vote grid, 3 points each, max 2/candidate, tap-to-add + tap-your-pip-to-remove, live gold total dots
+- [x] Host reveal: tally + final_score tiebreak → confetti (reduced-motion safe), 👑 winner card, "Watch on {service}" (prefers my services), host "Start over" regenerates excluding priors (deck = newest candidate batch by created_at)
+- [x] Outcome pulse on Library >12h post-decision → 1–5 stars or "we bailed" → `party_outcomes`, party → completed (migration 0005 lets any member flip status)
+- [x] Unit tests: `npx -y tsx src/app/features/party/party-logic.test.ts` (survivors, veto rules, fill, tally tiebreaks)
+- [x] Full loop verified over REST on TESTP3: 24 swipes + veto → votes (winner 4pts) → decided → pulse detected by member → outcome recorded → completed
 
 ## Milestone 8 — Polish
 

@@ -2,6 +2,7 @@ import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { SubscriptionsService } from '../../core/subscriptions.service';
+import { PartyService } from '../party/party.service';
 import { ServiceBadges } from '../../shared/ui/service-badges';
 import { StarRating } from '../../shared/ui/star-rating';
 import {
@@ -19,6 +20,46 @@ type LibraryTab = 'in_progress' | 'want_to' | 'completed';
   template: `
     <div class="mx-auto max-w-md px-5 py-6">
       <h1 class="font-display text-3xl font-semibold">My Library</h1>
+
+      <!-- morning-after outcome pulse (handoff §6.3 step 7) -->
+      @if (outcome(); as o) {
+        <div class="relative mt-4 rounded-3xl border border-line bg-surface p-5 shadow-xl">
+          <button
+            (click)="outcome.set(null)"
+            class="absolute top-3 right-3 text-sm font-bold text-muted"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+          <div class="flex items-center gap-3.5">
+            @if (o.activity?.image_url) {
+              <img [src]="o.activity?.image_url" alt="" class="h-20 w-14 rounded-xl object-cover" />
+            }
+            <div>
+              <p class="text-xs text-muted">Last night you watched</p>
+              <p class="font-display text-xl font-bold">How was {{ o.activity?.title ?? 'it' }}?</p>
+            </div>
+          </div>
+          <div class="mt-3 flex justify-between px-2">
+            @for (n of [1, 2, 3, 4, 5]; track n) {
+              <button
+                (click)="rateOutcome(o.partyId, n)"
+                class="text-3xl"
+                [class]="n <= outcomeStars() ? 'text-gold' : 'text-surface-2'"
+                (mouseenter)="outcomeStars.set(n)"
+              >
+                ★
+              </button>
+            }
+          </div>
+          <button
+            (click)="bailedOutcome(o.partyId)"
+            class="mt-3 w-full text-center text-sm font-bold text-muted"
+          >
+            😴 We bailed halfway
+          </button>
+        </div>
+      }
 
       <input
         type="search"
@@ -163,6 +204,13 @@ type LibraryTab = 'in_progress' | 'want_to' | 'completed';
 export class LibraryPage implements OnDestroy {
   protected readonly lib = inject(LibraryService);
   protected readonly subs = inject(SubscriptionsService);
+  private readonly partyService = inject(PartyService);
+
+  protected readonly outcome = signal<{
+    partyId: string;
+    activity: { title: string; image_url: string | null } | null;
+  } | null>(null);
+  protected readonly outcomeStars = signal(0);
 
   protected readonly tabs = [
     { key: 'in_progress' as LibraryTab, label: 'Watching' },
@@ -183,6 +231,18 @@ export class LibraryPage implements OnDestroy {
   constructor() {
     this.lib.load();
     this.subs.load();
+    this.partyService.pendingOutcome().then((o) => this.outcome.set(o));
+  }
+
+  protected async rateOutcome(partyId: string, rating: number) {
+    this.outcomeStars.set(rating);
+    await this.partyService.recordOutcome(partyId, { rating });
+    this.outcome.set(null);
+  }
+
+  protected async bailedOutcome(partyId: string) {
+    await this.partyService.recordOutcome(partyId, { bailed: true });
+    this.outcome.set(null);
   }
 
   ngOnDestroy() {
