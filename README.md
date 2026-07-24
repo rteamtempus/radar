@@ -39,8 +39,7 @@ npm start               # http://localhost:4200
 ```bash
 supabase login
 supabase link --project-ref <project-ref>
-supabase db push                                  # applies supabase/migrations
-# run supabase/seed.sql in the SQL editor (or psql)
+supabase db push                                  # applies supabase/migrations (schema + seed)
 supabase secrets set GEMINI_API_KEY=... TMDB_API_KEY=...
 supabase functions deploy tmdb-search tmdb-detail generate-candidates
 supabase gen types typescript --linked > src/app/core/types/database.types.ts

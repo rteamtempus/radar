@@ -41,8 +41,8 @@ Dockerfile).
 
 `src/app/core` (supabase client, auth, guards, types) · `features/{auth,
 onboarding,library,party,profile}` · `shared/ui` (presentational kit) ·
-`supabase/migrations` + `seed.sql` + `functions/{_shared,tmdb-search,
-tmdb-detail,generate-candidates}`.
+`supabase/migrations` (0001 schema, 0002 seed — reference data ships as
+migrations) + `functions/{_shared,tmdb-search,tmdb-detail,generate-candidates}`.
 
 Migrations are plain PostgreSQL — VS Code's default T-SQL linter flags them
 falsely; ignore or set the SQL dialect to Postgres.

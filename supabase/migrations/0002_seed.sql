@@ -1,6 +1,6 @@
 -- ============================================================================
--- PARTYPICK POC — seed data
--- Idempotent (safe to re-run).
+-- PARTYPICK POC — 0002_seed
+-- Reference data as a tracked migration (idempotent inserts).
 -- ============================================================================
 
 -- Streaming services. tmdb_provider_id values from the handoff doc — VERIFY

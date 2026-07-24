@@ -18,6 +18,7 @@ winner revealed with a deeplink → outcome recorded.
 |---|---|---|
 | Docker + nginx on Google Cloud Run | **Vercel** (no Dockerfile, no nginx.conf) | Rory's hosting choice for this POC |
 | Runtime `config.json` via container entrypoint | Build-time env via `scripts/generate-env.mjs` (`NG_APP_*` vars, set in Vercel dashboard) | No container entrypoint on Vercel; anon key is public anyway |
+| Magic-link email auth | **Email + password** ("Confirm email" off — no auth emails at all) | Free-tier email quota is tiny; PWAs handle the email→app hop badly |
 
 Everything else in the handoff stands, especially: AI only from edge functions,
 TMDB only through edge functions, media-only UI on top of the generic activity
@@ -41,17 +42,19 @@ production). Free tier allows two projects; create a fresh one for radar.
 - [x] Env plumbing (`generate-env.mjs`), `vercel.json`, `.env.example`, docs, CLAUDE.md
 - [ ] **Deploy check:** Vercel project connected to the GitHub repo, "hello, logged in as X" live
 
-## Milestone 2 — Database
+## Milestone 2 — Database (mostly ✅ 2026-07-24)
 
-- [ ] Create a **new** Supabase project for radar (see warning above)
-- [ ] Install Supabase CLI, `supabase login`, `supabase link --project-ref <ref>` (walkthrough together)
-- [ ] `supabase db push` → applies `0001_init.sql`; run `seed.sql` (SQL editor or `psql`)
-- [ ] Verify tmdb_provider_id values against TMDB `/watch/providers/movie?watch_region=US`
-- [ ] Enable auth providers: email magic link + Google; set site URL + redirect URLs (localhost + Vercel domain)
-- [ ] `supabase gen types typescript --linked` → `src/app/core/types/database.types.ts`; type the client
-- [ ] SQL smoke tests: RLS blocks cross-user reads; `join_party` / `recompute_affinities` behave
-- [ ] Set edge secrets: `supabase secrets set GEMINI_API_KEY=… TMDB_API_KEY=…`
-- [ ] Frontend envs on Vercel + local `.env` (`NG_APP_SUPABASE_URL`, `NG_APP_SUPABASE_ANON_KEY`)
+- [x] Create a **new** Supabase project for radar (`domneconesznimnzxdsx`)
+- [x] CLI linked (`npx supabase`, auth via `SUPABASE_ACCESS_TOKEN`/`SUPABASE_DB_PASSWORD` in local `.env`)
+- [x] `supabase db push` → applied `0001_init.sql` + `0002_seed.sql`
+- [x] Verified: 26 tables, RLS on all 26, 33 policies, 8 services, 10 vibe tags, 4 functions
+- [x] Email + password auth enabled, "Confirm email" off (see deviations)
+- [ ] Google OAuth provider + redirect-URL allowlist (localhost + Vercel domain) — when needed
+- [x] `supabase gen types typescript --linked` → `database.types.ts`; client typed
+- [ ] Behavioral RLS test (cross-user reads) — cheap to do once there are 2 real accounts
+- [ ] Verify tmdb_provider_id values against TMDB `/watch/providers/movie?watch_region=US` — **needs TMDB key**
+- [ ] Set edge secrets: `supabase secrets set GEMINI_API_KEY=… TMDB_API_KEY=…` — **needs keys from Rory**
+- [x] Frontend envs on Vercel + local `.env`
 
 ## Milestone 3 — TMDB + Library
 

@@ -1,11 +1,12 @@
 import { SupabaseClient, createClient } from '@supabase/supabase-js';
 import { ENV } from '../../environments/env.generated';
-// TODO(milestone 2): generate DB types with `supabase gen types typescript`
-// into core/types/database.types.ts and type this client with them.
+import { Database } from './types/database.types';
+// Regenerate types after schema changes:
+//   supabase gen types typescript --linked > src/app/core/types/database.types.ts
 
-let client: SupabaseClient | undefined;
+let client: SupabaseClient<Database> | undefined;
 
-export function getSupabase(): SupabaseClient {
+export function getSupabase(): SupabaseClient<Database> {
   if (!client) {
     if (!ENV.supabaseUrl || !ENV.supabaseAnonKey) {
       throw new Error(
