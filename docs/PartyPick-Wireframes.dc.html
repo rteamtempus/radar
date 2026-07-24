@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#100c09;font-family:Nunito,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:#ff8a6a;text-decoration:none}
+  a:hover{color:#ffb199}
+  .pp-scr::-webkit-scrollbar{width:0;height:0}
+  .pp-scr{scrollbar-width:none}
+  @keyframes ppFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  @keyframes ppConf{0%{transform:translateY(-10px) rotate(0);opacity:1}100%{transform:translateY(520px) rotate(540deg);opacity:0}}
+  @keyframes ppPulse{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.12);opacity:1}}
+  @keyframes ppSpin{0%{transform:translateY(0)}100%{transform:translateY(-72px)}}
+  @keyframes ppRing{from{stroke-dashoffset:339}}
+</style>
+</helmet>
+<div style="min-width:100%;padding:60px 64px 120px;background:radial-gradient(1200px 700px at 20% -5%, #241812 0%, #100c09 60%);color:#f5ede2">
+
+  <div style="max-width:1180px;margin:0 auto 56px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+      <div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(140deg,#ff6f5e,#ffc24b);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(255,111,94,.35)">
+        <span style="font:700 26px Fredoka,sans-serif;color:#2a1408">P</span>
+      </div>
+      <div>
+        <div style="font:700 30px/1 Fredoka,sans-serif;letter-spacing:-.5px">PartyPick</div>
+        <div style="font:600 13px Nunito,sans-serif;color:#a89a89;margin-top:4px">Wireframes · mobile-first PWA · cozy-dark, anti-algorithm</div>
+      </div>
+    </div>
+    <p style="max-width:640px;font:400 15px/1.6 Nunito,sans-serif;color:#c9bcac;margin:0">Styled dark wireframes — near-final look, gradient blocks stand in for posters. Tabs switch, the mood slider drags, the group deck swipes, votes tally and reveal. Pan &amp; zoom the canvas freely.</p>
+    <div style="display:flex;gap:22px;flex-wrap:wrap;margin-top:22px">
+      <div style="display:flex;align-items:center;gap:8px;font:600 12px Nunito,sans-serif;color:#a89a89"><span style="width:14px;height:14px;border-radius:4px;background:#ff6f5e"></span>Coral · primary action</div>
+      <div style="display:flex;align-items:center;gap:8px;font:600 12px Nunito,sans-serif;color:#a89a89"><span style="width:14px;height:14px;border-radius:4px;background:#ffc24b"></span>Gold · highlight / score</div>
+      <div style="display:flex;align-items:center;gap:8px;font:600 12px Nunito,sans-serif;color:#a89a89"><span style="width:14px;height:14px;border-radius:4px;background:#7fce8f"></span>Green · positive</div>
+      <div style="display:flex;align-items:center;gap:8px;font:600 12px Nunito,sans-serif;color:#a89a89"><span style="width:14px;height:14px;border-radius:4px;background:#b98cff"></span>Violet · super-like</div>
+      <div style="display:flex;align-items:center;gap:8px;font:600 12px Nunito,sans-serif;color:#a89a89"><span style="width:14px;height:14px;border-radius:4px;background:#2b241c;border:1px solid rgba(255,255,255,.12)"></span>Surface</div>
+    </div>
+  </div>
+
+  <div id="components" style="max-width:1180px;margin:0 auto 72px">
+  <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:24px">
+    <span style="font:700 13px Nunito,sans-serif;color:#2a1408;background:#ffc24b;padding:4px 11px;border-radius:8px">SYSTEM</span>
+    <h2 style="margin:0;font:600 22px Fredoka,sans-serif">Component kit</h2>
+    <span style="font:400 13px Nunito,sans-serif;color:#8f8375">the parts every screen is built from</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px">
+
+    <div style="background:#1c1611;border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:22px">
+      <div style="font:700 12px Nunito,sans-serif;color:#8f8375;letter-spacing:.5px;text-transform:uppercase;margin-bottom:16px">Activity card</div>
+      <div style="display:flex;gap:14px">
+        <div style="width:74px;height:104px;border-radius:12px;background:linear-gradient(150deg,#16222e,#3f6b7a);flex:none;box-shadow:0 6px 16px rgba(0,0,0,.35)"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+          <div style="font:700 16px Fredoka,sans-serif">Arrival</div>
+          <div style="font:600 12px Nunito,sans-serif;color:#8f8375">2016 · Sci-fi · 1h 56m</div>
+          <div style="display:flex;gap:6px;margin-top:2px">
+            <span style="width:24px;height:24px;border-radius:7px;background:#0046ff;display:flex;align-items:center;justify-content:center;font:800 11px Nunito;color:#fff">H</span>
+            <span style="width:24px;height:24px;border-radius:7px;background:#b57bff;display:flex;align-items:center;justify-content:center;font:800 11px Nunito;color:#fff">M</span>
+          </div>
+          <div style="margin-top:auto;align-self:flex-start;font:700 12px Nunito;color:#7fce8f;border:1.5px solid #7fce8f;border-radius:999px;padding:5px 12px">＋ Add to list</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#1c1611;border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:22px">
+      <div style="font:700 12px Nunito,sans-serif;color:#8f8375;letter-spacing:.5px;text-transform:uppercase;margin-bottom:16px">Service badge row</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span style="width:34px;height:34px;border-radius:9px;background:#e50914;display:flex;align-items:center;justify-content:center;font:800 15px Nunito;color:#fff">N</span>
+        <span style="width:34px;height:34px;border-radius:9px;background:#1ce783;display:flex;align-items:center;justify-content:center;font:800 15px Nunito;color:#04170e">h</span>
+        <span style="width:34px;height:34px;border-radius:9px;background:#00a8e1;display:flex;align-items:center;justify-content:center;font:800 15px Nunito;color:#fff">p</span>
+        <span style="width:34px;height:34px;border-radius:9px;background:#b57bff;display:flex;align-items:center;justify-content:center;font:800 15px Nunito;color:#fff">M</span>
+        <span style="width:34px;height:34px;border-radius:9px;background:#113ccf;display:flex;align-items:center;justify-content:center;font:800 15px Nunito;color:#fff">D</span>
+      </div>
+      <div style="font:400 12px Nunito;color:#8f8375;margin-top:14px">Netflix · Hulu · Prime · Max · Disney+</div>
+    </div>
+
+    <div style="background:#1c1611;border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:22px">
+      <div style="font:700 12px Nunito,sans-serif;color:#8f8375;letter-spacing:.5px;text-transform:uppercase;margin-bottom:16px">Vibe chip</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <span style="padding:11px 17px;border-radius:999px;font:700 14px Nunito;border:2px solid #ffc24b;background:#ffc24b26;color:#ffc24b">Cozy</span>
+        <span style="padding:11px 17px;border-radius:999px;font:700 14px Nunito;border:2px solid rgba(255,255,255,.12);color:#c9bcac">Hype</span>
+        <span style="padding:11px 17px;border-radius:999px;font:700 14px Nunito;border:2px solid rgba(255,255,255,.12);color:#c9bcac">Deep</span>
+      </div>
+      <div style="font:400 12px Nunito;color:#8f8375;margin-top:14px">default · selected · multi-select up to 3</div>
+    </div>
+
+    <div style="background:#1c1611;border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:22px">
+      <div style="font:700 12px Nunito,sans-serif;color:#8f8375;letter-spacing:.5px;text-transform:uppercase;margin-bottom:16px">Score ring</div>
+      <div style="display:flex;align-items:center;gap:18px">
+        <div style="position:relative;width:96px;height:96px">
+          <svg width="96" height="96" viewBox="0 0 120 120">
+            <defs><linearGradient id="ringK" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6f5e"/><stop offset="1" stop-color="#ffc24b"/></linearGradient></defs>
+            <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,.09)" stroke-width="10"/>
+            <circle cx="60" cy="60" r="54" fill="none" stroke="url(#ringK)" stroke-width="10" stroke-linecap="round" stroke-dasharray="339" stroke-dashoffset="44" transform="rotate(-90 60 60)"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <span style="font:700 24px Fredoka;color:#f5ede2">87</span>
+            <span style="font:700 9px Nunito;color:#8f8375">% FIT</span>
+          </div>
+        </div>
+        <div style="font:400 12px Nunito;color:#8f8375">group-fit<br>0–100 · coral→gold</div>
+      </div>
+    </div>
+
+    <div style="background:#1c1611;border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:22px">
+      <div style="font:700 12px Nunito,sans-serif;color:#8f8375;letter-spacing:.5px;text-transform:uppercase;margin-bottom:16px">Avatar stack</div>
+      <div style="display:flex;align-items:center">
+        <span style="width:40px;height:40px;border-radius:50%;background:linear-gradient(140deg,#ff6f5e,#ffc24b);border:2px solid #1c1611;display:flex;align-items:center;justify-content:center;font:800 15px Nunito;color:#2a1408">M</span>
+        <span style="width:40px;height:40px;border-radius:50%;background:linear-gradient(140deg,#7fce8f,#3f6b7a);border:2px solid #1c1611;margin-left:-12px;display:flex;align-items:center;justify-content:center;font:800 15px Nunito;color:#04170e">J</span>
+        <span style="width:40px;height:40px;border-radius:50%;background:linear-gradient(140deg,#b98cff,#d98cae);border:2px solid #1c1611;margin-left:-12px;display:flex;align-items:center;justify-content:center;font:800 15px Nunito;color:#1a0a2a">A</span>
+        <span style="width:40px;height:40px;border-radius:50%;background:#2b241c;border:2px solid #1c1611;margin-left:-12px;display:flex;align-items:center;justify-content:center;font:800 13px Nunito;color:#a89a89">+2</span>
+      </div>
+      <div style="font:400 12px Nunito;color:#8f8375;margin-top:14px">who’s in · overflow count</div>
+    </div>
+
+    <div style="background:#1c1611;border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:22px">
+      <div style="font:700 12px Nunito,sans-serif;color:#8f8375;letter-spacing:.5px;text-transform:uppercase;margin-bottom:16px">Swipe card</div>
+      <div style="position:relative;height:150px;border-radius:16px;overflow:hidden;background:linear-gradient(160deg,#16222e,#3f6b7a)">
+        <div style="position:absolute;top:10px;right:10px;width:44px;height:44px;border-radius:50%;background:rgba(16,12,9,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;font:700 15px Fredoka;color:#ffc24b">87</div>
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:14px;background:linear-gradient(0deg,rgba(16,12,9,.92),transparent)">
+          <div style="font:700 17px Fredoka">Arrival</div>
+          <div style="font:400 12px Nunito;color:#d8ccbc">Low-key sci-fi that fits everyone’s chill mood.</div>
+        </div>
+      </div>
+      <div style="font:400 12px Nunito;color:#8f8375;margin-top:14px">poster · fit ring · AI blurb</div>
+    </div>
+
+  </div>
+</div>
+  <div id="flow-onboard" style="max-width:1180px;margin:0 auto 24px">
+  <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
+    <span style="font:700 13px Nunito,sans-serif;color:#100c09;background:#ff6f5e;padding:4px 11px;border-radius:8px">FLOW 1</span>
+    <h2 style="margin:0;font:600 22px Fredoka,sans-serif">Onboarding</h2>
+    <span style="font:400 13px Nunito,sans-serif;color:#8f8375">teach PartyPick your taste</span>
+  </div>
+</div>
+<div style="display:flex;gap:56px;flex-wrap:wrap;padding:0 8px 76px;align-items:flex-start">
+
+  <div style="flex:none">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+      <span style="font:700 14px Fredoka;color:#ff6f5e">01</span>
+      <span style="font:700 15px Nunito;color:#f5ede2">Taste Calibration</span>
+      <span style="font:400 12px Nunito;color:#8f8375">· swipe deck</span>
+    </div>
+    <div style="width:390px;height:844px;border-radius:48px;background:#080605;padding:11px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div class="pp-scr" style="width:100%;height:100%;border-radius:38px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:radial-gradient(120% 80% at 50% 0%,#2a1c14,#160f0b)">
+        <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:700 14px Nunito;color:#f5ede2"><span>9:41</span><span style="display:flex;gap:6px;align-items:center;opacity:.85"><span style="font-size:12px">▲</span><span style="display:inline-block;width:18px;height:11px;border:1.5px solid #f5ede2;border-radius:3px"></span></span></div>
+
+        <div style="padding:8px 24px 0;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;gap:5px">
+            <span style="width:22px;height:5px;border-radius:3px;background:#ff6f5e"></span>
+            <span style="width:22px;height:5px;border-radius:3px;background:#ff6f5e"></span>
+            <span style="width:22px;height:5px;border-radius:3px;background:#ff6f5e"></span>
+            <span style="width:10px;height:5px;border-radius:3px;background:rgba(255,255,255,.18)"></span>
+            <span style="width:10px;height:5px;border-radius:3px;background:rgba(255,255,255,.18)"></span>
+          </div>
+          <span style="font:700 13px Nunito;color:#8f8375">Skip →</span>
+        </div>
+
+        <div style="text-align:center;margin:16px 0 4px">
+          <div style="font:600 22px Fredoka;color:#f5ede2">Seen this one?</div>
+          <div style="font:400 13px Nunito;color:#a89a89;margin-top:2px">Card 3 of 20 · skippable after 15</div>
+        </div>
+
+        <div style="flex:1;position:relative;margin:8px 22px 0">
+          <div style="position:absolute;inset:22px 10px 0;border-radius:24px;background:linear-gradient(150deg,#33261a,#7a5a3a);transform:scale(.9) translateY(18px);opacity:.4"></div>
+          <div style="position:absolute;inset:12px 4px 0;border-radius:26px;background:linear-gradient(150deg,#2a1e2a,#b06a9a);transform:scale(.95) translateY(9px);opacity:.7"></div>
+          <div style="position:absolute;inset:0;border-radius:28px;overflow:hidden;background:linear-gradient(160deg,#16222e,#3f6b7a);box-shadow:0 24px 48px -12px rgba(0,0,0,.6)">
+            <div style="position:absolute;left:0;right:0;bottom:0;padding:26px 22px 24px;background:linear-gradient(0deg,rgba(8,6,5,.94),transparent)">
+              <div style="font:700 27px Fredoka;color:#fff;line-height:1.05">Arrival</div>
+              <div style="font:600 14px Nunito;color:#d8ccbc;margin-top:6px">2016 · Sci-fi · Denis Villeneuve</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:22px 22px 30px">
+          <div style="padding:16px;border-radius:18px;background:#7fce8f1f;border:1.5px solid #7fce8f;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:22px">♥</span><span style="font:700 15px Nunito;color:#7fce8f">Loved it</span></div>
+          <div style="padding:16px;border-radius:18px;background:#ffc24b1a;border:1.5px solid #ffc24b;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:22px">😐</span><span style="font:700 15px Nunito;color:#ffc24b">Meh</span></div>
+          <div style="padding:16px;border-radius:18px;background:transparent;border:1.5px solid rgba(255,255,255,.14);display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:22px">👀</span><span style="font:700 15px Nunito;color:#c9bcac">Haven’t seen</span></div>
+          <div style="padding:16px;border-radius:18px;background:transparent;border:1.5px solid rgba(255,255,255,.14);display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:22px">🙅</span><span style="font:700 15px Nunito;color:#a89a89">Never</span></div>
+        </div>
+        <div style="text-align:center;padding-bottom:18px;font:400 12px Nunito;color:#6f645a">Never seen it? No judgment.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+  <div id="flow-library" style="max-width:1180px;margin:0 auto 24px">
+  <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
+    <span style="font:700 13px Nunito,sans-serif;color:#100c09;background:#ffc24b;padding:4px 11px;border-radius:8px">FLOW 2</span>
+    <h2 style="margin:0;font:600 22px Fredoka,sans-serif">Library &amp; discovery</h2>
+    <span style="font:400 13px Nunito,sans-serif;color:#8f8375">what you’re watching, what’s worth it</span>
+  </div>
+</div>
+<div style="display:flex;gap:56px;flex-wrap:wrap;padding:0 8px 76px;align-items:flex-start">
+
+  <div style="flex:none">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+      <span style="font:700 14px Fredoka;color:#ffc24b">02</span>
+      <span style="font:700 15px Nunito;color:#f5ede2">My Library</span>
+      <span style="font:400 12px Nunito;color:#8f8375">· tap the tabs</span>
+    </div>
+    <div style="width:390px;height:844px;border-radius:48px;background:#080605;padding:11px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div style="width:100%;height:100%;border-radius:38px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#160f0b">
+        <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:700 14px Nunito;color:#f5ede2"><span>9:41</span><span style="opacity:.85">▲ ▮</span></div>
+
+        <div style="padding:6px 22px 0;display:flex;align-items:center;justify-content:space-between">
+          <div style="font:700 26px Fredoka;color:#f5ede2">My Library</div>
+          <span style="width:40px;height:40px;border-radius:50%;background:linear-gradient(140deg,#ff6f5e,#ffc24b);display:flex;align-items:center;justify-content:center;font:800 16px Nunito;color:#2a1408">M</span>
+        </div>
+
+        <div style="display:flex;gap:6px;margin:16px 22px 0;padding:5px;background:#1c1611;border-radius:15px">
+          <div onClick="{{ tabWatching }}" style="{{ watchStyle }}">Watching</div>
+          <div onClick="{{ tabWant }}" style="{{ wantStyle }}">Want To</div>
+          <div onClick="{{ tabDone }}" style="{{ doneStyle }}">Done</div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin:16px 0 4px;padding:0 22px;overflow-x:auto" class="pp-scr">
+          <span style="flex:none;padding:8px 14px;border-radius:999px;background:#ff6f5e;color:#2a1408;font:700 12px Nunito">All</span>
+          <span style="flex:none;padding:8px 14px;border-radius:999px;border:1.5px solid rgba(255,255,255,.14);color:#c9bcac;font:700 12px Nunito">Netflix</span>
+          <span style="flex:none;padding:8px 14px;border-radius:999px;border:1.5px solid rgba(255,255,255,.14);color:#c9bcac;font:700 12px Nunito">Hulu</span>
+          <span style="flex:none;padding:8px 14px;border-radius:999px;border:1.5px solid rgba(255,255,255,.14);color:#c9bcac;font:700 12px Nunito">Comedy</span>
+          <span style="flex:none;padding:8px 14px;border-radius:999px;border:1.5px solid rgba(255,255,255,.14);color:#c9bcac;font:700 12px Nunito">Sci-fi</span>
+        </div>
+
+        <div class="pp-scr" style="flex:1;overflow-y:auto;padding:12px 22px 20px;display:flex;flex-direction:column;gap:12px">
+          <sc-for list="{{ list }}" as="it" hint-placeholder-count="3">
+            <div style="display:flex;gap:14px;background:#1c1611;border:1px solid rgba(255,255,255,.06);border-radius:18px;padding:12px">
+              <div style="width:64px;height:92px;border-radius:11px;flex:none;background:{{ it.grad }};box-shadow:0 6px 14px rgba(0,0,0,.4)"></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:7px;min-width:0">
+                <div style="font:700 16px Fredoka;color:#f5ede2">{{ it.title }}</div>
+                <div style="font:600 12px Nunito;color:#8f8375">{{ it.sub }}</div>
+                <div style="display:flex;gap:6px;margin-top:auto">
+                  <sc-for list="{{ it.badges }}" as="b" hint-placeholder-count="1">
+                    <span style="width:26px;height:26px;border-radius:7px;background:{{ b.c }};display:flex;align-items:center;justify-content:center;font:800 12px Nunito;color:#fff">{{ b.t }}</span>
+                  </sc-for>
+                </div>
+              </div>
+              <sc-if value="{{ it.check }}" hint-placeholder-val="{{ true }}">
+                <div style="align-self:center;width:44px;height:44px;flex:none;border-radius:50%;border:2px solid #7fce8f;color:#7fce8f;display:flex;align-items:center;justify-content:center;font-size:20px">✓</div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <div style="text-align:center;font:400 12px Nunito;color:#6f645a;padding-top:6px">Tap ✓ when you finish an episode.</div>
+        </div>
+
+        <div style="height:66px;flex:none;border-top:1px solid rgba(255,255,255,.06);background:#120d0a;display:flex;align-items:center;justify-content:space-around;padding-bottom:8px">
+          <span style="font:700 11px Nunito;color:#8f8375;text-align:center">◇<br>Home</span>
+          <span style="font:700 11px Nunito;color:#ff6f5e;text-align:center">▤<br>Library</span>
+          <span style="width:52px;height:52px;border-radius:50%;background:linear-gradient(140deg,#ff6f5e,#ffc24b);display:flex;align-items:center;justify-content:center;font:700 26px Fredoka;color:#2a1408;box-shadow:0 8px 20px rgba(255,111,94,.4);margin-top:-14px">✦</span>
+          <span style="font:700 11px Nunito;color:#8f8375;text-align:center">◎<br>Groups</span>
+          <span style="font:700 11px Nunito;color:#8f8375;text-align:center">○<br>You</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:none">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+      <span style="font:700 14px Fredoka;color:#ffc24b">03</span>
+      <span style="font:700 15px Nunito;color:#f5ede2">Activity Detail</span>
+      <span style="font:400 12px Nunito;color:#8f8375">· with urgency banner</span>
+    </div>
+    <div style="width:390px;height:844px;border-radius:48px;background:#080605;padding:11px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div class="pp-scr" style="width:100%;height:100%;border-radius:38px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#160f0b">
+        <div style="position:relative;height:340px;flex:none;background:linear-gradient(160deg,#16222e,#3f6b7a)">
+          <div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:700 14px Nunito;color:#fff"><span>9:41</span><span style="opacity:.85">▲ ▮</span></div>
+          <div style="position:absolute;top:52px;left:20px;width:40px;height:40px;border-radius:50%;background:rgba(8,6,5,.5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px">‹</div>
+          <div style="position:absolute;left:0;right:0;bottom:0;padding:24px 22px 20px;background:linear-gradient(0deg,rgba(22,15,11,1),transparent)">
+            <div style="font:700 32px Fredoka;color:#fff;line-height:1.02">Arrival</div>
+            <div style="font:600 14px Nunito;color:#d8ccbc;margin-top:6px">2016 · Sci-fi · 1h 56m · ★ 7.9</div>
+          </div>
+        </div>
+
+        <div class="pp-scr" style="flex:1;overflow-y:auto;padding:16px 22px 24px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:center;gap:12px;background:#ffc24b1a;border:1px solid #ffc24b55;border-radius:14px;padding:12px 14px">
+            <span style="font-size:20px">⏳</span>
+            <div style="font:700 13px Nunito;color:#ffc24b">Leaving Hulu in 6 days<div style="font:400 12px Nunito;color:#c9a86a;margin-top:2px">Catch it before it’s gone.</div></div>
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span style="padding:7px 13px;border-radius:999px;background:#1c1611;border:1px solid rgba(255,255,255,.1);font:700 12px Nunito;color:#c9bcac">Cerebral</span>
+            <span style="padding:7px 13px;border-radius:999px;background:#1c1611;border:1px solid rgba(255,255,255,.1);font:700 12px Nunito;color:#c9bcac">Slow-burn</span>
+            <span style="padding:7px 13px;border-radius:999px;background:#1c1611;border:1px solid rgba(255,255,255,.1);font:700 12px Nunito;color:#c9bcac">Deep</span>
+            <span style="padding:7px 13px;border-radius:999px;background:#1c1611;border:1px solid rgba(255,255,255,.1);font:700 12px Nunito;color:#c9bcac">Cozy-ok</span>
+          </div>
+
+          <div>
+            <div style="font:700 12px Nunito;color:#8f8375;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Available on</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;gap:12px;background:#1c1611;border-radius:14px;padding:10px 12px">
+                <span style="width:36px;height:36px;border-radius:9px;background:#1ce783;display:flex;align-items:center;justify-content:center;font:800 15px Nunito;color:#04170e">h</span>
+                <span style="flex:1;font:700 14px Nunito;color:#f5ede2">Hulu <span style="font:400 12px Nunito;color:#8f8375">· included</span></span>
+                <span style="padding:8px 16px;border-radius:999px;background:#ff6f5e;color:#2a1408;font:700 13px Nunito">Open ↗</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;background:#1c1611;border-radius:14px;padding:10px 12px">
+                <span style="width:36px;height:36px;border-radius:9px;background:#b57bff;display:flex;align-items:center;justify-content:center;font:800 15px Nunito;color:#fff">M</span>
+                <span style="flex:1;font:700 14px Nunito;color:#f5ede2">Max <span style="font:400 12px Nunito;color:#8f8375">· rent $3.99</span></span>
+                <span style="padding:8px 16px;border-radius:999px;border:1.5px solid rgba(255,255,255,.18);color:#c9bcac;font:700 13px Nunito">Open ↗</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="display:flex;align-items:center">
+              <span style="width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,#7fce8f,#3f6b7a);border:2px solid #160f0b;display:flex;align-items:center;justify-content:center;font:800 13px Nunito;color:#04170e">J</span>
+              <span style="width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,#b98cff,#d98cae);border:2px solid #160f0b;margin-left:-10px;display:flex;align-items:center;justify-content:center;font:800 13px Nunito;color:#1a0a2a">A</span>
+              <span style="width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,#ff6f5e,#ffc24b);border:2px solid #160f0b;margin-left:-10px;display:flex;align-items:center;justify-content:center;font:800 13px Nunito;color:#2a1408">R</span>
+            </div>
+            <span style="font:600 13px Nunito;color:#c9bcac">Jules, Amy &amp; Ray <span style="color:#8f8375">loved this</span></span>
+          </div>
+
+          <div style="display:flex;gap:12px;margin-top:auto">
+            <div style="flex:1;padding:16px;border-radius:16px;background:#7fce8f;color:#04170e;text-align:center;font:700 16px Nunito">＋ Add to list</div>
+            <div style="width:56px;padding:16px 0;border-radius:16px;border:1.5px solid rgba(255,255,255,.16);color:#c9bcac;text-align:center;font-size:20px">↗</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+  <div id="flow-party" style="max-width:1180px;margin:0 auto 24px">
+  <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
+    <span style="font:700 13px Nunito,sans-serif;color:#100c09;background:#7fce8f;padding:4px 11px;border-radius:8px">FLOW 3</span>
+    <h2 style="margin:0;font:600 22px Fredoka,sans-serif">The party</h2>
+    <span style="font:400 13px Nunito,sans-serif;color:#8f8375">gather · vibe · swipe together</span>
+  </div>
+</div>
+<div style="display:flex;gap:56px;flex-wrap:wrap;padding:0 8px 76px;align-items:flex-start">
+
+  <div style="flex:none">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+      <span style="font:700 14px Fredoka;color:#7fce8f">04</span>
+      <span style="font:700 15px Nunito;color:#f5ede2">Start a Party</span>
+    </div>
+    <div style="width:390px;height:844px;border-radius:48px;background:#080605;padding:11px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div class="pp-scr" style="width:100%;height:100%;border-radius:38px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:radial-gradient(120% 70% at 50% 0%,#1c2a1e,#140f0b)">
+        <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:700 14px Nunito;color:#f5ede2"><span>9:41</span><span style="opacity:.85">▲ ▮</span></div>
+        <div class="pp-scr" style="flex:1;overflow-y:auto;padding:8px 22px 24px">
+          <div style="font:700 26px Fredoka;color:#f5ede2">Start a party</div>
+          <div style="font:400 13px Nunito;color:#a89a89;margin-bottom:18px">Who’s in tonight?</div>
+
+          <div style="display:flex;gap:10px;margin-bottom:20px">
+            <div style="flex:1;padding:14px;border-radius:16px;background:#1c1611;border:1.5px solid #7fce8f">
+              <div style="display:flex;margin-bottom:8px"><span style="width:28px;height:28px;border-radius:50%;background:linear-gradient(140deg,#ff6f5e,#ffc24b);display:flex;align-items:center;justify-content:center;font:800 12px Nunito;color:#2a1408">M</span><span style="width:28px;height:28px;border-radius:50%;background:linear-gradient(140deg,#7fce8f,#3f6b7a);margin-left:-8px;border:2px solid #1c1611;display:flex;align-items:center;justify-content:center;font:800 12px Nunito;color:#04170e">J</span><span style="width:28px;height:28px;border-radius:50%;background:#b98cff;margin-left:-8px;border:2px solid #1c1611;display:flex;align-items:center;justify-content:center;font:800 12px Nunito;color:#1a0a2a">A</span></div>
+              <div style="font:700 14px Nunito;color:#f5ede2">The Usual Suspects</div>
+              <div style="font:400 12px Nunito;color:#8f8375">4 friends · saved</div>
+            </div>
+            <div style="flex:1;padding:14px;border-radius:16px;background:#1c1611;border:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px">
+              <span style="font-size:22px">＋</span><span style="font:700 13px Nunito;color:#c9bcac">Invite friends</span>
+            </div>
+          </div>
+
+          <div style="background:#1c1611;border-radius:20px;padding:20px;text-align:center;margin-bottom:20px">
+            <div style="width:150px;height:150px;margin:0 auto 14px;border-radius:16px;background:#f5ede2;position:relative;padding:14px">
+              <div style="position:absolute;top:14px;left:14px;width:34px;height:34px;border:6px solid #140f0b;border-radius:6px"></div>
+              <div style="position:absolute;top:14px;right:14px;width:34px;height:34px;border:6px solid #140f0b;border-radius:6px"></div>
+              <div style="position:absolute;bottom:14px;left:14px;width:34px;height:34px;border:6px solid #140f0b;border-radius:6px"></div>
+              <div style="position:absolute;inset:56px 20px 20px 56px;background-image:radial-gradient(#140f0b 42%,transparent 44%);background-size:11px 11px"></div>
+              <div style="position:absolute;top:20px;right:56px;bottom:56px;left:20px;background-image:radial-gradient(#140f0b 42%,transparent 44%);background-size:11px 11px"></div>
+            </div>
+            <div style="font:400 12px Nunito;color:#8f8375">Guests scan or enter</div>
+            <div style="font:700 30px Fredoka;color:#ffc24b;letter-spacing:4px;margin-top:2px">PLAY-42</div>
+          </div>
+
+          <div style="font:700 12px Nunito;color:#8f8375;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">What are we deciding?</div>
+          <div style="display:flex;gap:9px;overflow-x:auto;padding-bottom:6px;margin-bottom:18px" class="pp-scr">
+            <span style="flex:none;padding:12px 16px;border-radius:14px;background:#ff6f5e;color:#2a1408;font:700 13px Nunito">🎬 Movies</span>
+            <span style="flex:none;padding:12px 16px;border-radius:14px;background:#1c1611;border:1px solid rgba(255,255,255,.1);color:#c9bcac;font:700 13px Nunito">📺 Shows</span>
+            <span style="flex:none;padding:12px 16px;border-radius:14px;background:#1c1611;border:1px solid rgba(255,255,255,.1);color:#c9bcac;font:700 13px Nunito">🍜 Eat</span>
+            <span style="flex:none;padding:12px 16px;border-radius:14px;background:#1c1611;border:1px solid rgba(255,255,255,.1);color:#c9bcac;font:700 13px Nunito">🌆 Go Out</span>
+            <span style="flex:none;padding:12px 16px;border-radius:14px;background:#1c1611;border:1px solid rgba(255,255,255,.1);color:#c9bcac;font:700 13px Nunito">🎲 Surprise Us</span>
+          </div>
+
+          <div style="font:700 12px Nunito;color:#8f8375;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Constraints</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px">
+            <span style="padding:9px 14px;border-radius:999px;background:#1c1611;border:1px solid rgba(255,255,255,.12);font:700 12px Nunito;color:#c9bcac">⏱ ≤ 2 hrs</span>
+            <span style="padding:9px 14px;border-radius:999px;background:#1c1611;border:1px solid rgba(255,255,255,.12);font:700 12px Nunito;color:#c9bcac">💵 Free / included</span>
+            <span style="padding:9px 14px;border-radius:999px;background:#1c1611;border:1px solid rgba(255,255,255,.12);font:700 12px Nunito;color:#c9bcac">📍 Couch</span>
+          </div>
+
+          <div style="padding:17px;border-radius:16px;background:linear-gradient(140deg,#ff6f5e,#ffc24b);color:#2a1408;text-align:center;font:700 17px Fredoka;box-shadow:0 12px 28px rgba(255,111,94,.35)">Start the party →</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:none">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+      <span style="font:700 14px Fredoka;color:#7fce8f">05</span>
+      <span style="font:700 15px Nunito;color:#f5ede2">Mood Check-in</span>
+      <span style="font:400 12px Nunito;color:#8f8375">· drag the slider</span>
+    </div>
+    <div style="width:390px;height:844px;border-radius:48px;background:#080605;padding:11px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div class="pp-scr" style="width:100%;height:100%;border-radius:38px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:radial-gradient(120% 70% at 50% 0%,#2a1030,#140f0b)">
+        <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:700 14px Nunito;color:#f5ede2"><span>9:41</span><span style="opacity:.85">▲ ▮</span></div>
+        <div class="pp-scr" style="flex:1;overflow-y:auto;padding:8px 24px 24px;display:flex;flex-direction:column">
+          <div style="font:700 26px Fredoka;color:#f5ede2">How you feeling?</div>
+          <div style="font:400 13px Nunito;color:#a89a89;margin-bottom:22px">Pick 2–3 · <span style="color:#ffc24b">{{ vibeCount }} of 3</span></div>
+
+          <div style="display:flex;gap:11px;flex-wrap:wrap;margin-bottom:30px">
+            <sc-for list="{{ vibeChips }}" as="c" hint-placeholder-count="5">
+              <span onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</span>
+            </sc-for>
+          </div>
+
+          <div style="font:700 12px Nunito;color:#8f8375;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px">Energy level</div>
+          <div style="position:relative;height:52px;margin-bottom:8px">
+            <div style="position:absolute;top:22px;left:0;right:0;height:8px;border-radius:6px;background:#2b241c"></div>
+            <div style="position:absolute;top:22px;left:0;width:{{ energyPct }}%;height:8px;border-radius:6px;background:linear-gradient(90deg,#ff6f5e,#ffc24b)"></div>
+            <div style="position:absolute;top:12px;left:{{ energyPct }}%;transform:translateX(-50%);width:28px;height:28px;border-radius:50%;background:#ffc24b;box-shadow:0 4px 12px rgba(255,194,75,.5);border:3px solid #140f0b"></div>
+            <input type="range" min="1" max="5" step="1" value="{{ energy }}" onChange="{{ onEnergy }}" style="position:absolute;inset:0;width:100%;opacity:0;cursor:pointer;margin:0" />
+          </div>
+          <div style="display:flex;justify-content:space-between;font:700 12px Nunito;color:#8f8375;margin-bottom:34px">
+            <span>😴 Comatose</span><span style="color:#ffc24b">{{ energy }}/5</span><span>Bouncing 🤸</span>
+          </div>
+
+          <div style="background:#1c1611;border-radius:20px;padding:20px;margin-top:auto">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+              <span style="font:700 14px Nunito;color:#f5ede2">Checked in</span>
+              <span style="font:700 12px Nunito;color:#7fce8f">3 of 4 ready</span>
+            </div>
+            <div style="display:flex;gap:14px">
+              <div style="text-align:center"><span style="width:48px;height:48px;border-radius:50%;background:linear-gradient(140deg,#ff6f5e,#ffc24b);display:flex;align-items:center;justify-content:center;font:800 18px Nunito;color:#2a1408">M</span><div style="font:700 10px Nunito;color:#7fce8f;margin-top:5px">✓ ready</div></div>
+              <div style="text-align:center"><span style="width:48px;height:48px;border-radius:50%;background:linear-gradient(140deg,#7fce8f,#3f6b7a);display:flex;align-items:center;justify-content:center;font:800 18px Nunito;color:#04170e">J</span><div style="font:700 10px Nunito;color:#7fce8f;margin-top:5px">✓ ready</div></div>
+              <div style="text-align:center"><span style="width:48px;height:48px;border-radius:50%;background:#b98cff;display:flex;align-items:center;justify-content:center;font:800 18px Nunito;color:#1a0a2a">A</span><div style="font:700 10px Nunito;color:#7fce8f;margin-top:5px">✓ ready</div></div>
+              <div style="text-align:center"><span style="width:48px;height:48px;border-radius:50%;background:#2b241c;border:2px dashed rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font:800 15px Nunito;color:#8f8375;animation:ppPulse 1.6s infinite">R</span><div style="font:700 10px Nunito;color:#8f8375;margin-top:5px">typing…</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:none">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+      <span style="font:700 14px Fredoka;color:#7fce8f">06</span>
+      <span style="font:700 15px Nunito;color:#f5ede2">Group Swipe Deck</span>
+      <span style="font:400 12px Nunito;color:#8f8375">· tap ✕ / ♥ to advance</span>
+    </div>
+    <div style="width:390px;height:844px;border-radius:48px;background:#080605;padding:11px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div style="width:100%;height:100%;border-radius:38px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#140f0b">
+        <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:700 14px Nunito;color:#f5ede2"><span>9:41</span><span style="opacity:.85">▲ ▮</span></div>
+
+        <div style="padding:4px 24px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span style="font:700 13px Nunito;color:#c9bcac">Swiping together</span>
+            <span style="font:700 12px Nunito;color:#8f8375">3 of 4 done</span>
+          </div>
+          <div style="height:7px;border-radius:5px;background:#2b241c;overflow:hidden"><div style="width:72%;height:100%;border-radius:5px;background:linear-gradient(90deg,#7fce8f,#ffc24b)"></div></div>
+        </div>
+
+        <div style="flex:1;position:relative;margin:16px 22px 0">
+          <sc-for list="{{ cardStack }}" as="c" hint-placeholder-count="1">
+            <div style="{{ c.style }}">
+              <div style="position:absolute;inset:0;border-radius:28px;overflow:hidden;background:{{ c.grad }};box-shadow:0 24px 48px -12px rgba(0,0,0,.6)">
+                <div style="position:absolute;top:16px;right:16px;width:62px;height:62px">
+                  <svg width="62" height="62" viewBox="0 0 120 120">
+                    <defs><linearGradient id="rg{{ $index }}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6f5e"/><stop offset="1" stop-color="#ffc24b"/></linearGradient></defs>
+                    <circle cx="60" cy="60" r="54" fill="rgba(8,6,5,.5)" stroke="rgba(255,255,255,.14)" stroke-width="9"/>
+                    <circle cx="60" cy="60" r="54" fill="none" stroke="url(#rg{{ $index }})" stroke-width="9" stroke-linecap="round" stroke-dasharray="339" stroke-dashoffset="{{ ringOffset }}" transform="rotate(-90 60 60)"/>
+                  </svg>
+                  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font:700 20px Fredoka;color:#fff">{{ c.fit }}</span><span style="font:700 7px Nunito;color:#ffe0b0">% FIT</span></div>
+                </div>
+                <div style="position:absolute;left:0;right:0;bottom:0;padding:26px 22px 24px;background:linear-gradient(0deg,rgba(8,6,5,.95),transparent)">
+                  <div style="font:700 28px Fredoka;color:#fff;line-height:1.05">{{ c.title }}</div>
+                  <div style="font:600 13px Nunito;color:#d8ccbc;margin-top:4px">{{ c.year }}</div>
+                  <div style="margin-top:12px;padding:11px 13px;border-radius:12px;background:rgba(255,194,75,.14);border:1px solid rgba(255,194,75,.3)">
+                    <div style="font:600 11px Nunito;color:#ffc24b;margin-bottom:2px">✨ AI read</div>
+                    <div style="font:600 13px/1.4 Nunito;color:#f5ede2">{{ c.blurb }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:center;gap:16px;padding:22px 0 14px">
+          <div onClick="{{ nope }}" style="width:60px;height:60px;border-radius:50%;background:#1c1611;border:2px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:26px;color:#ff6f5e;cursor:pointer">✕</div>
+          <div onClick="{{ superLike }}" style="width:48px;height:48px;border-radius:50%;background:#b98cff26;border:2px solid #b98cff;display:flex;align-items:center;justify-content:center;font-size:20px;color:#b98cff;cursor:pointer">★</div>
+          <div onClick="{{ loved }}" style="width:60px;height:60px;border-radius:50%;background:#7fce8f;display:flex;align-items:center;justify-content:center;font-size:26px;color:#04170e;cursor:pointer">♥</div>
+        </div>
+        <div style="text-align:center;padding-bottom:20px"><span onClick="{{ veto }}" style="font:700 13px Nunito;color:#6f645a;cursor:pointer">🚫 &nbsp;Veto this one <span style="color:#5a5048">(anonymous)</span></span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+  <div id="flow-after" style="max-width:1180px;margin:0 auto 24px">
+  <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
+    <span style="font:700 13px Nunito,sans-serif;color:#100c09;background:#b98cff;padding:4px 11px;border-radius:8px">FLOW 4</span>
+    <h2 style="margin:0;font:600 22px Fredoka,sans-serif">Decide &amp; after</h2>
+    <span style="font:400 13px Nunito,sans-serif;color:#8f8375">crown a winner, then close the loop</span>
+  </div>
+</div>
+<div style="display:flex;gap:56px;flex-wrap:wrap;padding:0 8px 76px;align-items:flex-start">
+
+  <div style="flex:none">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+      <span style="font:700 14px Fredoka;color:#b98cff">07</span>
+      <span style="font:700 15px Nunito;color:#f5ede2">Vote &amp; Reveal</span>
+      <span style="font:400 12px Nunito;color:#8f8375">· spend 3 votes, then reveal</span>
+    </div>
+    <div style="width:390px;height:844px;border-radius:48px;background:#080605;padding:11px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div style="width:100%;height:100%;border-radius:38px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:radial-gradient(120% 70% at 50% 0%,#241030,#140f0b)">
+        <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:700 14px Nunito;color:#f5ede2"><span>9:41</span><span style="opacity:.85">▲ ▮</span></div>
+
+        <sc-if value="{{ voting }}" hint-placeholder-val="{{ true }}">
+          <div style="flex:1;display:flex;flex-direction:column;padding:8px 22px 22px;overflow:hidden">
+            <div style="font:700 24px Fredoka;color:#f5ede2">Final 5 — vote!</div>
+            <div style="display:flex;align-items:center;gap:10px;margin:6px 0 16px">
+              <span style="font:400 13px Nunito;color:#a89a89">Your votes:</span>
+              <div style="display:flex;gap:6px">
+                <sc-for list="{{ votePips }}" as="p" hint-placeholder-count="3">
+                  <sc-if value="{{ p }}" hint-placeholder-val="{{ true }}"><span style="width:16px;height:16px;border-radius:50%;background:#2b241c;border:2px solid #ffc24b"></span></sc-if>
+                </sc-for>
+                <span style="font:700 13px Nunito;color:#ffc24b">{{ votesLeft }} left</span>
+              </div>
+            </div>
+            <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:12px;overflow-y:auto" class="pp-scr">
+              <sc-for list="{{ cands }}" as="c" hint-placeholder-count="5">
+                <div onClick="{{ c.onClick }}" style="position:relative;border-radius:16px;overflow:hidden;background:{{ c.grad }};cursor:pointer;min-height:150px;box-shadow:0 8px 20px rgba(0,0,0,.4)">
+                  <div style="position:absolute;top:8px;right:8px;display:flex;gap:3px">
+                    <sc-for list="{{ c.dots }}" as="d" hint-placeholder-count="0">
+                      <span style="width:14px;height:14px;border-radius:50%;background:#ffc24b;border:2px solid rgba(0,0,0,.3)"></span>
+                    </sc-for>
+                  </div>
+                  <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 12px 12px;background:linear-gradient(0deg,rgba(8,6,5,.9),transparent);font:700 15px Fredoka;color:#fff">{{ c.title }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div onClick="{{ doReveal }}" style="margin-top:16px;padding:16px;border-radius:16px;text-align:center;font:700 16px Fredoka;background:linear-gradient(140deg,#b98cff,#ff6f5e);color:#160f0b;opacity:{{ revealReady }}">Reveal the winner ✨</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ revealed }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;position:relative;display:flex;flex-direction:column;align-items:center;padding:24px 22px;overflow:hidden">
+            <sc-for list="{{ confetti }}" as="cf" hint-placeholder-count="0"><span style="{{ cf.style }}"></span></sc-for>
+            <div style="font:700 15px Nunito;color:#ffc24b;letter-spacing:2px;margin-top:8px">TONIGHT’S PICK</div>
+            <div style="width:190px;height:270px;border-radius:20px;margin:20px 0 18px;background:linear-gradient(160deg,#16222e,#3f6b7a);box-shadow:0 24px 50px -10px rgba(0,0,0,.6);position:relative;animation:ppFloat 3s ease-in-out infinite">
+              <div style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:#ffc24b;color:#2a1408;font:700 12px Nunito;padding:5px 14px;border-radius:999px">👑 Winner</div>
+              <div style="position:absolute;left:0;right:0;bottom:0;padding:16px;background:linear-gradient(0deg,rgba(8,6,5,.9),transparent);font:700 22px Fredoka;color:#fff;text-align:center">{{ winner.title }}</div>
+            </div>
+            <div style="font:400 14px Nunito;color:#c9bcac;text-align:center;margin-bottom:auto">The room agrees. Grab the popcorn.</div>
+            <div style="width:100%;padding:17px;border-radius:16px;background:#e50914;color:#fff;text-align:center;font:700 16px Fredoka;box-shadow:0 12px 28px rgba(229,9,20,.4)">▶ Watch on Netflix</div>
+            <div onClick="{{ resetVotes }}" style="margin-top:12px;font:700 13px Nunito;color:#8f8375;cursor:pointer">↺ Vote again</div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:none">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+      <span style="font:700 14px Fredoka;color:#b98cff">07</span>
+      <span style="font:700 15px Nunito;color:#f5ede2">Decide For Us</span>
+      <span style="font:400 12px Nunito;color:#8f8375">· alt · tap to spin</span>
+    </div>
+    <div style="width:390px;height:844px;border-radius:48px;background:#080605;padding:11px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div style="width:100%;height:100%;border-radius:38px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:radial-gradient(120% 70% at 50% 40%,#3a2410,#140f0b)">
+        <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:700 14px Nunito;color:#f5ede2"><span>9:41</span><span style="opacity:.85">▲ ▮</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:26px">
+          <div style="text-align:center">
+            <div style="font:700 26px Fredoka;color:#f5ede2">Can’t decide?</div>
+            <div style="font:400 14px Nunito;color:#a89a89;margin-top:4px">Let the machine pick. No takebacks.</div>
+          </div>
+          <div style="width:280px;border-radius:22px;background:#160f0b;border:2px solid #ffc24b;box-shadow:0 0 40px rgba(255,194,75,.25);padding:8px">
+            <div style="height:96px;border-radius:14px;background:#0c0906;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative">
+              <div style="position:absolute;top:0;left:0;right:0;height:28px;background:linear-gradient(0deg,transparent,#0c0906)"></div>
+              <div style="font:700 24px Fredoka;color:#ffc24b;text-align:center;padding:0 12px">{{ slotName }}</div>
+              <div style="position:absolute;bottom:0;left:0;right:0;height:28px;background:linear-gradient(180deg,transparent,#0c0906)"></div>
+            </div>
+          </div>
+          <div onClick="{{ doSpin }}" style="padding:18px 44px;border-radius:18px;background:linear-gradient(140deg,#ff6f5e,#ffc24b);color:#2a1408;font:700 18px Fredoka;box-shadow:0 12px 28px rgba(255,111,94,.4);cursor:pointer">🎰 Spin it</div>
+          <div style="font:400 12px Nunito;color:#6f645a">Weighted by everyone’s fit scores</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:none">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+      <span style="font:700 14px Fredoka;color:#b98cff">08</span>
+      <span style="font:700 15px Nunito;color:#f5ede2">Morning-after Pulse</span>
+    </div>
+    <div style="width:390px;height:844px;border-radius:48px;background:#080605;padding:11px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div style="width:100%;height:100%;border-radius:38px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:linear-gradient(180deg,#160f0b,#140f0b)">
+        <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:700 14px Nunito;color:#f5ede2"><span>9:41</span><span style="opacity:.85">▲ ▮</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+          <div style="width:100%;background:#1c1611;border-radius:26px;padding:28px 24px 26px;box-shadow:0 24px 50px -12px rgba(0,0,0,.6)">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px">
+              <div style="width:60px;height:84px;border-radius:12px;background:linear-gradient(160deg,#16222e,#3f6b7a);flex:none"></div>
+              <div>
+                <div style="font:400 12px Nunito;color:#8f8375">Last night you watched</div>
+                <div style="font:700 24px Fredoka;color:#f5ede2">How was Dune?</div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:22px">
+              <span style="font-size:42px;filter:grayscale(.3)">★</span>
+              <span style="font-size:42px;color:#ffc24b">★</span>
+              <span style="font-size:42px;color:#ffc24b">★</span>
+              <span style="font-size:42px;color:#ffc24b">★</span>
+              <span style="font-size:42px;color:#3a332b">★</span>
+            </div>
+            <div style="padding:15px;border-radius:14px;background:#7fce8f;color:#04170e;text-align:center;font:700 16px Fredoka;margin-bottom:12px">Rate it — one tap, done</div>
+            <div style="text-align:center;font:700 13px Nunito;color:#8f8375">😴 &nbsp;We bailed halfway</div>
+          </div>
+          <div style="font:400 12px Nunito;color:#6f645a;margin-top:18px;text-align:center">Feeds your taste graph &amp; the group’s DNA.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:none">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+      <span style="font:700 14px Fredoka;color:#b98cff">09</span>
+      <span style="font:700 15px Nunito;color:#f5ede2">Group DNA</span>
+    </div>
+    <div style="width:390px;height:844px;border-radius:48px;background:#080605;padding:11px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div class="pp-scr" style="width:100%;height:100%;border-radius:38px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:radial-gradient(120% 60% at 50% 0%,#1c2a34,#140f0b)">
+        <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:700 14px Nunito;color:#f5ede2"><span>9:41</span><span style="opacity:.85">▲ ▮</span></div>
+        <div class="pp-scr" style="flex:1;overflow-y:auto;padding:8px 22px 24px">
+          <div style="font:700 26px Fredoka;color:#f5ede2">Group DNA</div>
+          <div style="font:400 13px Nunito;color:#a89a89;margin-bottom:18px">The Usual Suspects · 14 parties</div>
+
+          <div style="display:flex;flex-direction:column;align-items:center;background:#1c1611;border-radius:20px;padding:22px;margin-bottom:14px">
+            <div style="position:relative;width:120px;height:120px">
+              <svg width="120" height="120" viewBox="0 0 120 120">
+                <defs><linearGradient id="dnaRing" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7fce8f"/><stop offset="1" stop-color="#ffc24b"/></linearGradient></defs>
+                <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="11"/>
+                <circle cx="60" cy="60" r="54" fill="none" stroke="url(#dnaRing)" stroke-width="11" stroke-linecap="round" stroke-dasharray="339" stroke-dashoffset="88" transform="rotate(-90 60 60)"/>
+              </svg>
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font:700 30px Fredoka;color:#f5ede2">74%</span><span style="font:700 9px Nunito;color:#8f8375">TASTE OVERLAP</span></div>
+            </div>
+            <div style="font:400 12px Nunito;color:#8f8375;margin-top:10px;text-align:center">You mostly agree — until someone picks horror.</div>
+          </div>
+
+          <div style="background:#1c1611;border-radius:20px;padding:18px;margin-bottom:14px">
+            <div style="font:700 13px Nunito;color:#f5ede2;margin-bottom:14px">Shared-genre heatmap</div>
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+              <div style="aspect-ratio:1;border-radius:7px;background:#ff6f5e"></div>
+              <div style="aspect-ratio:1;border-radius:7px;background:#ffc24b"></div>
+              <div style="aspect-ratio:1;border-radius:7px;background:#ff6f5eaa"></div>
+              <div style="aspect-ratio:1;border-radius:7px;background:#2b241c"></div>
+              <div style="aspect-ratio:1;border-radius:7px;background:#7fce8f"></div>
+              <div style="aspect-ratio:1;border-radius:7px;background:#ffc24baa"></div>
+              <div style="aspect-ratio:1;border-radius:7px;background:#ff6f5e"></div>
+              <div style="aspect-ratio:1;border-radius:7px;background:#2b241c"></div>
+              <div style="aspect-ratio:1;border-radius:7px;background:#7fce8faa"></div>
+              <div style="aspect-ratio:1;border-radius:7px;background:#ffc24b"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font:600 10px Nunito;color:#8f8375;margin-top:8px"><span>Sci-fi</span><span>Comedy</span><span>Drama</span><span>Horror</span><span>Doc</span></div>
+          </div>
+
+          <div style="display:flex;gap:12px;background:#1c1611;border-radius:20px;padding:16px;margin-bottom:14px;align-items:center">
+            <div style="width:48px;height:68px;border-radius:9px;background:linear-gradient(160deg,#2a1030,#8a4dd0);flex:none"></div>
+            <div><div style="font:700 12px Nunito;color:#ff6f5e">MOST DIVISIVE PICK</div><div style="font:700 17px Fredoka;color:#f5ede2">Everything Everywhere</div><div style="font:400 12px Nunito;color:#8f8375">2 loved · 2 vetoed. Iconic.</div></div>
+          </div>
+
+          <div style="background:#1c1611;border-radius:20px;padding:18px">
+            <div style="font:700 13px Nunito;color:#f5ede2;margin-bottom:14px">Party history</div>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div style="display:flex;gap:12px;align-items:center"><span style="width:10px;height:10px;border-radius:50%;background:#7fce8f;flex:none"></span><span style="flex:1;font:600 13px Nunito;color:#c9bcac">Arrival</span><span style="font:600 12px Nunito;color:#8f8375">★4.6 · Jul 18</span></div>
+              <div style="display:flex;gap:12px;align-items:center"><span style="width:10px;height:10px;border-radius:50%;background:#ffc24b;flex:none"></span><span style="flex:1;font:600 13px Nunito;color:#c9bcac">Perfect Days</span><span style="font:600 12px Nunito;color:#8f8375">★4.1 · Jul 11</span></div>
+              <div style="display:flex;gap:12px;align-items:center"><span style="width:10px;height:10px;border-radius:50%;background:#ff6f5e;flex:none"></span><span style="flex:1;font:600 13px Nunito;color:#c9bcac">Poor Things <span style="color:#6f645a">· we bailed</span></span><span style="font:600 12px Nunito;color:#8f8375">☆2.0 · Jul 4</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+  <div id="flow-tablet" style="max-width:1180px;margin:0 auto 24px">
+  <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
+    <span style="font:700 13px Nunito,sans-serif;color:#100c09;background:#7fb6ce;padding:4px 11px;border-radius:8px">TABLET</span>
+    <h2 style="margin:0;font:600 22px Fredoka,sans-serif">Shared-couch device</h2>
+    <span style="font:400 13px Nunito,sans-serif;color:#8f8375">swipe &amp; vote on the big screen everyone can see</span>
+  </div>
+</div>
+<div style="display:flex;gap:56px;flex-wrap:wrap;padding:0 8px 76px;align-items:flex-start">
+
+  <div style="flex:none">
+    <div style="font:700 14px Nunito;color:#f5ede2;margin-bottom:14px"><span style="color:#7fb6ce;font-family:Fredoka">06 ▸</span> Group Swipe Deck · tablet</div>
+    <div style="width:900px;height:640px;border-radius:32px;background:#080605;padding:14px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div style="width:100%;height:100%;border-radius:22px;overflow:hidden;display:flex;background:#140f0b">
+        <div style="width:230px;flex:none;background:#160f0b;border-right:1px solid rgba(255,255,255,.06);padding:26px 20px;display:flex;flex-direction:column">
+          <div style="font:700 20px Fredoka;color:#f5ede2">Movie night</div>
+          <div style="font:400 12px Nunito;color:#8f8375;margin-bottom:22px">4 swiping · sci-fi &amp; cozy</div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:38px;height:38px;border-radius:50%;background:linear-gradient(140deg,#ff6f5e,#ffc24b);display:flex;align-items:center;justify-content:center;font:800 14px Nunito;color:#2a1408">M</span><span style="flex:1;font:700 13px Nunito;color:#f5ede2">Mia</span><span style="font:700 11px Nunito;color:#7fce8f">✓ done</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:38px;height:38px;border-radius:50%;background:linear-gradient(140deg,#7fce8f,#3f6b7a);display:flex;align-items:center;justify-content:center;font:800 14px Nunito;color:#04170e">J</span><span style="flex:1;font:700 13px Nunito;color:#f5ede2">Jules</span><span style="font:700 11px Nunito;color:#7fce8f">✓ done</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:38px;height:38px;border-radius:50%;background:#b98cff;display:flex;align-items:center;justify-content:center;font:800 14px Nunito;color:#1a0a2a">A</span><span style="flex:1;font:700 13px Nunito;color:#f5ede2">Amy</span><span style="font:700 11px Nunito;color:#7fce8f">✓ done</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:38px;height:38px;border-radius:50%;background:#2b241c;display:flex;align-items:center;justify-content:center;font:800 14px Nunito;color:#a89a89;animation:ppPulse 1.6s infinite">R</span><span style="flex:1;font:700 13px Nunito;color:#c9bcac">Ray</span><span style="font:700 11px Nunito;color:#ffc24b">swiping…</span></div>
+          </div>
+          <div style="margin-top:auto">
+            <div style="font:700 11px Nunito;color:#8f8375;margin-bottom:6px">3 of 4 finished</div>
+            <div style="height:7px;border-radius:5px;background:#2b241c;overflow:hidden"><div style="width:75%;height:100%;background:linear-gradient(90deg,#7fce8f,#ffc24b)"></div></div>
+          </div>
+        </div>
+        <div style="flex:1;position:relative;display:flex;align-items:center;justify-content:center;padding:30px 40px">
+          <div style="position:absolute;inset:30px 40px;display:flex;gap:26px;align-items:center">
+            <div style="width:56px;height:56px;border-radius:50%;background:#1c1611;border:2px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:24px;color:#ff6f5e">✕</div>
+            <div style="flex:1;height:100%;border-radius:24px;overflow:hidden;background:linear-gradient(160deg,#16222e,#3f6b7a);position:relative;box-shadow:0 24px 48px -12px rgba(0,0,0,.6)">
+              <div style="position:absolute;top:18px;right:18px;width:72px;height:72px"><svg width="72" height="72" viewBox="0 0 120 120"><defs><linearGradient id="tabRing" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6f5e"/><stop offset="1" stop-color="#ffc24b"/></linearGradient></defs><circle cx="60" cy="60" r="54" fill="rgba(8,6,5,.5)" stroke="rgba(255,255,255,.14)" stroke-width="9"/><circle cx="60" cy="60" r="54" fill="none" stroke="url(#tabRing)" stroke-width="9" stroke-linecap="round" stroke-dasharray="339" stroke-dashoffset="44" transform="rotate(-90 60 60)"/></svg><div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font:700 24px Fredoka;color:#fff">87</span><span style="font:700 8px Nunito;color:#ffe0b0">% FIT</span></div></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;padding:30px 28px;background:linear-gradient(0deg,rgba(8,6,5,.95),transparent)"><div style="font:700 34px Fredoka;color:#fff">Arrival</div><div style="font:600 14px Nunito;color:#d8ccbc;margin-top:4px">2016 · Sci-fi</div><div style="margin-top:12px;display:inline-block;padding:10px 14px;border-radius:12px;background:rgba(255,194,75,.14);border:1px solid rgba(255,194,75,.3);font:600 14px Nunito;color:#f5ede2">✨ Low-key sci-fi that fits everyone’s chill mood.</div></div>
+            </div>
+            <div style="width:56px;height:56px;border-radius:50%;background:#7fce8f;display:flex;align-items:center;justify-content:center;font-size:24px;color:#04170e">♥</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:none">
+    <div style="font:700 14px Nunito;color:#f5ede2;margin-bottom:14px"><span style="color:#7fb6ce;font-family:Fredoka">07 ▸</span> Vote &amp; Reveal · tablet</div>
+    <div style="width:900px;height:640px;border-radius:32px;background:#080605;padding:14px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div style="width:100%;height:100%;border-radius:22px;overflow:hidden;display:flex;flex-direction:column;background:radial-gradient(120% 70% at 50% 0%,#241030,#140f0b);padding:30px 36px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
+          <div><div style="font:700 26px Fredoka;color:#f5ede2">Final 5 — everyone vote</div><div style="font:400 13px Nunito;color:#a89a89">3 votes each · pass the tablet around</div></div>
+          <div style="display:flex;gap:8px"><span style="width:20px;height:20px;border-radius:50%;border:3px solid #ffc24b"></span><span style="width:20px;height:20px;border-radius:50%;border:3px solid #ffc24b"></span><span style="width:20px;height:20px;border-radius:50%;background:#ffc24b"></span></div>
+        </div>
+        <div style="flex:1;display:grid;grid-template-columns:repeat(5,1fr);gap:16px">
+          <div style="position:relative;border-radius:16px;overflow:hidden;background:linear-gradient(160deg,#16222e,#3f6b7a);box-shadow:0 10px 24px rgba(0,0,0,.4)"><div style="position:absolute;top:10px;right:10px;display:flex;gap:4px"><span style="width:16px;height:16px;border-radius:50%;background:#ffc24b"></span><span style="width:16px;height:16px;border-radius:50%;background:#ffc24b"></span></div><div style="position:absolute;left:0;right:0;bottom:0;padding:14px;background:linear-gradient(0deg,rgba(8,6,5,.9),transparent);font:700 17px Fredoka;color:#fff">Arrival</div></div>
+          <div style="position:relative;border-radius:16px;overflow:hidden;background:linear-gradient(160deg,#3a1f2a,#d98cae)"><div style="position:absolute;top:10px;right:10px;display:flex;gap:4px"><span style="width:16px;height:16px;border-radius:50%;background:#ffc24b"></span></div><div style="position:absolute;left:0;right:0;bottom:0;padding:14px;background:linear-gradient(0deg,rgba(8,6,5,.9),transparent);font:700 16px Fredoka;color:#fff">Grand Budapest</div></div>
+          <div style="position:relative;border-radius:16px;overflow:hidden;background:linear-gradient(160deg,#1e2a1a,#7fae6a)"><div style="position:absolute;left:0;right:0;bottom:0;padding:14px;background:linear-gradient(0deg,rgba(8,6,5,.9),transparent);font:700 16px Fredoka;color:#fff">Perfect Days</div></div>
+          <div style="position:relative;border-radius:16px;overflow:hidden;background:linear-gradient(160deg,#2a1030,#8a4dd0)"><div style="position:absolute;left:0;right:0;bottom:0;padding:14px;background:linear-gradient(0deg,rgba(8,6,5,.9),transparent);font:700 15px Fredoka;color:#fff">Everything Everywhere</div></div>
+          <div style="position:relative;border-radius:16px;overflow:hidden;background:linear-gradient(160deg,#2a1e2a,#b06a9a)"><div style="position:absolute;left:0;right:0;bottom:0;padding:14px;background:linear-gradient(0deg,rgba(8,6,5,.9),transparent);font:700 17px Fredoka;color:#fff">Past Lives</div></div>
+        </div>
+        <div style="display:flex;gap:14px;margin-top:22px">
+          <div style="flex:1;padding:16px;border-radius:14px;background:linear-gradient(140deg,#b98cff,#ff6f5e);color:#160f0b;text-align:center;font:700 16px Fredoka">Reveal the winner ✨</div>
+          <div style="padding:16px 28px;border-radius:14px;border:1.5px solid rgba(255,255,255,.16);color:#c9bcac;text-align:center;font:700 15px Nunito">🎰 Decide for us</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+  <div id="flow-variations" style="max-width:1180px;margin:0 auto 24px">
+  <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
+    <span style="font:700 13px Nunito,sans-serif;color:#100c09;background:#d98cae;padding:4px 11px;border-radius:8px">EXPLORE</span>
+    <h2 style="margin:0;font:600 22px Fredoka,sans-serif">Alternate directions</h2>
+    <span style="font:400 13px Nunito,sans-serif;color:#8f8375">the main screens above are “A” · here are “B” takes on the party moments</span>
+  </div>
+</div>
+<div style="display:flex;gap:56px;flex-wrap:wrap;padding:0 8px 40px;align-items:flex-start">
+
+  <div style="flex:none">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+      <span style="font:700 13px Nunito;color:#160f0b;background:#d98cae;padding:2px 8px;border-radius:6px;font-family:Fredoka">6B</span>
+      <span style="font:700 15px Nunito;color:#f5ede2">Swipe · full-bleed</span>
+      <span style="font:400 12px Nunito;color:#8f8375">fit as a member strip, no ring</span>
+    </div>
+    <div style="width:390px;height:844px;border-radius:48px;background:#080605;padding:11px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div style="width:100%;height:100%;border-radius:38px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:linear-gradient(160deg,#2a1030,#8a4dd0)">
+        <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:700 14px Nunito;color:#fff"><span>9:41</span><span style="opacity:.85">▲ ▮</span></div>
+        <div style="position:absolute;top:56px;left:22px;right:22px;display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:6px;border-radius:4px;background:rgba(255,255,255,.2);overflow:hidden"><div style="width:72%;height:100%;background:#ffc24b"></div></div>
+          <span style="font:700 11px Nunito;color:#fff">3/4 done</span>
+        </div>
+        <div style="position:absolute;top:96px;left:22px;padding:9px 14px;border-radius:12px;background:rgba(8,6,5,.55);backdrop-filter:blur(6px);font:600 13px Nunito;color:#fff;max-width:240px">✨ Hype pick — high energy, might split the room.</div>
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 22px 26px;background:linear-gradient(0deg,rgba(8,6,5,.96),transparent 90%)">
+          <div style="font:700 34px Fredoka;color:#fff;line-height:1.02">Everything Everywhere</div>
+          <div style="font:600 14px Nunito;color:#d8ccbc;margin:6px 0 16px">2022 · Sci-fi · 2h 19m</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+            <span style="font:700 12px Nunito;color:#a89a89">fits</span>
+            <span style="width:30px;height:30px;border-radius:50%;background:#7fce8f;display:flex;align-items:center;justify-content:center;font:800 12px Nunito;color:#04170e">M</span>
+            <span style="width:30px;height:30px;border-radius:50%;background:#7fce8f;display:flex;align-items:center;justify-content:center;font:800 12px Nunito;color:#04170e">J</span>
+            <span style="width:30px;height:30px;border-radius:50%;background:#3a332b;display:flex;align-items:center;justify-content:center;font:800 11px Nunito;color:#8f8375">A</span>
+            <span style="width:30px;height:30px;border-radius:50%;background:#3a332b;display:flex;align-items:center;justify-content:center;font:800 11px Nunito;color:#8f8375">R</span>
+            <span style="font:700 13px Nunito;color:#ffc24b;margin-left:4px">64% fit</span>
+          </div>
+          <div style="display:flex;gap:14px;align-items:center">
+            <div style="width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff">✕</div>
+            <div style="flex:1;height:58px;border-radius:18px;background:#7fce8f;display:flex;align-items:center;justify-content:center;font:700 17px Fredoka;color:#04170e">♥ &nbsp;Yes</div>
+            <div style="width:58px;height:58px;border-radius:50%;background:#b98cff26;border:2px solid #b98cff;display:flex;align-items:center;justify-content:center;font-size:22px;color:#b98cff">★</div>
+          </div>
+          <div style="text-align:center;margin-top:14px;font:700 12px Nunito;color:rgba(255,255,255,.5)">🚫 &nbsp;veto (anonymous)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:none">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+      <span style="font:700 13px Nunito;color:#160f0b;background:#d98cae;padding:2px 8px;border-radius:6px;font-family:Fredoka">7B</span>
+      <span style="font:700 15px Nunito;color:#f5ede2">Vote · token list</span>
+      <span style="font:400 12px Nunito;color:#8f8375">drag 3 coins onto your picks</span>
+    </div>
+    <div style="width:390px;height:844px;border-radius:48px;background:#080605;padding:11px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)">
+      <div style="width:100%;height:100%;border-radius:38px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:radial-gradient(120% 60% at 50% 0%,#241030,#140f0b)">
+        <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:700 14px Nunito;color:#f5ede2"><span>9:41</span><span style="opacity:.85">▲ ▮</span></div>
+        <div style="padding:8px 22px 0"><div style="font:700 24px Fredoka;color:#f5ede2">Spend your 3 votes</div></div>
+        <div style="margin:14px 22px 18px;padding:16px;border-radius:18px;background:#1c1611;display:flex;align-items:center;gap:12px">
+          <span style="font:700 12px Nunito;color:#8f8375">your coins</span>
+          <div style="display:flex;gap:8px"><span style="width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,#ffc24b,#ff6f5e);display:flex;align-items:center;justify-content:center;font-size:16px">🪙</span><span style="width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,#ffc24b,#ff6f5e);display:flex;align-items:center;justify-content:center;font-size:16px">🪙</span><span style="width:34px;height:34px;border-radius:50%;background:#2b241c;border:2px dashed rgba(255,255,255,.2)"></span></div>
+          <span style="margin-left:auto;font:700 13px Nunito;color:#ffc24b">1 left</span>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:0 22px 20px;display:flex;flex-direction:column;gap:10px" class="pp-scr">
+          <div style="display:flex;align-items:center;gap:12px;background:#1c1611;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:10px"><div style="width:48px;height:66px;border-radius:9px;background:linear-gradient(160deg,#16222e,#3f6b7a);flex:none"></div><div style="flex:1"><div style="font:700 16px Fredoka;color:#f5ede2">Arrival</div><div style="font:400 12px Nunito;color:#8f8375">2016 · Sci-fi</div></div><div style="display:flex;gap:4px"><span style="font-size:20px">🪙</span><span style="font-size:20px">🪙</span></div></div>
+          <div style="display:flex;align-items:center;gap:12px;background:#1c1611;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:10px"><div style="width:48px;height:66px;border-radius:9px;background:linear-gradient(160deg,#3a1f2a,#d98cae);flex:none"></div><div style="flex:1"><div style="font:700 16px Fredoka;color:#f5ede2">Grand Budapest</div><div style="font:400 12px Nunito;color:#8f8375">2014 · Comedy</div></div><div style="display:flex;gap:4px"><span style="font-size:20px">🪙</span></div></div>
+          <div style="display:flex;align-items:center;gap:12px;background:#1c1611;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:10px"><div style="width:48px;height:66px;border-radius:9px;background:linear-gradient(160deg,#1e2a1a,#7fae6a);flex:none"></div><div style="flex:1"><div style="font:700 16px Fredoka;color:#f5ede2">Perfect Days</div><div style="font:400 12px Nunito;color:#8f8375">2023 · Drama</div></div><div style="width:30px;height:30px;border-radius:50%;border:2px dashed rgba(255,255,255,.16)"></div></div>
+          <div style="display:flex;align-items:center;gap:12px;background:#1c1611;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:10px"><div style="width:48px;height:66px;border-radius:9px;background:linear-gradient(160deg,#2a1e2a,#b06a9a);flex:none"></div><div style="flex:1"><div style="font:700 16px Fredoka;color:#f5ede2">Past Lives</div><div style="font:400 12px Nunito;color:#8f8375">2023 · Drama</div></div><div style="width:30px;height:30px;border-radius:50%;border:2px dashed rgba(255,255,255,.16)"></div></div>
+        </div>
+        <div style="padding:0 22px 26px"><div style="padding:16px;border-radius:16px;text-align:center;font:700 16px Fredoka;background:linear-gradient(140deg,#b98cff,#ff6f5e);color:#160f0b">Lock in &amp; reveal ✨</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { libTab:'watching', energy:3, vibes:['Cozy'], swipeIdx:0, superIdx:null, votes:{}, revealed:false, spinning:false, slotName:'The Bear' };
+
+  svc(code){
+    const m={N:['N','#e50914'],H:['H','#0046ff'],Hu:['h','#1ce783'],Pr:['p','#00a8e1'],Mx:['M','#b57bff'],Ds:['D','#113ccf'],Ap:['tv','#e6e6e6']};
+    const [t,c]=m[code]||['?','#888']; return {t,c};
+  }
+  lib(){
+    return {
+      watching:[
+        {title:'The Bear', sub:'S3 · Ep 4 of 10', grad:'linear-gradient(150deg,#4a3410,#e0912f)', svc:['Hu','Ds'], check:true},
+        {title:'Shōgun', sub:'S1 · Ep 7 of 10', grad:'linear-gradient(150deg,#1c2a34,#5a8fb0)', svc:['Hu'], check:true},
+        {title:'Ripley', sub:'S1 · Ep 2 of 8', grad:'linear-gradient(150deg,#191919,#8a8f9c)', svc:['N'], check:true},
+      ],
+      want:[
+        {title:'Dune: Part Two', sub:'Film · 2h 46m', grad:'linear-gradient(150deg,#3a2a12,#d99a3e)', svc:['Mx'], check:false},
+        {title:'Perfect Days', sub:'Film · 2h 3m', grad:'linear-gradient(150deg,#1e2a1a,#7fae6a)', svc:['Hu'], check:false},
+        {title:'Fallout', sub:'S1 · 8 episodes', grad:'linear-gradient(150deg,#33261a,#c98b46)', svc:['Pr'], check:false},
+      ],
+      done:[
+        {title:'Past Lives', sub:'★★★★★ · you loved it', grad:'linear-gradient(150deg,#2a1e2a,#b06a9a)', svc:['Pr'], check:false},
+        {title:'Poor Things', sub:'★★★ · meh', grad:'linear-gradient(150deg,#2a2410,#c7b23e)', svc:['Hu'], check:false},
+      ],
+    };
+  }
+  deck(){
+    return [
+      {title:'Arrival', year:'2016 · Sci-fi', blurb:'Low-key sci-fi that fits everyone’s chill mood.', fit:87, grad:'linear-gradient(160deg,#16222e,#3f6b7a)'},
+      {title:'The Grand Budapest Hotel', year:'2014 · Comedy', blurb:'Cozy and quick — nobody has to think too hard.', fit:81, grad:'linear-gradient(160deg,#3a1f2a,#d98cae)'},
+      {title:'Everything Everywhere', year:'2022 · Sci-fi', blurb:'Hype pick with high energy — might split the room.', fit:64, grad:'linear-gradient(160deg,#2a1030,#8a4dd0)'},
+    ];
+  }
+  candidates(){
+    return [
+      {id:'arr', title:'Arrival', grad:'linear-gradient(160deg,#16222e,#3f6b7a)'},
+      {id:'gbh', title:'Grand Budapest', grad:'linear-gradient(160deg,#3a1f2a,#d98cae)'},
+      {id:'pd', title:'Perfect Days', grad:'linear-gradient(160deg,#1e2a1a,#7fae6a)'},
+      {id:'ee', title:'Everything Everywhere', grad:'linear-gradient(160deg,#2a1030,#8a4dd0)'},
+      {id:'pl', title:'Past Lives', grad:'linear-gradient(160deg,#2a1e2a,#b06a9a)'},
+    ];
+  }
+
+  toggleVibe(v){ this.setState(s=>({vibes: s.vibes.includes(v) ? s.vibes.filter(x=>x!==v) : (s.vibes.length>=3? s.vibes : [...s.vibes,v])})); }
+  addVote(id){ this.setState(s=>{ const used=Object.values(s.votes).reduce((a,b)=>a+b,0); if(used>=3) return {}; return {votes:{...s.votes,[id]:(s.votes[id]||0)+1}}; }); }
+  clearVotes(){ this.setState({votes:{}, revealed:false}); }
+  reveal(){ this.setState({revealed:true}); }
+  spin(){
+    if(this.state.spinning) return;
+    const names=['Arrival','Grand Budapest','Perfect Days','Everything Everywhere','Past Lives'];
+    this.setState({spinning:true});
+    let n=0; const iv=setInterval(()=>{ this.setState({slotName:names[n%names.length]}); n++; },90);
+    setTimeout(()=>{ clearInterval(iv); this.setState({spinning:false, slotName:'Arrival'}); },1300);
+  }
+
+  renderVals(){
+    const s=this.state;
+    const tabStyle=(k)=>({ flex:1, textAlign:'center', padding:'11px 0', borderRadius:'12px', cursor:'pointer', font:'700 14px Nunito,sans-serif',
+      background: s.libTab===k?'#ff6f5e':'transparent', color: s.libTab===k?'#2a1408':'#a89a89', transition:'all .2s' });
+    const list=this.lib()[s.libTab].map(it=>({ ...it, badges: it.svc.map(c=>this.svc(c)) }));
+
+    const vibeDefs=[['Cozy','#ffc24b'],['Hype','#ff6f5e'],['Mindless','#7fb6ce'],['Deep','#b98cff'],['Scary-ok','#7fce8f']];
+    const vibeChips=vibeDefs.map(([v,c])=>{ const sel=s.vibes.includes(v); return { label:v,
+      style:{ padding:'12px 18px', borderRadius:'999px', cursor:'pointer', font:'700 15px Nunito,sans-serif', transition:'all .18s',
+        border: sel?('2px solid '+c):'2px solid rgba(255,255,255,.12)', background: sel?(c+'26'):'transparent', color: sel?c:'#c9bcac' },
+      onClick:()=>this.toggleVibe(v) }; });
+
+    const d=this.deck(); const card=d[s.swipeIdx % d.length];
+    const ringOffset=339 - 339*(card.fit/100);
+    const cardStack=d.map((c,i)=>{ const rel=i-(s.swipeIdx%d.length); return {...c, z: 10-Math.abs(rel), rel,
+      style:{ position:'absolute', inset:0, transform:'translateY('+(rel*10)+'px) scale('+(1-Math.abs(rel)*0.04)+')', opacity: rel<0?0:(rel>1?0:1), zIndex:10-Math.abs(rel), transition:'all .35s', pointerEvents: rel===0?'auto':'none' } }; });
+
+    const used=Object.values(s.votes).reduce((a,b)=>a+b,0);
+    const votesLeft=3-used;
+    const cands=this.candidates().map(c=>({...c, count:s.votes[c.id]||0, onClick:()=>this.addVote(c.id),
+      dots:Array.from({length:s.votes[c.id]||0}).map((_,i)=>i) }));
+    const winner=this.candidates().reduce((best,c)=>((s.votes[c.id]||0)>(s.votes[best.id]||0)?c:best), this.candidates()[0]);
+    const confetti=Array.from({length:16}).map((_,i)=>({ style:{ position:'absolute', top:'-12px', left:(6+i*6)+'%',
+      width:(6+ (i%3)*3)+'px', height:(10+(i%2)*6)+'px', borderRadius:'2px',
+      background:['#ff6f5e','#ffc24b','#7fce8f','#b98cff','#7fb6ce'][i%5],
+      animation:'ppConf '+(1.6+ (i%4)*0.35)+'s '+((i%5)*0.12)+'s ease-in forwards' }}));
+
+    return {
+      tabWatching:()=>this.setState({libTab:'watching'}), tabWant:()=>this.setState({libTab:'want'}), tabDone:()=>this.setState({libTab:'done'}),
+      watchStyle:tabStyle('watching'), wantStyle:tabStyle('want'), doneStyle:tabStyle('done'), list,
+      energy:s.energy, energyPct:((s.energy-1)/4)*100, onEnergy:(e)=>this.setState({energy:+e.target.value}),
+      vibeChips, vibeCount:s.vibes.length,
+      card, ringOffset, cardStack,
+      loved:()=>this.setState(st=>({swipeIdx:st.swipeIdx+1})), nope:()=>this.setState(st=>({swipeIdx:st.swipeIdx+1})),
+      superLike:()=>this.setState(st=>({swipeIdx:st.swipeIdx+1})), veto:()=>this.setState(st=>({swipeIdx:st.swipeIdx+1})),
+      cands, votesLeft, canReveal:votesLeft===0, revealReady:votesLeft===0?1:0.45, revealed:s.revealed, voting:!s.revealed, doReveal:()=>this.reveal(), resetVotes:()=>this.clearVotes(),
+      winner, confetti, votePips:[0,1,2].map(i=>i<used),
+      slotName:s.slotName, spinning:s.spinning, doSpin:()=>this.spin(),
+    };
+  }
+}
+</script>
+</body>
+</html>

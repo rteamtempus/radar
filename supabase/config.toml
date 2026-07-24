@@ -1,0 +1,5 @@
+# Minimal placeholder. When we link the hosted Supabase project (milestone 2):
+#   supabase login
+#   supabase link --project-ref <project-ref>   # regenerates/expands this file
+#   supabase db push
+project_id = "radar"

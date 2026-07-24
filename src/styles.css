@@ -1,1 +1,57 @@
-/* You can add global styles to this file, and also import other style files */
+@import "tailwindcss";
+
+/* PartyPick palette — from docs/PartyPick-Wireframes.dc.html
+   cozy-dark, coral primary, gold highlight, green positive, violet super-like */
+@theme {
+  --font-display: "Fredoka", sans-serif;
+  --font-sans: "Nunito", system-ui, sans-serif;
+
+  --color-bg: #100c09;
+  --color-bg-deep: #140f0b;
+  --color-bg-warm: #160f0b;
+  --color-surface: #1c1611;
+  --color-surface-2: #2b241c;
+  --color-line: #ffffff14; /* hairline borders (white @ 8%) */
+
+  --color-coral: #ff6f5e;
+  --color-gold: #ffc24b;
+  --color-green: #7fce8f;
+  --color-violet: #b98cff;
+
+  --color-cream: #f5ede2;
+  --color-muted: #8f8375;
+  --color-muted-2: #a89a89;
+  --color-ink: #2a1408; /* dark text on coral/gold fills */
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(1200px 700px at 20% -5%, #241812 0%, #100c09 60%) fixed;
+  color: var(--color-cream);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hide scrollbars on horizontal chip rows etc. */
+.no-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
