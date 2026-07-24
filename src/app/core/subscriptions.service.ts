@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { ToastService } from '../shared/ui/toast.service';
 import { AuthService } from './auth.service';
 import { getSupabase } from './supabase.client';
 
@@ -12,6 +13,7 @@ export interface StreamingService {
 @Injectable({ providedIn: 'root' })
 export class SubscriptionsService {
   private auth = inject(AuthService);
+  private toast = inject(ToastService);
 
   readonly services = signal<StreamingService[]>([]);
   readonly mine = signal<ReadonlySet<string>>(new Set()); // service ids
@@ -49,6 +51,9 @@ export class SubscriptionsService {
         { user_id: userId, service_id: serviceId, is_active: active },
         { onConflict: 'user_id,service_id' },
       );
-    if (error) await this.load(true); // roll back to server truth
+    if (error) {
+      this.toast.error('Could not update your services — try again.');
+      await this.load(true); // roll back to server truth
+    }
   }
 }

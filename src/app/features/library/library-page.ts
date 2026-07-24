@@ -5,6 +5,7 @@ import { SubscriptionsService } from '../../core/subscriptions.service';
 import { PartyService } from '../party/party.service';
 import { ServiceBadges } from '../../shared/ui/service-badges';
 import { StarRating } from '../../shared/ui/star-rating';
+import { ToastService } from '../../shared/ui/toast.service';
 import {
   ActivitySummary,
   EngagementStatus,
@@ -136,7 +137,19 @@ type LibraryTab = 'in_progress' | 'want_to' | 'completed';
         </div>
 
         @if (lib.loading() && lib.entries().length === 0) {
-          <p class="mt-10 text-center text-sm font-bold text-muted-2">Loading…</p>
+          <!-- loading skeletons -->
+          <div class="mt-4 flex flex-col gap-3">
+            @for (i of [0, 1, 2, 3]; track i) {
+              <div class="flex animate-pulse gap-3.5 rounded-2xl border border-line bg-surface p-3">
+                <div class="h-23 w-16 rounded-xl bg-surface-2"></div>
+                <div class="flex flex-1 flex-col gap-2 pt-1">
+                  <div class="h-4 w-2/3 rounded bg-surface-2"></div>
+                  <div class="h-3 w-1/3 rounded bg-surface-2"></div>
+                  <div class="mt-auto h-6 w-24 rounded-full bg-surface-2"></div>
+                </div>
+              </div>
+            }
+          </div>
         } @else if (tabEntries().length === 0) {
           <div class="mt-10 flex flex-col items-center gap-3 text-center">
             <div class="text-4xl">🍿</div>
@@ -205,6 +218,7 @@ export class LibraryPage implements OnDestroy {
   protected readonly lib = inject(LibraryService);
   protected readonly subs = inject(SubscriptionsService);
   private readonly partyService = inject(PartyService);
+  private readonly toast = inject(ToastService);
 
   protected readonly outcome = signal<{
     partyId: string;
@@ -259,6 +273,8 @@ export class LibraryPage implements OnDestroy {
       try {
         const results = await this.lib.search(trimmed);
         if (this.query().trim() === trimmed) this.results.set(results);
+      } catch {
+        this.toast.error('Search failed — check your connection and try again.');
       } finally {
         this.searching.set(false);
       }
@@ -274,17 +290,29 @@ export class LibraryPage implements OnDestroy {
   }
 
   protected async add(result: ActivitySummary, status: EngagementStatus) {
-    await this.lib.setStatus(result.id, status);
-    this.lib.hydrate(result); // runtime + availability in the background
+    try {
+      await this.lib.setStatus(result.id, status);
+      this.lib.hydrate(result); // runtime + availability in the background
+    } catch {
+      this.toast.error(`Couldn't add “${result.title}” — try again.`);
+    }
   }
 
   protected async finish(entry: LibraryEntry) {
-    await this.lib.setStatus(entry.activity.id, 'completed');
-    this.tab.set('completed'); // rating stars are right there
+    try {
+      await this.lib.setStatus(entry.activity.id, 'completed');
+      this.tab.set('completed'); // rating stars are right there
+    } catch {
+      this.toast.error('Could not update — try again.');
+    }
   }
 
-  protected rate(entry: LibraryEntry, rating: number) {
-    return this.lib.rate(entry.activity.id, rating);
+  protected async rate(entry: LibraryEntry, rating: number) {
+    try {
+      await this.lib.rate(entry.activity.id, rating);
+    } catch {
+      this.toast.error('Could not save your rating — try again.');
+    }
   }
 
   protected servicesOf(entry: LibraryEntry) {

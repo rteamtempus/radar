@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { AuthService } from '../../core/auth.service';
 import { getSupabase } from '../../core/supabase.client';
+import { ToastService } from '../../shared/ui/toast.service';
 import { ServiceRef } from '../library/library.service';
 import { computeSurvivors, tallyWinner } from './party-logic';
 
@@ -98,6 +99,7 @@ function generateJoinCode(): string {
 @Injectable({ providedIn: 'root' })
 export class PartyService {
   private auth = inject(AuthService);
+  private toast = inject(ToastService);
   private channel: RealtimeChannel | undefined;
 
   readonly party = signal<PartyRow | null>(null);
@@ -334,12 +336,16 @@ export class PartyService {
       ...s.filter((x) => !(x.candidate_id === candidateId && x.member_id === me.id)),
       { candidate_id: candidateId, member_id: me.id, direction },
     ]);
-    await getSupabase()
+    const { error } = await getSupabase()
       .from('party_swipes')
       .upsert(
         { candidate_id: candidateId, member_id: me.id, direction },
         { onConflict: 'candidate_id,member_id' },
       );
+    if (error) {
+      this.toast.error('Swipe didn’t save — check your connection.');
+      await this.loadSwipes(this.party()!.id); // roll back the optimistic update
+    }
   }
 
   /** Anonymous hard veto (max 1/member/party) — also counts as a left swipe. */
@@ -359,12 +365,13 @@ export class PartyService {
     if (!me || this.myVotesLeft() <= 0) return;
     const current = this.myPointsByCandidate()[candidateId] ?? 0;
     if (current >= MAX_POINTS_PER_CANDIDATE) return;
-    await getSupabase()
+    const { error } = await getSupabase()
       .from('party_votes')
       .upsert(
         { candidate_id: candidateId, member_id: me.id, points: current + 1 },
         { onConflict: 'candidate_id,member_id' },
       );
+    if (error) this.toast.error('Vote didn’t save — try again.');
     await this.loadVotes(this.party()!.id);
   }
 

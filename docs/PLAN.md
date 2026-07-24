@@ -107,12 +107,25 @@ production). Free tier allows two projects; create a fresh one for radar.
 - [x] Unit tests: `npx -y tsx src/app/features/party/party-logic.test.ts` (survivors, veto rules, fill, tally tiebreaks)
 - [x] Full loop verified over REST on TESTP3: 24 swipes + veto → votes (winner 4pts) → decided → pulse detected by member → outcome recorded → completed
 
-## Milestone 8 — Polish
+## Milestone 8 — Polish ✅ (2026-07-24)
 
-- [ ] Empty states, error toasts, loading skeletons
-- [ ] `prefers-reduced-motion` respected everywhere (swipe/confetti)
-- [ ] README final pass; PWA install prompt sanity check on iOS/Android
-- [ ] End-to-end run of the success criteria with 2+ real phones
+- [x] Toast system (`shared/ui/toast.service.ts` + host in app shell); errors wired on search, add, rate, swipe (with optimistic rollback), vote, and subscription toggles
+- [x] Library loading skeletons; empty states already in place (library, search, lobby)
+- [x] `prefers-reduced-motion` global override covers swipe transitions + confetti
+- [ ] End-to-end run of the success criteria with 2+ real phones — **Rory's court**
+
+## Post-plan — Netflix watch-history import (added 2026-07-24)
+
+The handoff listed history import as a non-goal; promoted to a feature by Rory.
+Netflix: Account → profile → Viewing activity → "Download all" → CSV (Title, Date).
+
+- [ ] Pure CSV parser + episode→show grouping (`netflix-csv.ts`, tsx-tested): 3+ colon
+      segments = series (base = first segment); movies keep full title
+- [ ] `import-history` edge function: batch of titles → TMDB best-match → upsert activity
+      + `user_engagements` (completed, source='import_netflix_csv', never overwrites existing)
+- [ ] Profile page: file picker → parse → batched calls with progress → summary +
+      `recompute_affinities`
+- Value: imported titles are excluded from party candidates ("not-already-seen") and feed affinities (unrated completed counts as 6.5)
 
 ## Non-goals (do not build — handoff §1)
 

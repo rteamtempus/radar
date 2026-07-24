@@ -1,4 +1,21 @@
 <div class="flex min-h-dvh flex-col">
+  <!-- toasts -->
+  <div class="pointer-events-none fixed inset-x-0 top-3 z-30 flex flex-col items-center gap-2 px-4">
+    @for (t of toast.toasts(); track t.id) {
+      <button
+        (click)="toast.dismiss(t.id)"
+        class="pointer-events-auto max-w-sm rounded-2xl border px-4 py-2.5 text-sm font-bold shadow-xl backdrop-blur"
+        [class]="
+          t.kind === 'error'
+            ? 'border-coral/40 bg-coral/15 text-coral'
+            : 'border-green/40 bg-green/15 text-green'
+        "
+      >
+        {{ t.text }}
+      </button>
+    }
+  </div>
+
   <main class="flex-1" [class.pb-20]="auth.user()">
     <router-outlet />
   </main>
