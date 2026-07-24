@@ -22,11 +22,17 @@ export class AuthService {
     supabase.auth.onAuthStateChange((_event, session) => this.session.set(session));
   }
 
-  signInWithMagicLink(email: string) {
-    return getSupabase().auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${location.origin}/auth/callback` },
-    });
+  /**
+   * Password auth (not magic link): PWAs handle the email→app hop badly, and
+   * the free-tier email quota is tiny. Requires "Confirm email" to be OFF in
+   * Supabase (Authentication → Sign In / Up → Email) so no email is ever sent.
+   */
+  signUpWithPassword(email: string, password: string) {
+    return getSupabase().auth.signUp({ email, password });
+  }
+
+  signInWithPassword(email: string, password: string) {
+    return getSupabase().auth.signInWithPassword({ email, password });
   }
 
   signInWithGoogle() {
