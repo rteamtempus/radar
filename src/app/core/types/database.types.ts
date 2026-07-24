@@ -765,6 +765,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           display_name: string
+          friend_code: string | null
           home_location: Json | null
           home_region: string | null
           id: string
@@ -776,6 +777,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name: string
+          friend_code?: string | null
           home_location?: Json | null
           home_region?: string | null
           id: string
@@ -787,6 +789,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name?: string
+          friend_code?: string | null
           home_location?: Json | null
           home_region?: string | null
           id?: string
@@ -1180,8 +1183,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_friend_by_code: { Args: { p_code: string }; Returns: string }
+      is_friend: { Args: { p_user: string }; Returns: boolean }
       is_party_member: { Args: { p_party_id: string }; Returns: boolean }
       join_party: { Args: { p_code: string }; Returns: string }
+      recommend_to_friend: {
+        Args: { p_activity_id: string; p_friend_id: string }
+        Returns: undefined
+      }
       recompute_affinities: { Args: { p_user_id: string }; Returns: undefined }
     }
     Enums: {

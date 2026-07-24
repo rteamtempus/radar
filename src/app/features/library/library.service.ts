@@ -36,6 +36,7 @@ export interface LibraryEntry {
   id: string;
   status: EngagementStatus;
   rating: number | null;
+  is_rewatchable: boolean | null;
   notes: string | null;
   recommended_by: string | null;
   updated_at: string;
@@ -43,7 +44,7 @@ export interface LibraryEntry {
 }
 
 const ENTRY_SELECT =
-  'id, status, rating, notes, recommended_by, updated_at, ' +
+  'id, status, rating, is_rewatchable, notes, recommended_by, updated_at, ' +
   'activity:activities(id, type, title, description, image_url, duration_min, external_id, metadata, ' +
   'activity_tags(tag:tags(slug, label, kind)), ' +
   'activity_availability(service:streaming_services(slug, name)))';
@@ -97,8 +98,23 @@ export class LibraryService {
         { onConflict: 'user_id,activity_id' },
       );
     if (error) throw error;
-    // Slots are "active playlists": finishing a title updates its slots.
-    if (status === 'completed') this.slots.handleCompleted(activityId);
+    // The detail page drives the radar: statuses manage the role slots.
+    const entry = this.entries().find((e) => e.activity.id === activityId);
+    await this.slots.syncStatus(activityId, status, entry?.is_rewatchable ?? false);
+    await this.load();
+  }
+
+  /** "Would watch again" toggle — mirrors into the Rewatch slot. */
+  async setRewatchable(activityId: string, on: boolean): Promise<void> {
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
+    const { error } = await getSupabase()
+      .from('user_engagements')
+      .update({ is_rewatchable: on })
+      .eq('user_id', userId)
+      .eq('activity_id', activityId);
+    if (error) throw error;
+    await this.slots.setRewatch(activityId, on);
     await this.load();
   }
 

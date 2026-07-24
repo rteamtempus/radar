@@ -4,6 +4,7 @@ import { getSupabase } from '../../core/supabase.client';
 import { ToastService } from '../../shared/ui/toast.service';
 
 export type SlotOnComplete = 'remove' | 'loop' | 'keep';
+export type SlotRole = 'watching' | 'up_next' | 'rewatch' | 'recommended';
 
 export interface SlotItemActivity {
   id: string;
@@ -27,20 +28,22 @@ export interface RadarSlot {
   emoji: string | null;
   position: number;
   on_complete: SlotOnComplete;
+  config: { role?: SlotRole };
   items: SlotItem[];
 }
 
 const SLOT_SELECT =
-  'id, name, emoji, position, on_complete, ' +
+  'id, name, emoji, position, on_complete, config, ' +
   'items:radar_slot_items(activity_id, position, note, ' +
   'activity:activities(id, title, image_url, type, duration_min, metadata))';
 
-/** Starter slots created on first visit (ideas doc §2). */
-const DEFAULT_SLOTS: { name: string; emoji: string; on_complete: SlotOnComplete }[] = [
-  { name: 'Watching now', emoji: '📺', on_complete: 'remove' },
-  { name: 'Up next', emoji: '🍿', on_complete: 'remove' },
-  { name: 'Rewatch', emoji: '🔁', on_complete: 'loop' },
-  { name: 'Recommended to me', emoji: '💡', on_complete: 'remove' },
+/** Starter slots created on first visit (ideas doc §2). Roles let the app
+ * find them even after a rename; a deleted role-slot just opts out. */
+const DEFAULT_SLOTS: { name: string; emoji: string; on_complete: SlotOnComplete; role: SlotRole }[] = [
+  { name: 'Watching now', emoji: '📺', on_complete: 'remove', role: 'watching' },
+  { name: 'Up next', emoji: '🍿', on_complete: 'remove', role: 'up_next' },
+  { name: 'Rewatch', emoji: '🔁', on_complete: 'loop', role: 'rewatch' },
+  { name: 'Recommended to me', emoji: '💡', on_complete: 'remove', role: 'recommended' },
 ];
 
 @Injectable({ providedIn: 'root' })
@@ -83,6 +86,7 @@ export class SlotsService {
           emoji: s.emoji,
           on_complete: s.on_complete,
           position: i,
+          config: { role: s.role },
         })),
       );
     await this.load();
@@ -154,6 +158,79 @@ export class SlotsService {
         .eq('activity_id', neighbor.activity_id),
     ]);
     await this.load();
+  }
+
+  /**
+   * Status-driven slots (the detail page drives the radar):
+   *   want_to → Up next · in_progress → Watching now · completed → the
+   *   on_complete behavior (+ Rewatch when marked rewatchable) ·
+   *   abandoned/not_interested → out of the flow slots.
+   * Role slots the user deleted are silently skipped.
+   */
+  async syncStatus(
+    activityId: string,
+    status: string,
+    isRewatchable: boolean,
+  ): Promise<void> {
+    if (!this.loaded) await this.load();
+    switch (status) {
+      case 'want_to':
+        await this.addToRole('up_next', activityId);
+        await this.removeFromRole('watching', activityId);
+        break;
+      case 'in_progress':
+        await this.addToRole('watching', activityId);
+        await this.removeFromRole('up_next', activityId);
+        break;
+      case 'completed':
+        await this.handleCompleted(activityId);
+        if (isRewatchable) await this.addToRole('rewatch', activityId);
+        break;
+      case 'abandoned':
+      case 'not_interested':
+        await this.removeFromRole('watching', activityId);
+        await this.removeFromRole('up_next', activityId);
+        if (status === 'not_interested') {
+          await this.removeFromRole('rewatch', activityId);
+          await this.removeFromRole('recommended', activityId);
+        }
+        break;
+    }
+    await this.load();
+  }
+
+  /** The "Would watch again" toggle ↔ the Rewatch slot. */
+  async setRewatch(activityId: string, on: boolean): Promise<void> {
+    if (!this.loaded) await this.load();
+    if (on) await this.addToRole('rewatch', activityId);
+    else await this.removeFromRole('rewatch', activityId);
+    await this.load();
+  }
+
+  private byRole(role: SlotRole): RadarSlot | undefined {
+    return this.slots().find((s) => s.config?.role === role);
+  }
+
+  private async addToRole(role: SlotRole, activityId: string) {
+    const slot = this.byRole(role);
+    if (!slot || slot.items.some((i) => i.activity_id === activityId)) return;
+    const position = Math.max(-1, ...slot.items.map((i) => i.position)) + 1;
+    await getSupabase()
+      .from('radar_slot_items')
+      .upsert(
+        { slot_id: slot.id, activity_id: activityId, position, added_by: this.auth.user()?.id },
+        { onConflict: 'slot_id,activity_id', ignoreDuplicates: true },
+      );
+  }
+
+  private async removeFromRole(role: SlotRole, activityId: string) {
+    const slot = this.byRole(role);
+    if (!slot) return;
+    await getSupabase()
+      .from('radar_slot_items')
+      .delete()
+      .eq('slot_id', slot.id)
+      .eq('activity_id', activityId);
   }
 
   /**

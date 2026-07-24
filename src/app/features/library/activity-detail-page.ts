@@ -14,6 +14,7 @@ import {
 type ActivityDetail = ActivitySummary;
 
 import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
+import { FriendProfile, FriendsService } from '../friends/friends.service';
 
 @Component({
   selector: 'pp-activity-detail-page',
@@ -81,11 +82,11 @@ import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
 
           <div>
             <h2 class="mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">My status</h2>
-            <div class="flex gap-2">
+            <div class="grid grid-cols-3 gap-2">
               @for (s of statusOptions; track s.key) {
                 <button
                   (click)="setStatus(s.key)"
-                  class="flex-1 rounded-2xl border py-2.5 text-sm font-bold"
+                  class="rounded-2xl border py-2.5 text-sm font-bold"
                   [class]="
                     status() === s.key
                       ? 'border-coral bg-coral/15 text-coral'
@@ -96,6 +97,9 @@ import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
                 </button>
               }
             </div>
+            <p class="mt-1.5 text-[11px] text-muted">
+              Want to → Up next · Watching → Watching now · statuses drive your slots.
+            </p>
             @if (status() === 'completed') {
               <div class="mt-3 flex items-center gap-3">
                 <pp-star-rating [rating]="rating()" (rated)="rate($event)" />
@@ -103,8 +107,45 @@ import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
                   <span class="text-sm font-bold text-gold">{{ r }}/10</span>
                 }
               </div>
+              <button
+                (click)="toggleRewatch()"
+                class="mt-3 flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left text-sm font-bold"
+                [class]="
+                  isRewatchable() ? 'border-violet bg-violet/10 text-violet' : 'border-line text-muted-2'
+                "
+              >
+                <span class="text-lg">🔁</span>
+                Would watch again
+                @if (isRewatchable()) {
+                  <span class="ml-auto">✓ in your Rewatch slot</span>
+                }
+              </button>
             }
           </div>
+
+          @if (friends.friends().length) {
+            <div>
+              <h2 class="mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">
+                Recommend to a friend
+              </h2>
+              <div class="flex flex-wrap gap-2">
+                @for (f of friends.friends(); track f.id) {
+                  <button
+                    (click)="recommend(f)"
+                    [disabled]="recommendedTo().has(f.id)"
+                    class="rounded-full border-2 px-3.5 py-2 text-sm font-bold"
+                    [class]="
+                      recommendedTo().has(f.id)
+                        ? 'border-green bg-green/10 text-green'
+                        : 'border-line text-muted-2'
+                    "
+                  >
+                    {{ recommendedTo().has(f.id) ? '✓ Sent to ' + f.display_name : '🎁 ' + f.display_name }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
 
           <div>
             <h2 class="mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">My card</h2>
@@ -142,6 +183,28 @@ import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
 export class ActivityDetailPage {
   private lib = inject(LibraryService);
   private toast = inject(ToastService);
+  protected readonly friends = inject(FriendsService);
+
+  protected readonly recommendedTo = signal<ReadonlySet<string>>(new Set());
+
+  protected readonly isRewatchable = computed(
+    () => this.lib.entries().find((e) => e.activity.id === this.id())?.is_rewatchable ?? false,
+  );
+
+  protected async toggleRewatch() {
+    try {
+      await this.lib.setRewatchable(this.id(), !this.isRewatchable());
+    } catch {
+      this.toast.error('Could not update — try again.');
+    }
+  }
+
+  protected async recommend(friend: FriendProfile) {
+    if (await this.friends.recommend(friend.id, this.id())) {
+      this.recommendedTo.update((s) => new Set([...s, friend.id]));
+      this.toast.success(`Recommended to ${friend.display_name} ✓`);
+    }
+  }
 
   /** Route param (withComponentInputBinding). */
   readonly id = input.required<string>();
@@ -180,6 +243,8 @@ export class ActivityDetailPage {
     { key: 'want_to' as EngagementStatus, label: 'Want to' },
     { key: 'in_progress' as EngagementStatus, label: 'Watching' },
     { key: 'completed' as EngagementStatus, label: 'Done' },
+    { key: 'abandoned' as EngagementStatus, label: 'Stopped' },
+    { key: 'not_interested' as EngagementStatus, label: 'Not for me' },
   ];
 
   protected readonly status = computed(
@@ -199,6 +264,7 @@ export class ActivityDetailPage {
 
   constructor() {
     if (this.lib.entries().length === 0) this.lib.load();
+    this.friends.load();
     queueMicrotask(() => this.fetch());
   }
 

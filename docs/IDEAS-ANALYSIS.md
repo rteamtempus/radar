@@ -218,8 +218,12 @@ all slot underneath the Radar-home/slots layer.
 
 1. ✅ **Phase A — cards + quick wins** (2026-07-24): migration 0006 (notes + recommended-by, on the detail page's "My card"), runtime/genre filter chips, 60-day stale-show nudge, explicit love/avoid taste chips in You (source='explicit' affinities), async-party lobby copy.
 2. ✅ **Phase B — Slots + Radar home** (2026-07-24): migration 0007; `SlotsService` + `/radar` home (new default route + nav item). Starter slots seeded on first visit (Watching now / Up next / Rewatch 🔁 / Recommended to me); per-slot inline search-to-add, ▲▼ reorder, two-tap delete, custom slots with loop mode. Completing a title auto-removes it from 'remove' slots and cycles it to the back of 'loop' slots. Library tabs kept as the status/history view underneath (rather than replaced — revisit with real usage). RLS verified owner-only.
-3. **Phase C — Sharing** (0008 groups) + new-episode tracking + quick-add endpoint/Shortcut.
-4. **Phase D — AI slots**, then the first non-media vertical (restaurants) when ready to spend on Places.
+3. ✅ **Nav restructure + status-driven slots + Friends** (2026-07-24, Rory-directed):
+   - Library tab removed — Radar is home (global search + stale/outcome pulses moved there); Done list lives as **History** in You (editable ratings).
+   - Detail-page statuses now DRIVE the role slots (want_to→Up next, watching→Watching now, done→on_complete behavior, stopped/not-for-me→out), plus a "Would watch again" toggle ↔ the Rewatch slot. Role slots found via `config.role`, so renames are safe and deletions opt out.
+   - **Friends** (migration 0008): friend codes on profiles (instant mutual add via `add_friend_by_code`), name search → request → accept, friends tab in the nav, friend profile pages (their slots, their friends-visible watch history, parties together — RLS-scoped to shared parties), and 🎁 recommend-to-friend on the detail page (`recommend_to_friend` RPC drops into their Recommended slot + stamps their card). Friend-visibility policies verified: friends read, outsiders get zero rows.
+4. **Phase C (remaining) — group/family radars** (groups tables + shared slots) + new-episode tracking + quick-add endpoint/Shortcut.
+5. **Phase D — AI slots**, then the first non-media vertical (restaurants) when ready to spend on Places.
 
 ## 10. Open questions for Rory + friend
 

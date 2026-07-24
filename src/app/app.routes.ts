@@ -21,16 +21,25 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/onboarding/onboarding-page').then((m) => m.OnboardingPage),
   },
-  {
-    path: 'library',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/library/library-page').then((m) => m.LibraryPage),
-  },
+  // Library-as-a-page is gone (Radar is home, history lives in You) — the
+  // /library/:id detail route survives because links point there.
+  { path: 'library', pathMatch: 'full', redirectTo: 'radar' },
   {
     path: 'library/:id',
     canActivate: [authGuard],
     loadComponent: () =>
       import('./features/library/activity-detail-page').then((m) => m.ActivityDetailPage),
+  },
+  {
+    path: 'friends',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/friends/friends-page').then((m) => m.FriendsPage),
+  },
+  {
+    path: 'friends/:id',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/friends/friend-profile-page').then((m) => m.FriendProfilePage),
   },
   {
     path: 'party',

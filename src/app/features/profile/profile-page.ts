@@ -1,9 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { SubscriptionsService } from '../../core/subscriptions.service';
+import { LibraryEntry, LibraryService } from '../library/library.service';
 import { ServiceBadges } from '../../shared/ui/service-badges';
+import { StarRating } from '../../shared/ui/star-rating';
 import { ToastService } from '../../shared/ui/toast.service';
 import { ImportService } from './import.service';
 import { HistoryItem, parseNetflixHistory } from './netflix-csv';
@@ -11,7 +13,7 @@ import { TasteService } from './taste.service';
 
 @Component({
   selector: 'pp-profile-page',
-  imports: [FormsModule, ServiceBadges],
+  imports: [FormsModule, RouterLink, ServiceBadges, StarRating],
   template: `
     <div class="mx-auto flex max-w-md flex-col gap-6 px-5 py-6">
       <h1 class="font-display text-3xl font-semibold">You</h1>
@@ -52,6 +54,38 @@ import { TasteService } from './taste.service';
             </button>
           }
         </div>
+      </div>
+
+      <div class="rounded-2xl border border-line bg-surface p-5">
+        <p class="text-xs font-bold tracking-wide text-muted uppercase">History</p>
+        @if (!history().length) {
+          <p class="mt-2 text-xs text-muted-2">Nothing finished yet — your watches land here.</p>
+        }
+        <div class="mt-3 flex flex-col gap-2.5">
+          @for (e of history(); track e.id) {
+            <div class="flex items-center gap-3">
+              <a [routerLink]="['/library', e.activity.id]" class="flex min-w-0 flex-1 items-center gap-3">
+                @if (e.activity.image_url) {
+                  <img [src]="e.activity.image_url" alt="" class="h-14 w-10 flex-none rounded-lg object-cover" />
+                } @else {
+                  <div class="h-14 w-10 flex-none rounded-lg bg-surface-2"></div>
+                }
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-bold">{{ e.activity.title }}</p>
+                  @if (e.recommended_by) {
+                    <p class="truncate text-[11px] text-muted">via {{ e.recommended_by }}</p>
+                  }
+                </div>
+              </a>
+              <pp-star-rating class="flex-none" [rating]="e.rating" (rated)="rate(e, $event)" />
+            </div>
+          }
+        </div>
+        @if (history().length >= historyLimit()) {
+          <button (click)="historyLimit.set(historyLimit() + 20)" class="mt-3 w-full text-center text-xs font-bold text-muted-2">
+            Show more
+          </button>
+        }
       </div>
 
       <div class="rounded-2xl border border-line bg-surface p-5">
@@ -161,8 +195,25 @@ export class ProfilePage {
   protected readonly subs = inject(SubscriptionsService);
   protected readonly importer = inject(ImportService);
   protected readonly taste = inject(TasteService);
+  private readonly lib = inject(LibraryService);
   private toast = inject(ToastService);
   private router = inject(Router);
+
+  protected readonly historyLimit = signal(20);
+  protected readonly history = computed(() =>
+    this.lib
+      .entries()
+      .filter((e) => e.status === 'completed')
+      .slice(0, this.historyLimit()),
+  );
+
+  protected async rate(entry: LibraryEntry, rating: number) {
+    try {
+      await this.lib.rate(entry.activity.id, rating);
+    } catch {
+      this.toast.error('Could not save your rating — try again.');
+    }
+  }
 
   protected name = '';
   protected readonly saved = signal(false);
@@ -212,6 +263,7 @@ export class ProfilePage {
   constructor() {
     this.subs.load();
     this.taste.load();
+    this.lib.load();
     this.auth.getOrCreateProfile().then((p) => {
       if (p && !this.name) this.name = p.display_name;
     });

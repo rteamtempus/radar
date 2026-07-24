@@ -1,8 +1,9 @@
-import { Component, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ToastService } from '../../shared/ui/toast.service';
-import { ActivitySummary, LibraryService } from '../library/library.service';
+import { ActivitySummary, LibraryEntry, LibraryService } from '../library/library.service';
+import { PartyService } from '../party/party.service';
 import { RadarSlot, SlotItem, SlotsService } from './slots.service';
 
 /**
@@ -17,6 +18,103 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
     <div class="mx-auto max-w-md px-5 py-6">
       <h1 class="font-display text-3xl font-semibold">Radar</h1>
       <p class="mt-1 text-sm text-muted-2">Your personal TV guide — queues with a pulse.</p>
+
+      <input
+        type="search"
+        placeholder="Search movies & shows…"
+        [ngModel]="query()"
+        (ngModelChange)="onQuery($event)"
+        class="mt-4 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-cream placeholder:text-muted focus:border-coral focus:outline-none"
+      />
+
+      @if (query().trim().length >= 2) {
+        @if (searching()) {
+          <p class="mt-4 text-center text-sm font-bold text-muted-2">Searching…</p>
+        } @else if (!results().length) {
+          <p class="mt-4 text-center text-sm font-bold text-muted-2">Nothing found for “{{ query() }}”</p>
+        }
+        <div class="mt-3 flex flex-col gap-2">
+          @for (r of results(); track r.id) {
+            <div class="flex items-center gap-3 rounded-2xl border border-line bg-surface p-2.5">
+              <a [routerLink]="['/library', r.id]" class="flex min-w-0 flex-1 items-center gap-3">
+                @if (r.image_url) {
+                  <img [src]="r.image_url" alt="" class="h-16 w-11 flex-none rounded-lg object-cover" />
+                } @else {
+                  <div class="h-16 w-11 flex-none rounded-lg bg-surface-2"></div>
+                }
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-bold">{{ r.title }}</p>
+                  <p class="text-xs text-muted">
+                    {{ r.metadata.release_year }} · {{ r.type === 'movie' ? 'Movie' : 'Series' }}
+                  </p>
+                </div>
+              </a>
+              @if (statusOf(r.id)) {
+                <span class="flex-none rounded-full border border-green px-3 py-1.5 text-xs font-bold text-green">✓</span>
+              } @else {
+                <button
+                  (click)="quickAdd(r)"
+                  class="flex-none rounded-full border border-green px-3 py-1.5 text-xs font-bold text-green"
+                >
+                  ＋ Want to
+                </button>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      <!-- stale-show nudge -->
+      @if (staleEntry(); as stale) {
+        <div class="mt-4 flex items-center gap-3.5 rounded-3xl border border-gold/40 bg-gold/10 p-4">
+          @if (stale.activity.image_url) {
+            <img [src]="stale.activity.image_url" alt="" class="h-16 w-11 rounded-lg object-cover" />
+          }
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-bold">Still watching {{ stale.activity.title }}?</p>
+            <p class="text-xs text-muted-2">It's been a couple of months.</p>
+            <div class="mt-2 flex gap-2">
+              <button (click)="keepStale(stale)" class="rounded-full bg-gold px-3 py-1.5 text-xs font-bold text-ink">
+                Keep it
+              </button>
+              <button (click)="dropStale(stale)" class="rounded-full border border-line px-3 py-1.5 text-xs font-bold text-muted-2">
+                Off the radar
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- morning-after outcome pulse -->
+      @if (outcome(); as o) {
+        <div class="relative mt-4 rounded-3xl border border-line bg-surface p-5 shadow-xl">
+          <button (click)="outcome.set(null)" class="absolute top-3 right-3 text-sm font-bold text-muted" aria-label="Dismiss">✕</button>
+          <div class="flex items-center gap-3.5">
+            @if (o.activity?.image_url) {
+              <img [src]="o.activity?.image_url" alt="" class="h-20 w-14 rounded-xl object-cover" />
+            }
+            <div>
+              <p class="text-xs text-muted">Last night you watched</p>
+              <p class="font-display text-xl font-bold">How was {{ o.activity?.title ?? 'it' }}?</p>
+            </div>
+          </div>
+          <div class="mt-3 flex justify-between px-2">
+            @for (n of [1, 2, 3, 4, 5]; track n) {
+              <button
+                (click)="rateOutcome(o.partyId, n)"
+                class="text-3xl"
+                [class]="n <= outcomeStars() ? 'text-gold' : 'text-surface-2'"
+                (mouseenter)="outcomeStars.set(n)"
+              >
+                ★
+              </button>
+            }
+          </div>
+          <button (click)="bailedOutcome(o.partyId)" class="mt-3 w-full text-center text-sm font-bold text-muted">
+            😴 We bailed halfway
+          </button>
+        </div>
+      }
 
       @if (slots.loading() && !slots.slots().length) {
         <div class="mt-5 flex flex-col gap-3">
@@ -167,6 +265,7 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
 export class RadarPage implements OnDestroy {
   protected readonly slots = inject(SlotsService);
   private readonly lib = inject(LibraryService);
+  private readonly partyService = inject(PartyService);
   private readonly toast = inject(ToastService);
 
   protected newName = '';
@@ -180,12 +279,100 @@ export class RadarPage implements OnDestroy {
   protected readonly deletingSlot = signal<string | null>(null);
   private debounce: ReturnType<typeof setTimeout> | undefined;
 
+  // global search
+  protected readonly query = signal('');
+  protected readonly results = signal<ActivitySummary[]>([]);
+  protected readonly searching = signal(false);
+  private searchDebounce: ReturnType<typeof setTimeout> | undefined;
+
+  // pulses
+  private readonly dismissedStale = signal<ReadonlySet<string>>(new Set());
+  protected readonly outcome = signal<{
+    partyId: string;
+    activity: { title: string; image_url: string | null } | null;
+  } | null>(null);
+  protected readonly outcomeStars = signal(0);
+
+  protected readonly staleEntry = computed(() => {
+    const cutoff = Date.now() - 60 * 24 * 60 * 60 * 1000;
+    return this.lib
+      .entries()
+      .filter(
+        (e) =>
+          e.status === 'in_progress' &&
+          !this.dismissedStale().has(e.id) &&
+          new Date(e.updated_at).getTime() < cutoff,
+      )
+      .sort((a, b) => a.updated_at.localeCompare(b.updated_at))[0];
+  });
+
   constructor() {
     this.slots.ensureDefaults();
+    this.lib.load();
+    this.partyService.pendingOutcome().then((o) => this.outcome.set(o));
   }
 
   ngOnDestroy() {
     clearTimeout(this.debounce);
+    clearTimeout(this.searchDebounce);
+  }
+
+  protected statusOf(activityId: string): boolean {
+    return this.lib.entries().some((e) => e.activity.id === activityId);
+  }
+
+  protected onQuery(q: string) {
+    this.query.set(q);
+    clearTimeout(this.searchDebounce);
+    const trimmed = q.trim();
+    if (trimmed.length < 2) return;
+    this.searching.set(true);
+    this.searchDebounce = setTimeout(async () => {
+      try {
+        const results = await this.lib.search(trimmed);
+        if (this.query().trim() === trimmed) this.results.set(results);
+      } catch {
+        this.toast.error('Search failed — check your connection.');
+      } finally {
+        this.searching.set(false);
+      }
+    }, 350);
+  }
+
+  protected async quickAdd(result: ActivitySummary) {
+    try {
+      await this.lib.setStatus(result.id, 'want_to'); // syncs into Up next
+      this.lib.hydrate(result);
+      this.toast.success(`${result.title} → Up next ✓`);
+    } catch {
+      this.toast.error(`Couldn't add “${result.title}” — try again.`);
+    }
+  }
+
+  protected async keepStale(entry: LibraryEntry) {
+    this.dismissedStale.update((s) => new Set([...s, entry.id]));
+    await this.lib.touch(entry.activity.id);
+  }
+
+  protected async dropStale(entry: LibraryEntry) {
+    this.dismissedStale.update((s) => new Set([...s, entry.id]));
+    try {
+      await this.lib.setStatus(entry.activity.id, 'abandoned');
+      this.toast.success(`${entry.activity.title} is off the radar.`);
+    } catch {
+      this.toast.error('Could not update — try again.');
+    }
+  }
+
+  protected async rateOutcome(partyId: string, rating: number) {
+    this.outcomeStars.set(rating);
+    await this.partyService.recordOutcome(partyId, { rating });
+    this.outcome.set(null);
+  }
+
+  protected async bailedOutcome(partyId: string) {
+    await this.partyService.recordOutcome(partyId, { bailed: true });
+    this.outcome.set(null);
   }
 
   protected sorted(slot: RadarSlot): SlotItem[] {
