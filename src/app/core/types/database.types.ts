@@ -928,7 +928,10 @@ export type Database = {
           context: Json
           id: string
           is_rewatchable: boolean | null
+          notes: string | null
           rating: number | null
+          recommended_by: string | null
+          recommended_by_user_id: string | null
           review: string | null
           source: string
           started_at: string | null
@@ -943,7 +946,10 @@ export type Database = {
           context?: Json
           id?: string
           is_rewatchable?: boolean | null
+          notes?: string | null
           rating?: number | null
+          recommended_by?: string | null
+          recommended_by_user_id?: string | null
           review?: string | null
           source?: string
           started_at?: string | null
@@ -958,7 +964,10 @@ export type Database = {
           context?: Json
           id?: string
           is_rewatchable?: boolean | null
+          notes?: string | null
           rating?: number | null
+          recommended_by?: string | null
+          recommended_by_user_id?: string | null
           review?: string | null
           source?: string
           started_at?: string | null
@@ -973,6 +982,13 @@ export type Database = {
             columns: ["activity_id"]
             isOneToOne: false
             referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_engagements_recommended_by_user_id_fkey"
+            columns: ["recommended_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {

@@ -41,6 +41,9 @@ import { SwipeDeck } from './swipe-deck';
               >
                 {{ copied() ? '✓ Link copied' : '⧉ Copy invite link' }}
               </button>
+              <p class="mt-3 text-xs text-muted">
+                No rush — people can join and swipe whenever. Text the link and check back.
+              </p>
             </div>
 
             <div class="mt-6 flex flex-col gap-2.5">

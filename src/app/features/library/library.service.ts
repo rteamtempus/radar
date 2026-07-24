@@ -28,18 +28,23 @@ export interface ActivitySummary {
     seasons?: number | null;
   };
   activity_availability?: { service: ServiceRef }[];
+  activity_tags?: { tag: { slug: string; label: string; kind: string } }[];
 }
 
 export interface LibraryEntry {
   id: string;
   status: EngagementStatus;
   rating: number | null;
+  notes: string | null;
+  recommended_by: string | null;
+  updated_at: string;
   activity: ActivitySummary;
 }
 
 const ENTRY_SELECT =
-  'id, status, rating, ' +
+  'id, status, rating, notes, recommended_by, updated_at, ' +
   'activity:activities(id, type, title, description, image_url, duration_min, external_id, metadata, ' +
+  'activity_tags(tag:tags(slug, label, kind)), ' +
   'activity_availability(service:streaming_services(slug, name)))';
 
 @Injectable({ providedIn: 'root' })
@@ -90,6 +95,32 @@ export class LibraryService {
         { onConflict: 'user_id,activity_id' },
       );
     if (error) throw error;
+    await this.load();
+  }
+
+  /** Save the item-card extras: personal notes + "recommended by". */
+  async updateMeta(
+    activityId: string,
+    fields: { notes?: string | null; recommended_by?: string | null },
+  ): Promise<void> {
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
+    const { error } = await getSupabase()
+      .from('user_engagements')
+      .upsert({ user_id: userId, activity_id: activityId, ...fields }, { onConflict: 'user_id,activity_id' });
+    if (error) throw error;
+    await this.load();
+  }
+
+  /** "Keep it on the radar" — bump updated_at so the stale nudge resets. */
+  async touch(activityId: string): Promise<void> {
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
+    await getSupabase()
+      .from('user_engagements')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('activity_id', activityId);
     await this.load();
   }
 

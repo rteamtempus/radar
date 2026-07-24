@@ -7,6 +7,7 @@ import { ServiceBadges } from '../../shared/ui/service-badges';
 import { ToastService } from '../../shared/ui/toast.service';
 import { ImportService } from './import.service';
 import { HistoryItem, parseNetflixHistory } from './netflix-csv';
+import { TasteService } from './taste.service';
 
 @Component({
   selector: 'pp-profile-page',
@@ -48,6 +49,36 @@ import { HistoryItem, parseNetflixHistory } from './netflix-csv';
             >
               <pp-service-badges [services]="[s]" />
               <span class="min-w-0 flex-1 truncate text-xs font-bold">{{ s.name }}</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-line bg-surface p-5">
+        <p class="text-xs font-bold tracking-wide text-muted uppercase">My taste</p>
+        <p class="mt-2 text-xs text-muted-2">
+          Tap to cycle: neutral → <span class="text-green">love</span> →
+          <span class="text-coral">avoid</span>. Parties use this immediately.
+        </p>
+        <div class="mt-3 flex flex-wrap gap-2">
+          @for (t of taste.tags(); track t.id) {
+            <button
+              (click)="taste.cycle(t)"
+              class="rounded-full border-2 px-3.5 py-1.5 text-xs font-bold"
+              [class]="
+                t.state === 'love'
+                  ? 'border-green bg-green/15 text-green'
+                  : t.state === 'avoid'
+                    ? 'border-coral bg-coral/15 text-coral line-through'
+                    : 'border-line text-muted-2'
+              "
+            >
+              @if (t.state === 'love') {
+                ♥
+              } @else if (t.state === 'avoid') {
+                🚫
+              }
+              {{ t.label }}
             </button>
           }
         </div>
@@ -129,6 +160,7 @@ export class ProfilePage {
   protected readonly auth = inject(AuthService);
   protected readonly subs = inject(SubscriptionsService);
   protected readonly importer = inject(ImportService);
+  protected readonly taste = inject(TasteService);
   private toast = inject(ToastService);
   private router = inject(Router);
 
@@ -179,6 +211,7 @@ export class ProfilePage {
 
   constructor() {
     this.subs.load();
+    this.taste.load();
     this.auth.getOrCreateProfile().then((p) => {
       if (p && !this.name) this.name = p.display_name;
     });

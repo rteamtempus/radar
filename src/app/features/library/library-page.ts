@@ -22,6 +22,33 @@ type LibraryTab = 'in_progress' | 'want_to' | 'completed';
     <div class="mx-auto max-w-md px-5 py-6">
       <h1 class="font-display text-3xl font-semibold">My Library</h1>
 
+      <!-- stale-show nudge: watching, but untouched for 60+ days -->
+      @if (staleEntry(); as stale) {
+        <div class="mt-4 flex items-center gap-3.5 rounded-3xl border border-gold/40 bg-gold/10 p-4">
+          @if (stale.activity.image_url) {
+            <img [src]="stale.activity.image_url" alt="" class="h-16 w-11 rounded-lg object-cover" />
+          }
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-bold">Still watching {{ stale.activity.title }}?</p>
+            <p class="text-xs text-muted-2">It's been a couple of months.</p>
+            <div class="mt-2 flex gap-2">
+              <button
+                (click)="keepStale(stale)"
+                class="rounded-full bg-gold px-3 py-1.5 text-xs font-bold text-ink"
+              >
+                Keep it
+              </button>
+              <button
+                (click)="dropStale(stale)"
+                class="rounded-full border border-line px-3 py-1.5 text-xs font-bold text-muted-2"
+              >
+                Off the radar
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- morning-after outcome pulse (handoff §6.3 step 7) -->
       @if (outcome(); as o) {
         <div class="relative mt-4 rounded-3xl border border-line bg-surface p-5 shadow-xl">
@@ -136,6 +163,28 @@ type LibraryTab = 'in_progress' | 'want_to' | 'completed';
           }
         </div>
 
+        <!-- how-much-time / mood filters -->
+        <div class="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
+          @for (r of runtimeChips; track r.label) {
+            <button
+              (click)="runtimeFilter.set(runtimeFilter() === r.value ? null : r.value)"
+              class="flex-none rounded-full border px-3.5 py-1.5 text-xs font-bold"
+              [class]="runtimeFilter() === r.value ? 'border-gold bg-gold/15 text-gold' : 'border-line text-muted-2'"
+            >
+              {{ r.label }}
+            </button>
+          }
+          @for (g of genreChips(); track g.slug) {
+            <button
+              (click)="genreFilter.set(genreFilter() === g.slug ? null : g.slug)"
+              class="flex-none rounded-full border px-3.5 py-1.5 text-xs font-bold"
+              [class]="genreFilter() === g.slug ? 'border-coral bg-coral/15 text-coral' : 'border-line text-muted-2'"
+            >
+              {{ g.label }}
+            </button>
+          }
+        </div>
+
         @if (lib.loading() && lib.entries().length === 0) {
           <!-- loading skeletons -->
           <div class="mt-4 flex flex-col gap-3">
@@ -238,9 +287,56 @@ export class LibraryPage implements OnDestroy {
   protected readonly searching = signal(false);
   private debounce: ReturnType<typeof setTimeout> | undefined;
 
+  protected readonly runtimeChips = [
+    { label: '⏱ < 90m', value: 90 },
+    { label: '⏱ < 2h', value: 120 },
+    { label: '⏱ < 3h', value: 180 },
+  ];
+  protected readonly runtimeFilter = signal<number | null>(null);
+  protected readonly genreFilter = signal<string | null>(null);
+  private readonly dismissedStale = signal<ReadonlySet<string>>(new Set());
+
   protected readonly tabEntries = computed(() =>
-    this.lib.entries().filter((e) => e.status === this.tab()),
+    this.lib
+      .entries()
+      .filter((e) => e.status === this.tab())
+      .filter((e) => {
+        const cap = this.runtimeFilter();
+        // missing runtime = pass (same rule as the party pipeline)
+        if (cap && e.activity.duration_min && e.activity.duration_min > cap) return false;
+        const genre = this.genreFilter();
+        if (genre && !(e.activity.activity_tags ?? []).some((t) => t.tag.slug === genre)) {
+          return false;
+        }
+        return true;
+      }),
   );
+
+  /** Genres present in the current tab — the chip row derives from real data. */
+  protected readonly genreChips = computed(() => {
+    const seen = new Map<string, string>();
+    for (const e of this.lib.entries()) {
+      if (e.status !== this.tab()) continue;
+      for (const t of e.activity.activity_tags ?? []) {
+        if (t.tag.kind === 'genre') seen.set(t.tag.slug, t.tag.label);
+      }
+    }
+    return [...seen].map(([slug, label]) => ({ slug, label })).sort((a, b) => a.label.localeCompare(b.label));
+  });
+
+  /** Oldest in_progress title untouched for 60+ days (one nudge at a time). */
+  protected readonly staleEntry = computed(() => {
+    const cutoff = Date.now() - 60 * 24 * 60 * 60 * 1000;
+    return this.lib
+      .entries()
+      .filter(
+        (e) =>
+          e.status === 'in_progress' &&
+          !this.dismissedStale().has(e.id) &&
+          new Date(e.updated_at).getTime() < cutoff,
+      )
+      .sort((a, b) => a.updated_at.localeCompare(b.updated_at))[0];
+  });
 
   constructor() {
     this.lib.load();
@@ -312,6 +408,21 @@ export class LibraryPage implements OnDestroy {
       await this.lib.rate(entry.activity.id, rating);
     } catch {
       this.toast.error('Could not save your rating — try again.');
+    }
+  }
+
+  protected async keepStale(entry: LibraryEntry) {
+    this.dismissedStale.update((s) => new Set([...s, entry.id]));
+    await this.lib.touch(entry.activity.id);
+  }
+
+  protected async dropStale(entry: LibraryEntry) {
+    this.dismissedStale.update((s) => new Set([...s, entry.id]));
+    try {
+      await this.lib.setStatus(entry.activity.id, 'abandoned');
+      this.toast.success(`${entry.activity.title} is off the radar.`);
+    } catch {
+      this.toast.error('Could not update — try again.');
     }
   }
 

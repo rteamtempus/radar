@@ -1,7 +1,9 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { getSupabase } from '../../core/supabase.client';
 import { ServiceBadges } from '../../shared/ui/service-badges';
 import { StarRating } from '../../shared/ui/star-rating';
+import { ToastService } from '../../shared/ui/toast.service';
 import {
   ActivitySummary,
   EngagementStatus,
@@ -9,15 +11,13 @@ import {
   ServiceRef,
 } from './library.service';
 
-interface ActivityDetail extends ActivitySummary {
-  activity_tags?: { tag: { label: string; kind: string } }[];
-}
+type ActivityDetail = ActivitySummary;
 
 import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
 
 @Component({
   selector: 'pp-activity-detail-page',
-  imports: [ServiceBadges, StarRating],
+  imports: [FormsModule, ServiceBadges, StarRating],
   template: `
     @if (activity(); as a) {
       <div class="mx-auto max-w-md pb-8">
@@ -105,6 +105,31 @@ import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
               </div>
             }
           </div>
+
+          <div>
+            <h2 class="mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">My card</h2>
+            <input
+              type="text"
+              maxlength="60"
+              placeholder="Recommended by… (e.g. Dave)"
+              [(ngModel)]="recommendedBy"
+              class="w-full rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-cream placeholder:text-muted focus:border-coral focus:outline-none"
+            />
+            <textarea
+              rows="3"
+              maxlength="500"
+              placeholder="Notes to self — why it's on your radar, what episode you're on…"
+              [(ngModel)]="notes"
+              class="mt-2.5 w-full resize-none rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-cream placeholder:text-muted focus:border-coral focus:outline-none"
+            ></textarea>
+            <button
+              (click)="saveMeta()"
+              [disabled]="metaSaved()"
+              class="mt-2 rounded-xl bg-coral px-4 py-2.5 text-sm font-bold text-ink disabled:opacity-60"
+            >
+              {{ metaSaved() ? '✓ Saved' : 'Save card' }}
+            </button>
+          </div>
         </div>
       </div>
     } @else {
@@ -116,9 +141,37 @@ import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
 })
 export class ActivityDetailPage {
   private lib = inject(LibraryService);
+  private toast = inject(ToastService);
 
   /** Route param (withComponentInputBinding). */
   readonly id = input.required<string>();
+
+  protected notes = '';
+  protected recommendedBy = '';
+  protected readonly metaSaved = signal(false);
+  private metaPrefilled = false;
+
+  private readonly prefillMeta = effect(() => {
+    const entry = this.lib.entries().find((e) => e.activity.id === this.id());
+    if (entry && !this.metaPrefilled) {
+      this.metaPrefilled = true;
+      this.notes = entry.notes ?? '';
+      this.recommendedBy = entry.recommended_by ?? '';
+    }
+  });
+
+  protected async saveMeta() {
+    try {
+      await this.lib.updateMeta(this.id(), {
+        notes: this.notes.trim() || null,
+        recommended_by: this.recommendedBy.trim() || null,
+      });
+      this.metaSaved.set(true);
+      setTimeout(() => this.metaSaved.set(false), 1500);
+    } catch {
+      this.toast.error('Could not save — try again.');
+    }
+  }
 
   protected readonly activity = signal<ActivityDetail | null>(null);
   protected readonly checkingAvailability = signal(true);
@@ -166,7 +219,7 @@ export class ActivityDetailPage {
       .select(
         'id, type, title, description, image_url, duration_min, external_id, metadata, ' +
           'activity_availability(service:streaming_services(slug, name)), ' +
-          'activity_tags(tag:tags(label, kind))',
+          'activity_tags(tag:tags(slug, label, kind))',
       )
       .eq('id', this.id())
       .single();
