@@ -77,13 +77,17 @@ production). Free tier allows two projects; create a fresh one for radar.
 - [x] Display-name step (pre-filled) on first login; `profiles.settings.onboarded` routes first-timers to /onboarding
 - [x] Affinity formula verified against live DB: loved(9)→+0.778, never→−0.778 per genre tag
 
-## Milestone 5 — Party: create / join / lobby / mood
+## Milestone 5 — Party: create / join / lobby / mood ✅ (2026-07-24)
 
-- [ ] Create party: runtime chips, movie/show/either, streamable-by-all toggle, 6-char code (no 0/O/1/I)
-- [ ] Join by code (`join_party` RPC) + `/party/join?code=XXXXXX` link
-- [ ] Realtime channel `party:{id}`: Postgres Changes on party tables + presence
-- [ ] Lobby: big copyable code, live avatar list, host-only advance button
-- [ ] Mood check-in: energy slider + ≤3 vibe chips + free text; waiting UI; host force-continue
+- [x] Create party: type chips (movie/show/either), runtime chips, streamable-by-all toggle, 6-char code (unambiguous alphabet), decision_config defaults; "jump back in" list of my active parties
+- [x] Join by code (`join_party` RPC) + `/party/join?code=XXXXXX` deeplink (auto-joins)
+- [x] Migration 0004: party tables added to the `supabase_realtime` publication
+- [x] `PartyService`: realtime channel `party:{id}` with Postgres Changes on parties/members/checkins; signals for party, roster, ready state (presence indicators deferred — not needed for POC)
+- [x] Lobby: big copyable code + invite link, live roster with ✓ ready, host-only "Generate suggestions" (calls the edge function — returns 501 until milestone 6; host can force-continue before everyone checks in)
+- [x] Mood check-in: energy slider + ≤3 vibe chips + free text; checked-in waiting state
+- [x] Behavioral RLS verified: host self-insert, code join, cross-member visibility, zero rows for non-members (test parties TESTP2/TESTP3 under pp-test accounts)
+- Note: `is_party_member()` is `stable`, so RETURNING a freshly-inserted member row in the same
+  statement fails RLS — never use `.select()` on the member self-insert (app code doesn't).
 
 ## Milestone 6 — Candidate pipeline
 
