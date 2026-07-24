@@ -97,6 +97,34 @@ export function canonicalProviderId(id: number): number {
   return PROVIDER_ALIASES[id] ?? id;
 }
 
+/** /discover page for the pipeline pool. `withProviders` are TMDB provider ids OR'd together. */
+export function tmdbDiscover(
+  kind: TmdbKind,
+  opts: { withProviders: number[]; page?: number; withGenreId?: number },
+): Promise<{ results: TmdbListItem[] }> {
+  return tmdbFetch<{ results: TmdbListItem[] }>(`/discover/${kind}`, {
+    with_watch_providers: opts.withProviders.join('|'),
+    watch_region: 'US',
+    sort_by: 'popularity.desc',
+    include_adult: 'false',
+    page: opts.page ?? 1,
+    with_genres: opts.withGenreId,
+  });
+}
+
+/** Fetch watch/providers for one title and replace its availability rows. */
+export async function refreshAvailability(
+  service: SupabaseClient,
+  activityId: string,
+  kind: TmdbKind,
+  tmdbId: number,
+): Promise<void> {
+  const data = await tmdbFetch<{
+    results?: Record<string, { flatrate?: { provider_id: number }[] }>;
+  }>(`/${kind}/${tmdbId}/watch/providers`);
+  await replaceAvailability(service, activityId, data.results?.['US']?.flatrate);
+}
+
 // Genre id → name, cached per edge-function instance.
 let genreMapPromise: Promise<Map<number, string>> | undefined;
 export function tmdbGenres(): Promise<Map<number, string>> {

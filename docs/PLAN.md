@@ -89,12 +89,14 @@ production). Free tier allows two projects; create a fresh one for radar.
 - Note: `is_party_member()` is `stable`, so RETURNING a freshly-inserted member row in the same
   statement fails RLS — never use `.select()` on the member self-insert (app code doesn't).
 
-## Milestone 6 — Candidate pipeline
+## Milestone 6 — Candidate pipeline ✅ (2026-07-24)
 
-- [ ] Pool: want_to union + TMDB discover (shared providers, ≤5 pages) + local activities
-- [ ] Hard filters + per-member scoring + least-misery aggregate (pure TS module, unit tested)
-- [ ] Gemini rerank → 12 + blurbs; bulletproof fallback to top-12-by-score; `ai_invocations` logging
-- [ ] Test via curl with a seeded party BEFORE any UI
+- [x] Pool: want_to union + TMDB discover (shared providers OR'd, popularity ×2 pages + top-2-genre targeted, per kind) + local activities on shared services; want_to titles missing availability get hydrated (cap 20)
+- [x] Hard filters: type, runtime (missing = pass), streamable-by-all (discover results implicitly pass), completed-unless-rewatchable / not_interested, dealbreaker tags, prior candidates
+- [x] Scoring extracted to pure `scoring.ts` + `scoring.test.ts` (`npx -y tsx supabase/functions/generate-candidates/scoring.test.ts`) — vibe→genre map, least-misery aggregate
+- [x] Gemini rerank → 12 + blurbs (structured output, thinking off); defensive id validation, top-off from deterministic ranking, full fallback on any AI failure; `ai_invocations` row either way (with cost)
+- [x] Finalists get availability refreshed so swipe cards have service badges
+- [x] End-to-end on seeded TESTP3: 16s, ai_used=true, blurbs reference the mood free-text; party → swiping; $0.003/run. TESTP3 left in `swiping` as seed data for milestone 7.
 
 ## Milestone 7 — Swipe / vote / reveal / outcome
 
