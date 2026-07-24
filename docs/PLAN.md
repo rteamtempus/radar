@@ -56,15 +56,17 @@ production). Free tier allows two projects; create a fresh one for radar.
 - [ ] Set edge secrets: `supabase secrets set GEMINI_API_KEY=… TMDB_API_KEY=…` — **needs keys from Rory**
 - [x] Frontend envs on Vercel + local `.env`
 
-## Milestone 3 — TMDB + Library
+## Milestone 3 — TMDB + Library ✅ (2026-07-24)
 
-- [ ] Implement `_shared/tmdb.ts` upsert helper (activities, genre tags, availability, metadata)
-- [ ] `tmdb-search` (search/multi → movie+tv) and `tmdb-detail` (+ 7-day availability refresh); deploy
-- [ ] Library tabs (Watching / Want To / Done) with real data
-- [ ] Debounced search UI with "＋ Want to watch" / "✓ Seen it" quick actions
-- [ ] One-tap ✓ finished → completed + 1–10 rating prompt
-- [ ] Activity detail: hero, tags, availability rows with deeplinks, my status/rating
-- [ ] `shared/ui`: activity-card, service-badge-row (mine highlighted, others dimmed)
+- [x] `_shared/tmdb.ts`: upsert helpers + provider-variant alias map (531→2303 etc., see 0003)
+- [x] `tmdb-search` + `tmdb-detail` deployed & smoke-tested (availability replaced on every detail call)
+- [x] Library tabs (Watching / Want To / Done) with real data
+- [x] Debounced search with "＋ Want to" / "✓ Seen it" quick actions (background hydration)
+- [x] ✓ Finished → completed + inline 1–10 star rating (triggers `recompute_affinities`)
+- [x] Activity detail: hero, genre tags, availability rows with service links, status/rating
+- [x] `shared/ui`: service-badges, star-rating (cards kept inline for now; "my services
+      highlighted" waits for subscriptions in milestone 4)
+- Test account for API smoke tests: `pp-test-1@partypick.test`
 
 ## Milestone 4 — Onboarding & taste
 

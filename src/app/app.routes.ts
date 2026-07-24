@@ -22,6 +22,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/library/library-page').then((m) => m.LibraryPage),
   },
   {
+    path: 'library/:id',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/library/activity-detail-page').then((m) => m.ActivityDetailPage),
+  },
+  {
     path: 'party',
     canActivate: [authGuard],
     loadChildren: () => import('./features/party/party.routes').then((m) => m.PARTY_ROUTES),
