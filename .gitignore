@@ -45,3 +45,4 @@ Thumbs.db
 # Local env (public-but-per-developer values; see .env.example)
 .env
 src/environments/env.generated.ts
+supabase/.temp/
