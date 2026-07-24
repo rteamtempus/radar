@@ -58,18 +58,45 @@ export class LibraryService {
   readonly loading = signal(false);
 
   async load(): Promise<void> {
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
     this.loading.set(true);
     try {
+      // IMPORTANT: explicit owner filter — friend-read RLS policies (0008)
+      // widen what this query CAN see, so "my library" must say user_id=me.
+      // All statuses load so Stopped / Not-for-me stay visible on detail pages.
       const { data, error } = await getSupabase()
         .from('user_engagements')
         .select(ENTRY_SELECT)
-        .in('status', ['want_to', 'in_progress', 'completed'])
+        .eq('user_id', userId)
         .order('updated_at', { ascending: false });
       if (error) throw error;
       this.entries.set((data ?? []) as unknown as LibraryEntry[]);
     } finally {
       this.loading.set(false);
     }
+  }
+
+  /** Patch one entry locally — button taps must not re-download the library. */
+  private patchEntry(activityId: string, patch: Partial<LibraryEntry>) {
+    this.entries.update((list) =>
+      list.map((e) => (e.activity.id === activityId ? { ...e, ...patch } : e)),
+    );
+  }
+
+  /** Fetch a single entry (after creating one) and merge it into the signal. */
+  private async fetchOne(activityId: string): Promise<void> {
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
+    const { data } = await getSupabase()
+      .from('user_engagements')
+      .select(ENTRY_SELECT)
+      .eq('user_id', userId)
+      .eq('activity_id', activityId)
+      .maybeSingle();
+    if (!data) return;
+    const entry = data as unknown as LibraryEntry;
+    this.entries.update((list) => [entry, ...list.filter((e) => e.activity.id !== activityId)]);
   }
 
   async search(query: string): Promise<ActivitySummary[]> {
@@ -98,10 +125,12 @@ export class LibraryService {
         { onConflict: 'user_id,activity_id' },
       );
     if (error) throw error;
-    // The detail page drives the radar: statuses manage the role slots.
     const entry = this.entries().find((e) => e.activity.id === activityId);
-    await this.slots.syncStatus(activityId, status, entry?.is_rewatchable ?? false);
-    await this.load();
+    if (entry) this.patchEntry(activityId, { status, updated_at: now });
+    else await this.fetchOne(activityId);
+    // The detail page drives the radar: statuses manage the role slots.
+    // Fire-and-forget — the button must not wait on slot bookkeeping.
+    void this.slots.syncStatus(activityId, status, entry?.is_rewatchable ?? false);
   }
 
   /** "Would watch again" toggle — mirrors into the Rewatch slot. */
@@ -114,8 +143,8 @@ export class LibraryService {
       .eq('user_id', userId)
       .eq('activity_id', activityId);
     if (error) throw error;
-    await this.slots.setRewatch(activityId, on);
-    await this.load();
+    this.patchEntry(activityId, { is_rewatchable: on });
+    void this.slots.setRewatch(activityId, on);
   }
 
   /** Save the item-card extras: personal notes + "recommended by". */
@@ -129,19 +158,24 @@ export class LibraryService {
       .from('user_engagements')
       .upsert({ user_id: userId, activity_id: activityId, ...fields }, { onConflict: 'user_id,activity_id' });
     if (error) throw error;
-    await this.load();
+    if (this.entries().some((e) => e.activity.id === activityId)) {
+      this.patchEntry(activityId, fields);
+    } else {
+      await this.fetchOne(activityId);
+    }
   }
 
   /** "Keep it on the radar" — bump updated_at so the stale nudge resets. */
   async touch(activityId: string): Promise<void> {
     const userId = this.auth.user()?.id;
     if (!userId) return;
+    const now = new Date().toISOString();
     await getSupabase()
       .from('user_engagements')
-      .update({ updated_at: new Date().toISOString() })
+      .update({ updated_at: now })
       .eq('user_id', userId)
       .eq('activity_id', activityId);
-    await this.load();
+    this.patchEntry(activityId, { updated_at: now });
   }
 
   /** Rate 1–10, then refresh learned tag affinities. */
@@ -155,8 +189,8 @@ export class LibraryService {
       .eq('user_id', userId)
       .eq('activity_id', activityId);
     if (error) throw error;
-    await supabase.rpc('recompute_affinities', { p_user_id: userId });
-    await this.load();
+    this.patchEntry(activityId, { rating });
+    void supabase.rpc('recompute_affinities', { p_user_id: userId }); // background
   }
 
   /**

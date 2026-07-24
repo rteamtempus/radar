@@ -318,7 +318,13 @@ export class RadarPage implements OnDestroy {
   }
 
   protected statusOf(activityId: string): boolean {
-    return this.lib.entries().some((e) => e.activity.id === activityId);
+    return this.lib
+      .entries()
+      .some(
+        (e) =>
+          e.activity.id === activityId &&
+          ['want_to', 'in_progress', 'completed'].includes(e.status),
+      );
   }
 
   protected onQuery(q: string) {

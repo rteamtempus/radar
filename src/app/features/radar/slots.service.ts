@@ -56,11 +56,16 @@ export class SlotsService {
   private loaded = false;
 
   async load(): Promise<void> {
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
     this.loading.set(true);
     try {
+      // IMPORTANT: explicit owner filter — friend-read RLS (0008) means an
+      // unfiltered query would include friends' slots on MY radar.
       const { data, error } = await getSupabase()
         .from('radar_slots')
         .select(SLOT_SELECT)
+        .eq('owner_id', userId)
         .order('position')
         .order('position', { referencedTable: 'radar_slot_items' });
       if (error) throw error;
@@ -239,11 +244,14 @@ export class SlotsService {
    * Queries directly (not the signal) so it works from anywhere in the app.
    */
   async handleCompleted(activityId: string): Promise<void> {
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
     const supabase = getSupabase();
     const { data } = await supabase
       .from('radar_slot_items')
-      .select('slot_id, position, slot:radar_slots!inner(on_complete)')
-      .eq('activity_id', activityId);
+      .select('slot_id, position, slot:radar_slots!inner(on_complete, owner_id)')
+      .eq('activity_id', activityId)
+      .eq('slot.owner_id', userId); // only MY slots — never touch a friend's
     const rows = (data ?? []) as unknown as {
       slot_id: string;
       position: number;

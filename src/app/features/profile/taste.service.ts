@@ -25,10 +25,16 @@ export class TasteService {
   readonly tags = signal<TasteTag[]>([]);
 
   async load(): Promise<void> {
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
     const supabase = getSupabase();
     const [tagsRes, mineRes] = await Promise.all([
       supabase.from('tags').select('id, label').eq('kind', 'genre').order('label'),
-      supabase.from('user_tag_affinities').select('tag_id, weight').eq('source', 'explicit'),
+      supabase
+        .from('user_tag_affinities')
+        .select('tag_id, weight')
+        .eq('user_id', userId)
+        .eq('source', 'explicit'),
     ]);
     const mine = new Map((mineRes.data ?? []).map((a) => [a.tag_id, a.weight]));
     this.tags.set(

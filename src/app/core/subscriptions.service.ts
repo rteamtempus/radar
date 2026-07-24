@@ -27,10 +27,15 @@ export class SubscriptionsService {
 
   async load(force = false): Promise<void> {
     if (this.loaded && !force) return;
+    const userId = this.auth.user()?.id;
     const supabase = getSupabase();
     const [services, subs] = await Promise.all([
       supabase.from('streaming_services').select('id, slug, name').order('name'),
-      supabase.from('user_subscriptions').select('service_id').eq('is_active', true),
+      supabase
+        .from('user_subscriptions')
+        .select('service_id')
+        .eq('user_id', userId ?? '')
+        .eq('is_active', true),
     ]);
     this.services.set((services.data ?? []) as StreamingService[]);
     this.mine.set(new Set((subs.data ?? []).map((s) => s.service_id)));
