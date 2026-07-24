@@ -46,20 +46,60 @@ export class AuthService {
     await getSupabase().auth.signOut();
   }
 
-  /**
-   * Create the app-facing profile row on first login.
-   * TODO(milestone 4): prompt for a display name during onboarding instead of
-   * defaulting to the email prefix.
-   */
-  async ensureProfile(): Promise<void> {
+  defaultDisplayName(): string {
+    const user = this.user();
+    return (
+      (user?.user_metadata?.['full_name'] as string | undefined) ??
+      user?.email?.split('@')[0] ??
+      'Someone'
+    );
+  }
+
+  /** Fetch the profile, creating it on first login. */
+  async getOrCreateProfile(): Promise<ProfileRow | null> {
+    const user = this.user();
+    if (!user) return null;
+    const supabase = getSupabase();
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, display_name, settings')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (data) return data as ProfileRow;
+    const { data: created } = await supabase
+      .from('profiles')
+      .insert({ id: user.id, display_name: this.defaultDisplayName() })
+      .select('id, display_name, settings')
+      .single();
+    return created as ProfileRow | null;
+  }
+
+  /** Where to land after auth: onboarding for first-timers, else the app. */
+  async postLoginUrl(): Promise<string> {
+    const profile = await this.getOrCreateProfile();
+    return profile?.settings?.onboarded ? '/library' : '/onboarding';
+  }
+
+  async updateDisplayName(displayName: string): Promise<void> {
     const user = this.user();
     if (!user) return;
-    const displayName =
-      (user.user_metadata?.['full_name'] as string | undefined) ??
-      user.email?.split('@')[0] ??
-      'Someone';
+    await getSupabase().from('profiles').update({ display_name: displayName }).eq('id', user.id);
+  }
+
+  /** Stamp settings.onboarded so future logins skip /onboarding. */
+  async markOnboarded(): Promise<void> {
+    const user = this.user();
+    if (!user) return;
+    const profile = await this.getOrCreateProfile();
     await getSupabase()
       .from('profiles')
-      .upsert({ id: user.id, display_name: displayName }, { onConflict: 'id', ignoreDuplicates: true });
+      .update({ settings: { ...(profile?.settings ?? {}), onboarded: true } })
+      .eq('id', user.id);
   }
+}
+
+export interface ProfileRow {
+  id: string;
+  display_name: string;
+  settings: { onboarded?: boolean } & Record<string, unknown>;
 }

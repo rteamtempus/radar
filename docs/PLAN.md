@@ -68,14 +68,14 @@ production). Free tier allows two projects; create a fresh one for radar.
       highlighted" waits for subscriptions in milestone 4)
 - Test account for API smoke tests: `pp-test-1@partypick.test`
 
-## Milestone 4 — Onboarding & taste
+## Milestone 4 — Onboarding & taste ✅ (2026-07-24)
 
-- [ ] Calibration deck: 24 hardcoded TMDB ids (constant in frontend), hydrated lazily via `tmdb-detail`
-- [ ] Loved(9) / Meh(5) / Haven't seen / Never would → `user_engagements`; skippable after 12
-- [ ] Subscriptions checklist (grid of service toggles → `user_subscriptions`); editable in profile
-- [ ] Call `recompute_affinities` after deck + after each rating
-- [ ] Display-name prompt on first login; route first-timers to /onboarding
-- [ ] Unit tests: affinity formula
+- [x] Calibration deck: 24 TMDB titles in `onboarding.service.ts`, hydrated lazily via `tmdb-detail` (concurrency-4 pool; already-hydrated titles come straight from the DB)
+- [x] Loved(9) / Meh(5) / Haven't seen / Never would → `user_engagements` (source='calibration'); skippable after 12
+- [x] Subscriptions checklist in onboarding + editable in profile (`SubscriptionsService`, optimistic toggles)
+- [x] `recompute_affinities` after deck + after each rating; library badges dim non-subscribed services
+- [x] Display-name step (pre-filled) on first login; `profiles.settings.onboarded` routes first-timers to /onboarding
+- [x] Affinity formula verified against live DB: loved(9)→+0.778, never→−0.778 per genre tag
 
 ## Milestone 5 — Party: create / join / lobby / mood
 

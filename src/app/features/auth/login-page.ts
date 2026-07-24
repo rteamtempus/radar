@@ -154,7 +154,6 @@ export class LoginPage {
   }
 
   private async enter() {
-    await this.auth.ensureProfile();
-    this.router.navigateByUrl('/library');
+    this.router.navigateByUrl(await this.auth.postLoginUrl());
   }
 }

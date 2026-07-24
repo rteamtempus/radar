@@ -24,9 +24,10 @@ const STYLES: Record<string, BadgeStyle> = {
     @for (s of services(); track s.slug) {
       <span
         class="flex size-6.5 items-center justify-center rounded-lg text-[11px] font-extrabold"
+        [class.opacity-30]="dimmed(s)"
         [style.background]="style(s).bg"
         [style.color]="style(s).fg"
-        [title]="s.name"
+        [title]="s.name + (dimmed(s) ? ' (not subscribed)' : '')"
         >{{ style(s).t }}</span
       >
     }
@@ -35,6 +36,13 @@ const STYLES: Record<string, BadgeStyle> = {
 })
 export class ServiceBadges {
   readonly services = input<ServiceRef[]>([]);
+  /** Slugs of MY services — when set, everything else renders dimmed. */
+  readonly highlight = input<string[] | null>(null);
+
+  protected dimmed(s: ServiceRef): boolean {
+    const mine = this.highlight();
+    return !!mine?.length && !mine.includes(s.slug);
+  }
 
   protected style(s: ServiceRef): BadgeStyle {
     return STYLES[s.slug] ?? { t: s.name.slice(0, 2), bg: '#2b241c', fg: '#f5ede2' };

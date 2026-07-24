@@ -1,6 +1,7 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { SubscriptionsService } from '../../core/subscriptions.service';
 import { ServiceBadges } from '../../shared/ui/service-badges';
 import { StarRating } from '../../shared/ui/star-rating';
 import {
@@ -125,7 +126,7 @@ type LibraryTab = 'in_progress' | 'want_to' | 'completed';
                   {{ e.activity.title }}
                 </a>
                 <span class="text-xs font-bold text-muted">{{ subtitle(e.activity) }}</span>
-                <pp-service-badges class="mt-1" [services]="servicesOf(e)" />
+                <pp-service-badges class="mt-1" [services]="servicesOf(e)" [highlight]="subs.mySlugs()" />
                 <div class="mt-auto pt-1.5">
                   @if (e.status === 'completed') {
                     <pp-star-rating [rating]="e.rating" (rated)="rate(e, $event)" />
@@ -161,6 +162,7 @@ type LibraryTab = 'in_progress' | 'want_to' | 'completed';
 })
 export class LibraryPage implements OnDestroy {
   protected readonly lib = inject(LibraryService);
+  protected readonly subs = inject(SubscriptionsService);
 
   protected readonly tabs = [
     { key: 'in_progress' as LibraryTab, label: 'Watching' },
@@ -180,6 +182,7 @@ export class LibraryPage implements OnDestroy {
 
   constructor() {
     this.lib.load();
+    this.subs.load();
   }
 
   ngOnDestroy() {

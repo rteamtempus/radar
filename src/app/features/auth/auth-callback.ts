@@ -24,8 +24,7 @@ export class AuthCallback {
     effect(() => {
       if (!this.auth.loaded()) return;
       if (this.auth.session()) {
-        // TODO(milestone 4): route first-time users to /onboarding instead.
-        this.auth.ensureProfile().finally(() => this.router.navigateByUrl('/library'));
+        this.auth.postLoginUrl().then((url) => this.router.navigateByUrl(url));
       } else {
         this.router.navigateByUrl('/login');
       }
