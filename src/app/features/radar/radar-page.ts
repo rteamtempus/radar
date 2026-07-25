@@ -1,6 +1,8 @@
-import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { DOMAINS, Domain, DomainService } from '../../core/domain.service';
+import { LocationService } from '../../core/location.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { ActivitySummary, LibraryEntry, LibraryService } from '../library/library.service';
 import { PartyService } from '../party/party.service';
@@ -16,18 +18,41 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
   imports: [FormsModule, RouterLink],
   template: `
     <div class="mx-auto max-w-md px-5 py-6">
-      <h1 class="font-display text-3xl font-semibold">Radar</h1>
-      <p class="mt-1 text-sm text-muted-2">Your personal TV guide — queues with a pulse.</p>
+      <div class="flex items-center justify-between">
+        <h1 class="font-display text-3xl font-semibold">Radar</h1>
+        <div class="flex gap-1 rounded-full bg-surface p-1">
+          @for (d of domains; track d.id) {
+            <button
+              (click)="switchDomain(d.id)"
+              class="rounded-full px-3 py-1.5 text-xs font-bold transition-colors"
+              [class]="domain.domain() === d.id ? 'bg-coral text-ink' : 'text-muted-2'"
+            >
+              {{ d.emoji }} {{ d.label }}
+            </button>
+          }
+        </div>
+      </div>
+      <p class="mt-1 text-sm text-muted-2">
+        {{ domain.domain() === 'eat' ? 'Places worth trying — queues with a pulse.' : 'Your personal TV guide — queues with a pulse.' }}
+      </p>
 
       <input
         type="search"
-        placeholder="Search movies & shows…"
+        [placeholder]="domain.def().searchPlaceholder"
         [ngModel]="query()"
         (ngModelChange)="onQuery($event)"
         class="mt-4 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-cream placeholder:text-muted focus:border-coral focus:outline-none"
       />
+      @if (domain.domain() === 'eat' && query().trim().length < 2) {
+        <button
+          (click)="nearby()"
+          class="mt-2 w-full rounded-2xl border border-dashed border-line py-2.5 text-sm font-bold text-muted-2"
+        >
+          📍 What's good nearby?
+        </button>
+      }
 
-      @if (query().trim().length >= 2) {
+      @if (query().trim().length >= 2 || (domain.domain() === 'eat' && results().length)) {
         @if (searching()) {
           <p class="mt-4 text-center text-sm font-bold text-muted-2">Searching…</p>
         } @else if (!results().length) {
@@ -44,9 +69,7 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
                 }
                 <div class="min-w-0">
                   <p class="truncate text-sm font-bold">{{ r.title }}</p>
-                  <p class="text-xs text-muted">
-                    {{ r.metadata.release_year }} · {{ r.type === 'movie' ? 'Movie' : 'Series' }}
-                  </p>
+                  <p class="truncate text-xs text-muted">{{ resultSub(r) }}</p>
                 </div>
               </a>
               @if (statusOf(r.id)) {
@@ -56,7 +79,7 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
                   (click)="quickAdd(r)"
                   class="flex-none rounded-full border border-green px-3 py-1.5 text-xs font-bold text-green"
                 >
-                  ＋ Want to
+                  {{ r.type === 'restaurant' ? '＋ Want to try' : '＋ Want to' }}
                 </button>
               }
             </div>
@@ -125,7 +148,7 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
       }
 
       <div class="mt-5 flex flex-col gap-4">
-        @for (slot of slots.slots(); track slot.id) {
+        @for (slot of slots.forDomain(domain.domain()); track slot.id) {
           <div class="rounded-3xl border border-line bg-surface p-4">
             <div class="flex items-center gap-2">
               <span class="text-lg">{{ slot.emoji ?? '🎬' }}</span>
@@ -264,9 +287,13 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
 })
 export class RadarPage implements OnDestroy {
   protected readonly slots = inject(SlotsService);
+  protected readonly domain = inject(DomainService);
+  private readonly location = inject(LocationService);
   private readonly lib = inject(LibraryService);
   private readonly partyService = inject(PartyService);
   private readonly toast = inject(ToastService);
+
+  protected readonly domains = DOMAINS;
 
   protected newName = '';
   protected newEmoji = '';
@@ -306,10 +333,49 @@ export class RadarPage implements OnDestroy {
       .sort((a, b) => a.updated_at.localeCompare(b.updated_at))[0];
   });
 
+  private readonly seedDefaults = effect(() => {
+    this.slots.ensureDefaults(this.domain.domain());
+  });
+
   constructor() {
-    this.slots.ensureDefaults();
     this.lib.load();
     this.partyService.pendingOutcome().then((o) => this.outcome.set(o));
+  }
+
+  protected switchDomain(d: Domain) {
+    this.domain.set(d);
+    this.query.set('');
+    this.results.set([]);
+    this.addingTo.set(null);
+  }
+
+  protected resultSub(r: ActivitySummary): string {
+    if (r.type === 'restaurant') {
+      const parts: string[] = [];
+      if (r.metadata.rating) parts.push(`★ ${r.metadata.rating}`);
+      if (r.metadata.price_level) parts.push('$'.repeat(r.metadata.price_level));
+      if (r.metadata.address) parts.push(r.metadata.address.split(',')[0]);
+      return parts.join(' · ') || 'Restaurant';
+    }
+    return `${r.metadata.release_year ?? ''} · ${r.type === 'movie' ? 'Movie' : 'Series'}`;
+  }
+
+  /** Eat domain: popularity-ranked nearby restaurants (needs location). */
+  protected async nearby() {
+    this.searching.set(true);
+    this.query.set('');
+    try {
+      const loc = await this.location.get();
+      if (!loc) {
+        this.toast.error('Location is off — allow it in your browser, or search by name.');
+        return;
+      }
+      this.results.set(await this.lib.searchPlaces('', loc));
+    } catch {
+      this.toast.error('Nearby search failed — is the Places key set up?');
+    } finally {
+      this.searching.set(false);
+    }
   }
 
   ngOnDestroy() {
@@ -335,7 +401,10 @@ export class RadarPage implements OnDestroy {
     this.searching.set(true);
     this.searchDebounce = setTimeout(async () => {
       try {
-        const results = await this.lib.search(trimmed);
+        const results =
+          this.domain.domain() === 'eat'
+            ? await this.lib.searchPlaces(trimmed, await this.location.get())
+            : await this.lib.search(trimmed);
         if (this.query().trim() === trimmed) this.results.set(results);
       } catch {
         this.toast.error('Search failed — check your connection.');
@@ -347,9 +416,11 @@ export class RadarPage implements OnDestroy {
 
   protected async quickAdd(result: ActivitySummary) {
     try {
-      await this.lib.setStatus(result.id, 'want_to'); // syncs into Up next
+      await this.lib.setStatus(result.id, 'want_to'); // syncs into the up-next role slot
       this.lib.hydrate(result);
-      this.toast.success(`${result.title} → Up next ✓`);
+      this.toast.success(
+        `${result.title} → ${result.type === 'restaurant' ? 'Want to try' : 'Up next'} ✓`,
+      );
     } catch {
       this.toast.error(`Couldn't add “${result.title}” — try again.`);
     }
@@ -386,9 +457,16 @@ export class RadarPage implements OnDestroy {
   }
 
   protected subtitle(item: SlotItem): string {
+    const a = item.activity;
+    if (a.type === 'restaurant') {
+      const parts: string[] = [];
+      if (a.metadata?.rating) parts.push(`★ ${a.metadata.rating}`);
+      if (a.metadata?.price_level) parts.push('$'.repeat(a.metadata.price_level));
+      return parts.join(' · ') || 'Restaurant';
+    }
     const parts: string[] = [];
-    if (item.activity.metadata?.release_year) parts.push(String(item.activity.metadata.release_year));
-    parts.push(item.activity.type === 'movie' ? 'Movie' : 'Series');
+    if (a.metadata?.release_year) parts.push(String(a.metadata.release_year));
+    parts.push(a.type === 'movie' ? 'Movie' : 'Series');
     return parts.join(' · ');
   }
 
@@ -406,7 +484,11 @@ export class RadarPage implements OnDestroy {
     this.addSearching.set(true);
     this.debounce = setTimeout(async () => {
       try {
-        const results = await this.lib.search(trimmed);
+        const slot = this.slots.slots().find((s) => s.id === this.addingTo());
+        const results =
+          (slot?.config?.domain ?? 'watch') === 'eat'
+            ? await this.lib.searchPlaces(trimmed, await this.location.get())
+            : await this.lib.search(trimmed);
         if (this.addQuery().trim() === trimmed) this.addResults.set(results.slice(0, 5));
       } catch {
         this.toast.error('Search failed — try again.');
@@ -437,7 +519,7 @@ export class RadarPage implements OnDestroy {
   }
 
   protected create() {
-    this.slots.createSlot(this.newName, this.newEmoji, this.newLoop);
+    this.slots.createSlot(this.newName, this.newEmoji, this.newLoop, this.domain.domain());
     this.newName = '';
     this.newEmoji = '';
     this.newLoop = false;

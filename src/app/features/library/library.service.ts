@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { AuthService } from '../../core/auth.service';
+import { domainOf } from '../../core/domain.service';
 import { getSupabase } from '../../core/supabase.client';
 import { SlotsService } from '../radar/slots.service';
 
@@ -17,16 +18,27 @@ export interface ServiceRef {
 
 export interface ActivitySummary {
   id: string;
-  type: 'movie' | 'tv_show';
+  type: 'movie' | 'tv_show' | 'restaurant';
   title: string;
   description: string | null;
   image_url: string | null;
   duration_min: number | null;
+  external_source: string | null;
   external_id: string | null;
   metadata: {
     release_year?: number | null;
     tmdb_vote?: number | null;
     seasons?: number | null;
+    // restaurant fields (google_places)
+    rating?: number | null;
+    rating_count?: number | null;
+    price_level?: number | null;
+    address?: string | null;
+    maps_url?: string | null;
+    open_now?: boolean | null;
+    hours?: string[] | null;
+    phone?: string | null;
+    website?: string | null;
   };
   activity_availability?: { service: ServiceRef }[];
   activity_tags?: { tag: { slug: string; label: string; kind: string } }[];
@@ -45,7 +57,7 @@ export interface LibraryEntry {
 
 const ENTRY_SELECT =
   'id, status, rating, is_rewatchable, notes, recommended_by, updated_at, ' +
-  'activity:activities(id, type, title, description, image_url, duration_min, external_id, metadata, ' +
+  'activity:activities(id, type, title, description, image_url, duration_min, external_source, external_id, metadata, ' +
   'activity_tags(tag:tags(slug, label, kind)), ' +
   'activity_availability(service:streaming_services(slug, name)))';
 
@@ -108,6 +120,19 @@ export class LibraryService {
     return data?.results ?? [];
   }
 
+  /** Restaurant search — text (location-biased) or plain nearby when query is empty. */
+  async searchPlaces(
+    query: string,
+    location: { lat: number; lng: number } | null,
+  ): Promise<ActivitySummary[]> {
+    const { data, error } = await getSupabase().functions.invoke<{ results: ActivitySummary[] }>(
+      'places-search',
+      { body: { query: query || undefined, lat: location?.lat, lng: location?.lng } },
+    );
+    if (error) throw error;
+    return data?.results ?? [];
+  }
+
   async setStatus(activityId: string, status: EngagementStatus): Promise<void> {
     const userId = this.auth.user()?.id;
     if (!userId) return;
@@ -130,7 +155,13 @@ export class LibraryService {
     else await this.fetchOne(activityId);
     // The detail page drives the radar: statuses manage the role slots.
     // Fire-and-forget — the button must not wait on slot bookkeeping.
-    void this.slots.syncStatus(activityId, status, entry?.is_rewatchable ?? false);
+    const synced = entry ?? this.entries().find((e) => e.activity.id === activityId);
+    void this.slots.syncStatus(
+      activityId,
+      status,
+      synced?.is_rewatchable ?? false,
+      domainOf(synced?.activity.type ?? 'movie'),
+    );
   }
 
   /** "Would watch again" toggle — mirrors into the Rewatch slot. */
@@ -144,7 +175,8 @@ export class LibraryService {
       .eq('activity_id', activityId);
     if (error) throw error;
     this.patchEntry(activityId, { is_rewatchable: on });
-    void this.slots.setRewatch(activityId, on);
+    const entry = this.entries().find((e) => e.activity.id === activityId);
+    void this.slots.setRewatch(activityId, on, domainOf(entry?.activity.type ?? 'movie'));
   }
 
   /** Save the item-card extras: personal notes + "recommended by". */
@@ -194,10 +226,17 @@ export class LibraryService {
   }
 
   /**
-   * Fire-and-forget full hydration (runtime + availability) via tmdb-detail.
-   * external_id convention: '<movie|tv>-<tmdbId>'.
+   * Fire-and-forget detail refresh, dispatched by source: TMDB titles get
+   * runtime + availability, Google places get hours/rating (ToS wants those
+   * refreshed rather than cached anyway).
    */
-  hydrate(activity: Pick<ActivitySummary, 'external_id'>): Promise<void> {
+  hydrate(activity: Pick<ActivitySummary, 'external_source' | 'external_id'>): Promise<void> {
+    if (activity.external_source === 'google_places' && activity.external_id) {
+      return getSupabase()
+        .functions.invoke('place-detail', { body: { placeId: activity.external_id } })
+        .then(() => undefined)
+        .catch(() => undefined);
+    }
     const match = activity.external_id?.match(/^(movie|tv)-(\d+)$/);
     if (!match) return Promise.resolve();
     return getSupabase()

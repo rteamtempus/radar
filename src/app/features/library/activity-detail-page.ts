@@ -56,34 +56,78 @@ import { FriendProfile, FriendsService } from '../friends/friends.service';
             <p class="text-sm leading-relaxed text-muted-2">{{ a.description }}</p>
           }
 
-          <div>
-            <h2 class="mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">Available on</h2>
-            @if (services().length === 0) {
-              <p class="text-sm text-muted">
-                {{ checkingAvailability() ? 'Checking availability…' : 'Not streaming on your services right now.' }}
-              </p>
-            }
-            <div class="flex flex-col gap-2">
-              @for (s of services(); track s.slug) {
-                <div class="flex items-center gap-3 rounded-2xl bg-surface p-3">
-                  <pp-service-badges [services]="[s]" />
-                  <span class="flex-1 text-sm font-bold">{{ s.name }}</span>
-                  <a
-                    [href]="homepage(s)"
-                    target="_blank"
-                    rel="noopener"
-                    class="rounded-full bg-coral px-4 py-2 text-xs font-bold text-ink"
-                    >Open ↗</a
+          @if (isRestaurant()) {
+            <!-- ============ restaurant: visit info ============ -->
+            <div>
+              <h2 class="mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">Visit</h2>
+              <div class="flex flex-col gap-2">
+                @if (activity()?.metadata?.open_now !== null && activity()?.metadata?.open_now !== undefined) {
+                  <span
+                    class="self-start rounded-full px-3 py-1.5 text-xs font-bold"
+                    [class]="activity()?.metadata?.open_now ? 'bg-green/15 text-green' : 'bg-coral/15 text-coral'"
                   >
+                    {{ activity()?.metadata?.open_now ? '● Open now' : '● Closed right now' }}
+                  </span>
+                }
+                @if (activity()?.metadata?.address; as addr) {
+                  <p class="text-sm text-muted-2">{{ addr }}</p>
+                }
+                <div class="flex gap-2">
+                  @if (activity()?.metadata?.maps_url; as maps) {
+                    <a [href]="maps" target="_blank" rel="noopener" class="flex-1 rounded-2xl bg-coral py-3 text-center text-sm font-bold text-ink">
+                      🗺 Open in Maps
+                    </a>
+                  }
+                  @if (activity()?.metadata?.phone; as phone) {
+                    <a [href]="'tel:' + phone" class="rounded-2xl border border-line px-4 py-3 text-sm font-bold text-muted-2">📞</a>
+                  }
+                  @if (activity()?.metadata?.website; as site) {
+                    <a [href]="site" target="_blank" rel="noopener" class="rounded-2xl border border-line px-4 py-3 text-sm font-bold text-muted-2">↗</a>
+                  }
                 </div>
-              }
+                @if (activity()?.metadata?.hours; as hours) {
+                  <details class="mt-1 text-xs text-muted-2">
+                    <summary class="cursor-pointer font-bold text-muted">Hours</summary>
+                    <div class="mt-1.5 flex flex-col gap-0.5">
+                      @for (line of hours; track line) {
+                        <span>{{ line }}</span>
+                      }
+                    </div>
+                  </details>
+                }
+              </div>
             </div>
-          </div>
+          } @else {
+            <!-- ============ media: streaming availability ============ -->
+            <div>
+              <h2 class="mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">Available on</h2>
+              @if (services().length === 0) {
+                <p class="text-sm text-muted">
+                  {{ checkingAvailability() ? 'Checking availability…' : 'Not streaming on your services right now.' }}
+                </p>
+              }
+              <div class="flex flex-col gap-2">
+                @for (s of services(); track s.slug) {
+                  <div class="flex items-center gap-3 rounded-2xl bg-surface p-3">
+                    <pp-service-badges [services]="[s]" />
+                    <span class="flex-1 text-sm font-bold">{{ s.name }}</span>
+                    <a
+                      [href]="homepage(s)"
+                      target="_blank"
+                      rel="noopener"
+                      class="rounded-full bg-coral px-4 py-2 text-xs font-bold text-ink"
+                      >Open ↗</a
+                    >
+                  </div>
+                }
+              </div>
+            </div>
+          }
 
           <div>
             <h2 class="mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">My status</h2>
             <div class="grid grid-cols-3 gap-2">
-              @for (s of statusOptions; track s.key) {
+              @for (s of statusOptions(); track s.key) {
                 <button
                   (click)="setStatus(s.key)"
                   class="rounded-2xl border py-2.5 text-sm font-bold"
@@ -98,7 +142,11 @@ import { FriendProfile, FriendsService } from '../friends/friends.service';
               }
             </div>
             <p class="mt-1.5 text-[11px] text-muted">
-              Want to → Up next · Watching → Watching now · statuses drive your slots.
+              {{
+                isRestaurant()
+                  ? 'Want to try → your Want-to-try slot · statuses drive your radar.'
+                  : 'Want to → Up next · Watching → Watching now · statuses drive your slots.'
+              }}
             </p>
             @if (status() === 'completed') {
               <div class="mt-3 flex items-center gap-3">
@@ -115,9 +163,9 @@ import { FriendProfile, FriendsService } from '../friends/friends.service';
                 "
               >
                 <span class="text-lg">🔁</span>
-                Would watch again
+                {{ isRestaurant() ? 'Would go again' : 'Would watch again' }}
                 @if (isRewatchable()) {
-                  <span class="ml-auto">✓ in your Rewatch slot</span>
+                  <span class="ml-auto">✓ {{ isRestaurant() ? 'a go-to spot' : 'in your Rewatch slot' }}</span>
                 }
               </button>
             }
@@ -239,13 +287,23 @@ export class ActivityDetailPage {
   protected readonly activity = signal<ActivityDetail | null>(null);
   protected readonly checkingAvailability = signal(true);
 
-  protected readonly statusOptions = [
-    { key: 'want_to' as EngagementStatus, label: 'Want to' },
-    { key: 'in_progress' as EngagementStatus, label: 'Watching' },
-    { key: 'completed' as EngagementStatus, label: 'Done' },
-    { key: 'abandoned' as EngagementStatus, label: 'Stopped' },
-    { key: 'not_interested' as EngagementStatus, label: 'Not for me' },
-  ];
+  protected readonly isRestaurant = computed(() => this.activity()?.type === 'restaurant');
+
+  protected readonly statusOptions = computed<{ key: EngagementStatus; label: string }[]>(() =>
+    this.isRestaurant()
+      ? [
+          { key: 'want_to', label: 'Want to try' },
+          { key: 'completed', label: 'Been there' },
+          { key: 'not_interested', label: 'Not for me' },
+        ]
+      : [
+          { key: 'want_to', label: 'Want to' },
+          { key: 'in_progress', label: 'Watching' },
+          { key: 'completed', label: 'Done' },
+          { key: 'abandoned', label: 'Stopped' },
+          { key: 'not_interested', label: 'Not for me' },
+        ],
+  );
 
   protected readonly status = computed(
     () => this.lib.entries().find((e) => e.activity.id === this.id())?.status,
@@ -258,7 +316,7 @@ export class ActivityDetailPage {
   );
   protected readonly genreTags = computed(() =>
     (this.activity()?.activity_tags ?? [])
-      .filter((t) => t.tag.kind === 'genre')
+      .filter((t) => t.tag.kind === 'genre' || t.tag.kind === 'cuisine')
       .map((t) => t.tag.label),
   );
 
@@ -295,6 +353,16 @@ export class ActivityDetailPage {
   protected subtitle(): string {
     const a = this.activity();
     if (!a) return '';
+    if (a.type === 'restaurant') {
+      const parts: string[] = [];
+      if (a.metadata?.price_level) parts.push('$'.repeat(a.metadata.price_level));
+      if (a.metadata?.rating) {
+        parts.push(
+          `★ ${a.metadata.rating}${a.metadata.rating_count ? ` (${a.metadata.rating_count})` : ''}`,
+        );
+      }
+      return parts.join(' · ') || 'Restaurant';
+    }
     const parts: string[] = [];
     if (a.metadata?.release_year) parts.push(String(a.metadata.release_year));
     parts.push(a.type === 'movie' ? 'Movie' : 'Series');

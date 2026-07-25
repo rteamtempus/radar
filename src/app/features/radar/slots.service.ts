@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { AuthService } from '../../core/auth.service';
+import { Domain } from '../../core/domain.service';
 import { getSupabase } from '../../core/supabase.client';
 import { ToastService } from '../../shared/ui/toast.service';
 
@@ -10,9 +11,9 @@ export interface SlotItemActivity {
   id: string;
   title: string;
   image_url: string | null;
-  type: 'movie' | 'tv_show';
+  type: 'movie' | 'tv_show' | 'restaurant';
   duration_min: number | null;
-  metadata: { release_year?: number | null };
+  metadata: { release_year?: number | null; rating?: number | null; price_level?: number | null };
 }
 
 export interface SlotItem {
@@ -28,7 +29,7 @@ export interface RadarSlot {
   emoji: string | null;
   position: number;
   on_complete: SlotOnComplete;
-  config: { role?: SlotRole };
+  config: { role?: SlotRole; domain?: Domain };
   items: SlotItem[];
 }
 
@@ -37,14 +38,29 @@ const SLOT_SELECT =
   'items:radar_slot_items(activity_id, position, note, ' +
   'activity:activities(id, title, image_url, type, duration_min, metadata))';
 
-/** Starter slots created on first visit (ideas doc §2). Roles let the app
- * find them even after a rename; a deleted role-slot just opts out. */
-const DEFAULT_SLOTS: { name: string; emoji: string; on_complete: SlotOnComplete; role: SlotRole }[] = [
-  { name: 'Watching now', emoji: '📺', on_complete: 'remove', role: 'watching' },
-  { name: 'Up next', emoji: '🍿', on_complete: 'remove', role: 'up_next' },
-  { name: 'Rewatch', emoji: '🔁', on_complete: 'loop', role: 'rewatch' },
-  { name: 'Recommended to me', emoji: '💡', on_complete: 'remove', role: 'recommended' },
-];
+/** Starter slots per domain (ideas doc §2). Roles let the app find them even
+ * after a rename; a deleted role-slot just opts out. */
+const DEFAULT_SLOTS: Record<
+  Domain,
+  { name: string; emoji: string; on_complete: SlotOnComplete; role: SlotRole }[]
+> = {
+  watch: [
+    { name: 'Watching now', emoji: '📺', on_complete: 'remove', role: 'watching' },
+    { name: 'Up next', emoji: '🍿', on_complete: 'remove', role: 'up_next' },
+    { name: 'Rewatch', emoji: '🔁', on_complete: 'loop', role: 'rewatch' },
+    { name: 'Recommended to me', emoji: '💡', on_complete: 'remove', role: 'recommended' },
+  ],
+  eat: [
+    { name: 'Want to try', emoji: '🍜', on_complete: 'remove', role: 'up_next' },
+    // Restaurants are repeatable — the go-to list keeps its spots.
+    { name: 'Go-to spots', emoji: '⭐', on_complete: 'keep', role: 'rewatch' },
+    { name: 'Recommended to me', emoji: '💡', on_complete: 'remove', role: 'recommended' },
+  ],
+};
+
+function slotDomain(slot: RadarSlot): Domain {
+  return slot.config?.domain ?? 'watch';
+}
 
 @Injectable({ providedIn: 'root' })
 export class SlotsService {
@@ -76,28 +92,34 @@ export class SlotsService {
     }
   }
 
-  /** First visit: seed the starter slots. */
-  async ensureDefaults(): Promise<void> {
+  /** Slots for one domain (pre-domain slots count as 'watch'). */
+  forDomain(domain: Domain): RadarSlot[] {
+    return this.slots().filter((s) => slotDomain(s) === domain);
+  }
+
+  /** First visit to a domain: seed its starter slots. */
+  async ensureDefaults(domain: Domain): Promise<void> {
     if (!this.loaded) await this.load();
-    if (this.slots().length) return;
+    if (this.forDomain(domain).length) return;
     const userId = this.auth.user()?.id;
     if (!userId) return;
+    const base = Math.max(-1, ...this.slots().map((s) => s.position)) + 1;
     await getSupabase()
       .from('radar_slots')
       .insert(
-        DEFAULT_SLOTS.map((s, i) => ({
+        DEFAULT_SLOTS[domain].map((s, i) => ({
           owner_id: userId,
           name: s.name,
           emoji: s.emoji,
           on_complete: s.on_complete,
-          position: i,
-          config: { role: s.role },
+          position: base + i,
+          config: { role: s.role, domain },
         })),
       );
     await this.load();
   }
 
-  async createSlot(name: string, emoji: string, loop: boolean): Promise<void> {
+  async createSlot(name: string, emoji: string, loop: boolean, domain: Domain): Promise<void> {
     const userId = this.auth.user()?.id;
     if (!userId || !name.trim()) return;
     const position = Math.max(-1, ...this.slots().map((s) => s.position)) + 1;
@@ -107,6 +129,7 @@ export class SlotsService {
       emoji: emoji.trim() || null,
       on_complete: loop ? 'loop' : 'remove',
       position,
+      config: { domain },
     });
     if (error) this.toast.error('Could not create the slot.');
     await this.load();
@@ -176,48 +199,49 @@ export class SlotsService {
     activityId: string,
     status: string,
     isRewatchable: boolean,
+    domain: Domain,
   ): Promise<void> {
     if (!this.loaded) await this.load();
     switch (status) {
       case 'want_to':
-        await this.addToRole('up_next', activityId);
-        await this.removeFromRole('watching', activityId);
+        await this.addToRole('up_next', activityId, domain);
+        await this.removeFromRole('watching', activityId, domain);
         break;
       case 'in_progress':
-        await this.addToRole('watching', activityId);
-        await this.removeFromRole('up_next', activityId);
+        await this.addToRole('watching', activityId, domain);
+        await this.removeFromRole('up_next', activityId, domain);
         break;
       case 'completed':
         await this.handleCompleted(activityId);
-        if (isRewatchable) await this.addToRole('rewatch', activityId);
+        if (isRewatchable) await this.addToRole('rewatch', activityId, domain);
         break;
       case 'abandoned':
       case 'not_interested':
-        await this.removeFromRole('watching', activityId);
-        await this.removeFromRole('up_next', activityId);
+        await this.removeFromRole('watching', activityId, domain);
+        await this.removeFromRole('up_next', activityId, domain);
         if (status === 'not_interested') {
-          await this.removeFromRole('rewatch', activityId);
-          await this.removeFromRole('recommended', activityId);
+          await this.removeFromRole('rewatch', activityId, domain);
+          await this.removeFromRole('recommended', activityId, domain);
         }
         break;
     }
     await this.load();
   }
 
-  /** The "Would watch again" toggle ↔ the Rewatch slot. */
-  async setRewatch(activityId: string, on: boolean): Promise<void> {
+  /** The "Would watch/go again" toggle ↔ the rewatch-role slot. */
+  async setRewatch(activityId: string, on: boolean, domain: Domain): Promise<void> {
     if (!this.loaded) await this.load();
-    if (on) await this.addToRole('rewatch', activityId);
-    else await this.removeFromRole('rewatch', activityId);
+    if (on) await this.addToRole('rewatch', activityId, domain);
+    else await this.removeFromRole('rewatch', activityId, domain);
     await this.load();
   }
 
-  private byRole(role: SlotRole): RadarSlot | undefined {
-    return this.slots().find((s) => s.config?.role === role);
+  private byRole(role: SlotRole, domain: Domain): RadarSlot | undefined {
+    return this.slots().find((s) => s.config?.role === role && slotDomain(s) === domain);
   }
 
-  private async addToRole(role: SlotRole, activityId: string) {
-    const slot = this.byRole(role);
+  private async addToRole(role: SlotRole, activityId: string, domain: Domain) {
+    const slot = this.byRole(role, domain);
     if (!slot || slot.items.some((i) => i.activity_id === activityId)) return;
     const position = Math.max(-1, ...slot.items.map((i) => i.position)) + 1;
     await getSupabase()
@@ -228,8 +252,8 @@ export class SlotsService {
       );
   }
 
-  private async removeFromRole(role: SlotRole, activityId: string) {
-    const slot = this.byRole(role);
+  private async removeFromRole(role: SlotRole, activityId: string, domain: Domain) {
+    const slot = this.byRole(role, domain);
     if (!slot) return;
     await getSupabase()
       .from('radar_slot_items')
