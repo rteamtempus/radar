@@ -13,8 +13,10 @@ import {
 
 type ActivityDetail = ActivitySummary;
 
+import { domainOf } from '../../core/domain.service';
 import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
 import { FriendProfile, FriendsService } from '../friends/friends.service';
+import { RadarSlot, SlotsService } from '../radar/slots.service';
 
 @Component({
   selector: 'pp-activity-detail-page',
@@ -171,6 +173,35 @@ import { FriendProfile, FriendsService } from '../friends/friends.service';
             }
           </div>
 
+          @if (customSlots().length) {
+            <div>
+              <h2 class="mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">My Radar</h2>
+              <div class="grid grid-cols-3 gap-2">
+                @for (slot of visibleSlots(); track slot.id) {
+                  <button
+                    (click)="toggleSlot(slot)"
+                    class="truncate rounded-2xl border px-2 py-2.5 text-sm font-bold"
+                    [class]="
+                      inSlot(slot) ? 'border-gold bg-gold/15 text-gold' : 'border-line text-muted-2'
+                    "
+                    [title]="slot.name"
+                  >
+                    {{ slot.emoji ?? '' }} {{ slot.name }}
+                  </button>
+                }
+                @if (!showAllSlots() && customSlots().length > slotPreviewCount) {
+                  <button
+                    (click)="showAllSlots.set(true)"
+                    class="rounded-2xl border border-dashed border-line py-2.5 text-sm font-bold text-muted"
+                  >
+                    ＋ {{ customSlots().length - slotPreviewCount }} more
+                  </button>
+                }
+              </div>
+              <p class="mt-1.5 text-[11px] text-muted">Tap a slot to add or remove this one.</p>
+            </div>
+          }
+
           @if (friends.friends().length) {
             <div>
               <h2 class="mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">
@@ -232,6 +263,33 @@ export class ActivityDetailPage {
   private lib = inject(LibraryService);
   private toast = inject(ToastService);
   protected readonly friends = inject(FriendsService);
+  private readonly slots = inject(SlotsService);
+
+  protected readonly slotPreviewCount = 5;
+  protected readonly showAllSlots = signal(false);
+
+  /** User-created slots (no role — role slots are driven by status) for this domain. */
+  protected readonly customSlots = computed<RadarSlot[]>(() => {
+    const a = this.activity();
+    if (!a) return [];
+    return this.slots.forDomain(domainOf(a.type)).filter((s) => !s.config?.role);
+  });
+
+  protected readonly visibleSlots = computed(() =>
+    this.showAllSlots() ? this.customSlots() : this.customSlots().slice(0, this.slotPreviewCount),
+  );
+
+  protected inSlot(slot: RadarSlot): boolean {
+    return slot.items.some((i) => i.activity_id === this.id());
+  }
+
+  protected async toggleSlot(slot: RadarSlot) {
+    if (this.inSlot(slot)) await this.slots.removeItem(slot.id, this.id());
+    else {
+      await this.slots.addItem(slot.id, this.id());
+      this.toast.success(`Added to ${slot.name} ✓`);
+    }
+  }
 
   protected readonly recommendedTo = signal<ReadonlySet<string>>(new Set());
 
@@ -323,6 +381,7 @@ export class ActivityDetailPage {
   constructor() {
     if (this.lib.entries().length === 0) this.lib.load();
     this.friends.load();
+    this.slots.load();
     queueMicrotask(() => this.fetch());
   }
 

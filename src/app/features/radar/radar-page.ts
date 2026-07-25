@@ -1,10 +1,9 @@
-import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DOMAINS, Domain, DomainService } from '../../core/domain.service';
-import { LocationService } from '../../core/location.service';
 import { ToastService } from '../../shared/ui/toast.service';
-import { ActivitySummary, LibraryEntry, LibraryService } from '../library/library.service';
+import { LibraryEntry, LibraryService } from '../library/library.service';
 import { PartyService } from '../party/party.service';
 import { RadarSlot, SlotItem, SlotsService } from './slots.service';
 
@@ -35,57 +34,6 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
       <p class="mt-1 text-sm text-muted-2">
         {{ domain.domain() === 'eat' ? 'Places worth trying — queues with a pulse.' : 'Your personal TV guide — queues with a pulse.' }}
       </p>
-
-      <input
-        type="search"
-        [placeholder]="domain.def().searchPlaceholder"
-        [ngModel]="query()"
-        (ngModelChange)="onQuery($event)"
-        class="mt-4 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-cream placeholder:text-muted focus:border-coral focus:outline-none"
-      />
-      @if (domain.domain() === 'eat' && query().trim().length < 2) {
-        <button
-          (click)="nearby()"
-          class="mt-2 w-full rounded-2xl border border-dashed border-line py-2.5 text-sm font-bold text-muted-2"
-        >
-          📍 What's good nearby?
-        </button>
-      }
-
-      @if (query().trim().length >= 2 || (domain.domain() === 'eat' && results().length)) {
-        @if (searching()) {
-          <p class="mt-4 text-center text-sm font-bold text-muted-2">Searching…</p>
-        } @else if (!results().length) {
-          <p class="mt-4 text-center text-sm font-bold text-muted-2">Nothing found for “{{ query() }}”</p>
-        }
-        <div class="mt-3 flex flex-col gap-2">
-          @for (r of results(); track r.id) {
-            <div class="flex items-center gap-3 rounded-2xl border border-line bg-surface p-2.5">
-              <a [routerLink]="['/library', r.id]" class="flex min-w-0 flex-1 items-center gap-3">
-                @if (r.image_url) {
-                  <img [src]="r.image_url" alt="" class="h-16 w-11 flex-none rounded-lg object-cover" />
-                } @else {
-                  <div class="h-16 w-11 flex-none rounded-lg bg-surface-2"></div>
-                }
-                <div class="min-w-0">
-                  <p class="truncate text-sm font-bold">{{ r.title }}</p>
-                  <p class="truncate text-xs text-muted">{{ resultSub(r) }}</p>
-                </div>
-              </a>
-              @if (statusOf(r.id)) {
-                <span class="flex-none rounded-full border border-green px-3 py-1.5 text-xs font-bold text-green">✓</span>
-              } @else {
-                <button
-                  (click)="quickAdd(r)"
-                  class="flex-none rounded-full border border-green px-3 py-1.5 text-xs font-bold text-green"
-                >
-                  {{ r.type === 'restaurant' ? '＋ Want to try' : '＋ Want to' }}
-                </button>
-              }
-            </div>
-          }
-        </div>
-      }
 
       <!-- stale-show nudge -->
       @if (staleEntry(); as stale) {
@@ -167,7 +115,7 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
             </div>
 
             @if (!slot.items.length) {
-              <p class="mt-3 text-center text-xs text-muted">Queue's empty — add something ↓</p>
+              <p class="mt-3 text-center text-xs text-muted">Queue's empty — add from Explore or a detail page.</p>
             }
 
             <div class="mt-3 flex flex-col gap-2">
@@ -213,43 +161,12 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
               }
             </div>
 
-            @if (addingTo() === slot.id) {
-              <input
-                type="search"
-                placeholder="Search to add…"
-                [ngModel]="addQuery()"
-                (ngModelChange)="onAddQuery($event)"
-                class="mt-3 w-full rounded-xl border border-line bg-bg-warm px-3.5 py-2.5 text-sm text-cream placeholder:text-muted focus:border-coral focus:outline-none"
-              />
-              @if (addSearching()) {
-                <p class="mt-2 text-center text-xs font-bold text-muted-2">Searching…</p>
-              }
-              <div class="mt-2 flex flex-col gap-1.5">
-                @for (r of addResults(); track r.id) {
-                  <button
-                    (click)="addResult(slot, r)"
-                    class="flex items-center gap-2.5 rounded-xl bg-bg-warm p-2 text-left"
-                  >
-                    @if (r.image_url) {
-                      <img [src]="r.image_url" alt="" class="h-12 w-8 flex-none rounded-md object-cover" />
-                    }
-                    <span class="min-w-0 flex-1 truncate text-sm font-bold">{{ r.title }}</span>
-                    <span class="text-xs text-muted">{{ r.metadata.release_year }}</span>
-                    <span class="font-bold text-green">＋</span>
-                  </button>
-                }
-              </div>
-            } @else {
-              <button
-                (click)="openAdd(slot.id)"
-                class="mt-3 w-full rounded-xl border border-dashed border-line py-2 text-xs font-bold text-muted-2"
-              >
-                ＋ Add to {{ slot.name }}
-              </button>
-            }
           </div>
         }
       </div>
+      <p class="mt-3 text-center text-[11px] text-muted">
+        Add things from <a routerLink="/explore" class="font-bold text-coral">Explore</a> or any detail page's My Radar section.
+      </p>
 
       <!-- new slot -->
       <div class="mt-5 rounded-3xl border border-dashed border-line p-4">
@@ -285,10 +202,9 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
     </div>
   `,
 })
-export class RadarPage implements OnDestroy {
+export class RadarPage {
   protected readonly slots = inject(SlotsService);
   protected readonly domain = inject(DomainService);
-  private readonly location = inject(LocationService);
   private readonly lib = inject(LibraryService);
   private readonly partyService = inject(PartyService);
   private readonly toast = inject(ToastService);
@@ -299,18 +215,7 @@ export class RadarPage implements OnDestroy {
   protected newEmoji = '';
   protected newLoop = false;
 
-  protected readonly addingTo = signal<string | null>(null);
-  protected readonly addQuery = signal('');
-  protected readonly addResults = signal<ActivitySummary[]>([]);
-  protected readonly addSearching = signal(false);
   protected readonly deletingSlot = signal<string | null>(null);
-  private debounce: ReturnType<typeof setTimeout> | undefined;
-
-  // global search
-  protected readonly query = signal('');
-  protected readonly results = signal<ActivitySummary[]>([]);
-  protected readonly searching = signal(false);
-  private searchDebounce: ReturnType<typeof setTimeout> | undefined;
 
   // pulses
   private readonly dismissedStale = signal<ReadonlySet<string>>(new Set());
@@ -344,86 +249,6 @@ export class RadarPage implements OnDestroy {
 
   protected switchDomain(d: Domain) {
     this.domain.set(d);
-    this.query.set('');
-    this.results.set([]);
-    this.addingTo.set(null);
-  }
-
-  protected resultSub(r: ActivitySummary): string {
-    if (r.type === 'restaurant') {
-      const parts: string[] = [];
-      if (r.metadata.rating) parts.push(`★ ${r.metadata.rating}`);
-      if (r.metadata.price_level) parts.push('$'.repeat(r.metadata.price_level));
-      if (r.metadata.address) parts.push(r.metadata.address.split(',')[0]);
-      return parts.join(' · ') || 'Restaurant';
-    }
-    return `${r.metadata.release_year ?? ''} · ${r.type === 'movie' ? 'Movie' : 'Series'}`;
-  }
-
-  /** Eat domain: popularity-ranked nearby restaurants (needs location). */
-  protected async nearby() {
-    this.searching.set(true);
-    this.query.set('');
-    try {
-      const loc = await this.location.get();
-      if (!loc) {
-        this.toast.error('Location is off — allow it in your browser, or search by name.');
-        return;
-      }
-      this.results.set(await this.lib.searchPlaces('', loc));
-    } catch {
-      this.toast.error('Nearby search failed — is the Places key set up?');
-    } finally {
-      this.searching.set(false);
-    }
-  }
-
-  ngOnDestroy() {
-    clearTimeout(this.debounce);
-    clearTimeout(this.searchDebounce);
-  }
-
-  protected statusOf(activityId: string): boolean {
-    return this.lib
-      .entries()
-      .some(
-        (e) =>
-          e.activity.id === activityId &&
-          ['want_to', 'in_progress', 'completed'].includes(e.status),
-      );
-  }
-
-  protected onQuery(q: string) {
-    this.query.set(q);
-    clearTimeout(this.searchDebounce);
-    const trimmed = q.trim();
-    if (trimmed.length < 2) return;
-    this.searching.set(true);
-    this.searchDebounce = setTimeout(async () => {
-      try {
-        const results =
-          this.domain.domain() === 'eat'
-            ? await this.lib.searchPlaces(trimmed, await this.location.get())
-            : await this.lib.search(trimmed);
-        if (this.query().trim() === trimmed) this.results.set(results);
-      } catch {
-        this.toast.error('Search failed — check your connection.');
-      } finally {
-        this.searching.set(false);
-      }
-    }, 350);
-  }
-
-  protected async quickAdd(result: ActivitySummary) {
-    try {
-      await this.lib.setStatus(result.id, 'want_to'); // syncs into the up-next role slot
-      this.lib.hydrate(result);
-      this.toast.success(
-        `${result.title} → ${result.type === 'restaurant' ? 'Want to try' : 'Up next'} ✓`,
-      );
-    } catch {
-      this.toast.error(`Couldn't add “${result.title}” — try again.`);
-    }
   }
 
   protected async keepStale(entry: LibraryEntry) {
@@ -468,41 +293,6 @@ export class RadarPage implements OnDestroy {
     if (a.metadata?.release_year) parts.push(String(a.metadata.release_year));
     parts.push(a.type === 'movie' ? 'Movie' : 'Series');
     return parts.join(' · ');
-  }
-
-  protected openAdd(slotId: string) {
-    this.addingTo.set(slotId);
-    this.addQuery.set('');
-    this.addResults.set([]);
-  }
-
-  protected onAddQuery(q: string) {
-    this.addQuery.set(q);
-    clearTimeout(this.debounce);
-    const trimmed = q.trim();
-    if (trimmed.length < 2) return;
-    this.addSearching.set(true);
-    this.debounce = setTimeout(async () => {
-      try {
-        const slot = this.slots.slots().find((s) => s.id === this.addingTo());
-        const results =
-          (slot?.config?.domain ?? 'watch') === 'eat'
-            ? await this.lib.searchPlaces(trimmed, await this.location.get())
-            : await this.lib.search(trimmed);
-        if (this.addQuery().trim() === trimmed) this.addResults.set(results.slice(0, 5));
-      } catch {
-        this.toast.error('Search failed — try again.');
-      } finally {
-        this.addSearching.set(false);
-      }
-    }, 350);
-  }
-
-  protected async addResult(slot: RadarSlot, result: ActivitySummary) {
-    this.addingTo.set(null);
-    await this.slots.addItem(slot.id, result.id);
-    this.lib.hydrate(result); // availability/runtime in the background
-    this.toast.success(`Added to ${slot.name} ✓`);
   }
 
   /** Two-tap delete: ✕ → "Sure?" → gone (auto-resets after 3s). */
