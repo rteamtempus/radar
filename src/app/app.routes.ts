@@ -9,6 +9,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/radar/radar-page').then((m) => m.RadarPage),
   },
   {
+    path: 'radar/slot/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/radar/slot-detail-page').then((m) => m.SlotDetailPage),
+  },
+  {
     path: 'login',
     loadComponent: () => import('./features/auth/login-page').then((m) => m.LoginPage),
   },

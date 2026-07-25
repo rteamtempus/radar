@@ -99,15 +99,17 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
         @for (slot of slots.forDomain(domain.domain()); track slot.id) {
           <div class="rounded-3xl border border-line bg-surface p-4">
             <div class="flex items-center gap-2">
-              <span class="text-lg">{{ slot.emoji ?? '🎬' }}</span>
-              <span class="flex-1 truncate font-display text-lg font-semibold">{{ slot.name }}</span>
-              @if (slot.on_complete === 'loop') {
-                <span class="rounded-full bg-violet/15 px-2 py-0.5 text-[10px] font-bold text-violet">LOOP</span>
-              }
-              <span class="text-xs font-bold text-muted">{{ slot.items.length }}</span>
+              <a [routerLink]="['/radar/slot', slot.id]" class="flex min-w-0 flex-1 items-center gap-2">
+                <span class="text-lg">{{ slot.emoji ?? '🎬' }}</span>
+                <span class="min-w-0 flex-1 truncate font-display text-lg font-semibold">{{ slot.name }}</span>
+                @if (slot.on_complete === 'loop') {
+                  <span class="flex-none rounded-full bg-violet/15 px-2 py-0.5 text-[10px] font-bold text-violet">LOOP</span>
+                }
+                <span class="flex-none text-xs font-bold text-muted">{{ slot.items.length }} ›</span>
+              </a>
               <button
                 (click)="confirmDelete(slot)"
-                class="ml-1 text-sm text-muted"
+                class="ml-1 flex-none text-sm text-muted"
                 [attr.aria-label]="'Delete ' + slot.name"
               >
                 {{ deletingSlot() === slot.id ? 'Sure?' : '✕' }}
@@ -116,51 +118,29 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
 
             @if (!slot.items.length) {
               <p class="mt-3 text-center text-xs text-muted">Queue's empty — add from Explore or a detail page.</p>
+            } @else {
+              <a [routerLink]="['/radar/slot', slot.id]" class="no-scrollbar mt-3 flex gap-2 overflow-x-auto">
+                @for (item of preview(slot); track item.activity_id) {
+                  @if (item.activity.image_url) {
+                    <img
+                      [src]="item.activity.image_url"
+                      [alt]="item.activity.title"
+                      [title]="item.activity.title"
+                      class="h-24 w-16 flex-none rounded-lg object-cover"
+                    />
+                  } @else {
+                    <span class="flex h-24 w-16 flex-none items-center justify-center rounded-lg bg-surface-2 p-1 text-center text-[9px] font-bold text-muted">
+                      {{ item.activity.title }}
+                    </span>
+                  }
+                }
+                @if (slot.items.length > previewCount) {
+                  <span class="flex h-24 w-16 flex-none items-center justify-center rounded-lg bg-surface-2 text-sm font-bold text-muted-2">
+                    +{{ slot.items.length - previewCount }}
+                  </span>
+                }
+              </a>
             }
-
-            <div class="mt-3 flex flex-col gap-2">
-              @for (item of sorted(slot); track item.activity_id; let first = $first; let last = $last) {
-                <div class="flex items-center gap-2.5 rounded-2xl bg-bg-warm p-2">
-                  <a [routerLink]="['/library', item.activity.id]" class="flex min-w-0 flex-1 items-center gap-2.5">
-                    @if (item.activity.image_url) {
-                      <img [src]="item.activity.image_url" alt="" class="h-14 w-10 flex-none rounded-lg object-cover" />
-                    } @else {
-                      <div class="h-14 w-10 flex-none rounded-lg bg-surface-2"></div>
-                    }
-                    <div class="min-w-0">
-                      <p class="truncate text-sm font-bold">{{ item.activity.title }}</p>
-                      <p class="text-xs text-muted">{{ subtitle(item) }}</p>
-                    </div>
-                  </a>
-                  <div class="flex flex-none items-center gap-0.5">
-                    <button
-                      (click)="slots.move(slot.id, item.activity_id, -1)"
-                      [disabled]="first"
-                      class="px-1.5 py-1 text-muted disabled:opacity-25"
-                      aria-label="Move up"
-                    >
-                      ▲
-                    </button>
-                    <button
-                      (click)="slots.move(slot.id, item.activity_id, 1)"
-                      [disabled]="last"
-                      class="px-1.5 py-1 text-muted disabled:opacity-25"
-                      aria-label="Move down"
-                    >
-                      ▼
-                    </button>
-                    <button
-                      (click)="slots.removeItem(slot.id, item.activity_id)"
-                      class="px-1.5 py-1 text-muted"
-                      aria-label="Remove"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              }
-            </div>
-
           </div>
         }
       </div>
@@ -277,22 +257,10 @@ export class RadarPage {
     this.outcome.set(null);
   }
 
-  protected sorted(slot: RadarSlot): SlotItem[] {
-    return [...slot.items].sort((a, b) => a.position - b.position);
-  }
+  protected readonly previewCount = 8;
 
-  protected subtitle(item: SlotItem): string {
-    const a = item.activity;
-    if (a.type === 'restaurant') {
-      const parts: string[] = [];
-      if (a.metadata?.rating) parts.push(`★ ${a.metadata.rating}`);
-      if (a.metadata?.price_level) parts.push('$'.repeat(a.metadata.price_level));
-      return parts.join(' · ') || 'Restaurant';
-    }
-    const parts: string[] = [];
-    if (a.metadata?.release_year) parts.push(String(a.metadata.release_year));
-    parts.push(a.type === 'movie' ? 'Movie' : 'Series');
-    return parts.join(' · ');
+  protected preview(slot: RadarSlot): SlotItem[] {
+    return [...slot.items].sort((a, b) => a.position - b.position).slice(0, this.previewCount);
   }
 
   /** Two-tap delete: ✕ → "Sure?" → gone (auto-resets after 3s). */

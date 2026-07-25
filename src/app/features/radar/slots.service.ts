@@ -13,7 +13,17 @@ export interface SlotItemActivity {
   image_url: string | null;
   type: 'movie' | 'tv_show' | 'restaurant';
   duration_min: number | null;
-  metadata: { release_year?: number | null; rating?: number | null; price_level?: number | null };
+  metadata: {
+    release_year?: number | null;
+    tmdb_vote?: number | null;
+    rating?: number | null;
+    rating_count?: number | null;
+    price_level?: number | null;
+    open_now?: boolean | null;
+  };
+  location?: { lat?: number; lng?: number } | null;
+  activity_tags?: { tag: { slug: string; label: string; kind: string } }[];
+  activity_availability?: { service: { slug: string; name: string } }[];
 }
 
 export interface SlotItem {
@@ -36,7 +46,9 @@ export interface RadarSlot {
 const SLOT_SELECT =
   'id, name, emoji, position, on_complete, config, ' +
   'items:radar_slot_items(activity_id, position, note, ' +
-  'activity:activities(id, title, image_url, type, duration_min, metadata))';
+  'activity:activities(id, title, image_url, type, duration_min, metadata, location, ' +
+  'activity_tags(tag:tags(slug, label, kind)), ' +
+  'activity_availability(service:streaming_services(slug, name))))';
 
 /** Starter slots per domain (ideas doc §2). Roles let the app find them even
  * after a rename; a deleted role-slot just opts out. */
