@@ -31,6 +31,11 @@ export const routes: Routes = [
       import('./features/library/activity-detail-page').then((m) => m.ActivityDetailPage),
   },
   {
+    path: 'explore',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/explore/explore-page').then((m) => m.ExplorePage),
+  },
+  {
     path: 'friends',
     canActivate: [authGuard],
     loadComponent: () => import('./features/friends/friends-page').then((m) => m.FriendsPage),
