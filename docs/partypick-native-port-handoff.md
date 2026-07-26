@@ -1,5 +1,11 @@
 # PartyPick Native Port — Claude Code Handoff Document
 
+> **STATUS (2026-07-26): Phases 0–2 are DONE and merged; work is paused.**
+> See [NATIVE-PORT-STATUS.md](NATIVE-PORT-STATUS.md) for what was decided,
+> what changed vs. this plan (notably: Phase 3 deep links skipped — the app
+> uses password auth now), and the exact resume point (Milestone 1 test on
+> the Mac).
+
 **Goal:** Wrap the existing Angular PWA in Capacitor so one codebase ships to web (Vercel), iOS (TestFlight), and Android (Play internal track), with OTA updates keeping native testers current without store releases.
 
 **Guiding rule:** The web app is the product; native is a shell. Never fork behavior into the native projects when it can live in the web codebase behind `Capacitor.isNativePlatform()`. The `ios/` and `android/` directories should contain configuration and plugin wiring only — no features.
