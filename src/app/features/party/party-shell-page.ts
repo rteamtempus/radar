@@ -1,5 +1,6 @@
 import { Component, OnDestroy, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { PlatformService } from '../../core/platform/platform.service';
 import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
 import { SubscriptionsService } from '../../core/subscriptions.service';
 import { ServiceBadges } from '../../shared/ui/service-badges';
@@ -36,10 +37,10 @@ import { SwipeDeck } from './swipe-deck';
                 {{ p.join_code }}
               </p>
               <button
-                (click)="copyLink()"
+                (click)="shareLink()"
                 class="mt-3 rounded-full border border-line px-4 py-2 text-xs font-bold text-muted-2"
               >
-                {{ copied() ? '✓ Link copied' : '⧉ Copy invite link' }}
+                {{ copied() ? '✓ Link copied' : '📤 Share invite link' }}
               </button>
               <p class="mt-3 text-xs text-muted">
                 No rush — people can join and swipe whenever. Text the link and check back.
@@ -283,8 +284,7 @@ import { SwipeDeck } from './swipe-deck';
                 @if (watchOn(w); as svc) {
                   <a
                     [href]="svc.url"
-                    target="_blank"
-                    rel="noopener"
+                    (click)="platform.openExternal(svc.url, $event)"
                     class="mt-6 w-full rounded-2xl bg-coral py-4 text-center font-display text-lg font-semibold text-ink shadow-lg shadow-coral/40"
                   >
                     ▶ Watch on {{ svc.name }}
@@ -331,6 +331,7 @@ import { SwipeDeck } from './swipe-deck';
 export class PartyShellPage implements OnDestroy {
   protected readonly party = inject(PartyService);
   protected readonly subs = inject(SubscriptionsService);
+  protected readonly platform = inject(PlatformService);
 
   /** Route param. */
   readonly id = input.required<string>();
@@ -382,12 +383,20 @@ export class PartyShellPage implements OnDestroy {
     this.vibeIds.set(next);
   }
 
-  protected async copyLink() {
+  protected async shareLink() {
     const code = this.party.party()?.join_code;
     if (!code) return;
-    await navigator.clipboard.writeText(`${location.origin}/party/join?code=${code}`);
-    this.copied.set(true);
-    setTimeout(() => this.copied.set(false), 2000);
+    const result = await this.platform
+      .share({
+        title: 'Join my Radar quest',
+        text: `Join with code ${code}`,
+        url: `${location.origin}/party/join?code=${code}`,
+      })
+      .catch(() => null); // user dismissed the share sheet
+    if (result === 'copied') {
+      this.copied.set(true);
+      setTimeout(() => this.copied.set(false), 2000);
+    }
   }
 
   protected async submitMood() {

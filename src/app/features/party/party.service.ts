@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { AuthService } from '../../core/auth.service';
+import { PlatformService } from '../../core/platform/platform.service';
 import { getSupabase } from '../../core/supabase.client';
 import { ToastService } from '../../shared/ui/toast.service';
 import { ServiceRef } from '../library/library.service';
@@ -100,7 +101,9 @@ function generateJoinCode(): string {
 export class PartyService {
   private auth = inject(AuthService);
   private toast = inject(ToastService);
+  private platform = inject(PlatformService);
   private channel: RealtimeChannel | undefined;
+  private resumeCleanup: (() => void) | undefined;
 
   readonly party = signal<PartyRow | null>(null);
   readonly members = signal<PartyMember[]>([]);
@@ -281,9 +284,21 @@ export class PartyService {
         this.loadVetoes(partyId),
       )
       .subscribe();
+
+    // iOS suspends WebSockets in the background — on foreground, re-pull
+    // everything instead of trusting the channel caught it all.
+    this.resumeCleanup = this.platform.onResume(() => {
+      if (this.party()?.id !== partyId) return;
+      this.loadParty(partyId);
+      this.loadMembers(partyId);
+      this.loadCheckins(partyId);
+      this.loadCandidates(partyId);
+    });
   }
 
   close(): void {
+    this.resumeCleanup?.();
+    this.resumeCleanup = undefined;
     this.channel?.unsubscribe();
     this.channel = undefined;
     this.party.set(null);

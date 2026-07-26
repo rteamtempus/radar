@@ -15,7 +15,8 @@ export class UpdateService {
   readonly updateReady = signal(false);
 
   constructor() {
-    // Disabled in dev mode and on browsers without service worker support.
+    // Disabled in dev mode, on browsers without service worker support, and
+    // in the native shells (native updates are Capgo's job, not the pill's).
     if (!this.swUpdate.isEnabled) return;
 
     this.swUpdate.versionUpdates

@@ -47,6 +47,32 @@ migrations) + `functions/{_shared,tmdb-search,tmdb-detail,generate-candidates}`.
 Migrations are plain PostgreSQL — VS Code's default T-SQL linter flags them
 falsely; ignore or set the SQL dialect to Postgres.
 
+## Native shells (Capacitor)
+
+The app ships as web (Vercel) AND native shells (Capacitor 7, `ios/` +
+`android/` are committed source; build artifacts gitignored). Rules:
+
+1. **Never import `@capacitor/*` in feature code** — everything goes through
+   `core/platform/platform.service.ts` (isNative, openExternal, share,
+   haptic, onResume, back button). External links use `openExternal`.
+2. **Service worker + update pill stay disabled on native** (`app.config.ts`
+   gates on `!Capacitor.isNativePlatform()`; native updates will be Capgo's
+   job). Never remove that gate.
+3. Adding/removing a Capacitor plugin or touching `ios/`/`android/` config
+   requires a native version bump + store release (+ `--min-update-version`
+   once Capgo OTA exists). Flag loudly in the commit message.
+4. `appId` `com.rteamtempus.radar` is permanent after first store upload;
+   `appName` (display) is freely changeable.
+5. Auth is email+password (no redirects needed). If Google OAuth gets
+   enabled, native needs the deep-link flow from
+   docs/partypick-native-port-handoff.md Phase 3.
+6. UI definition of done: verified in browser AND at least one native
+   platform (simulator OK; physical device for auth/share/keyboard).
+
+Commands: `npm run native:sync` (build + copy into shells),
+`native:run:android`, `native:ios` (opens Xcode — Mac only). iOS building
+requires the Mac; the ios/ project itself is generated and committed here.
+
 ## Commands
 
 `npm start` (serve; runs generate-env first) · `npm run build` · `npm test`.

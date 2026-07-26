@@ -1,4 +1,5 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { PlatformService } from '../../core/platform/platform.service';
 import { ScoreRing } from '../../shared/ui/score-ring';
 import { ServiceBadges } from '../../shared/ui/service-badges';
 import { PartyCandidate, SwipeDirection } from './party.service';
@@ -26,7 +27,7 @@ const COMMIT_THRESHOLD_PX = 90;
 
       @if (top(); as c) {
         <div
-          class="absolute inset-0 touch-none overflow-hidden rounded-3xl bg-surface shadow-2xl select-none"
+          class="absolute inset-0 touch-none overflow-hidden overscroll-none rounded-3xl bg-surface shadow-2xl select-none will-change-transform"
           [style.transform]="cardTransform()"
           [style.transition]="dragging() ? 'none' : 'transform .25s ease'"
           (pointerdown)="onDown($event)"
@@ -109,6 +110,8 @@ const COMMIT_THRESHOLD_PX = 90;
   host: { class: 'flex flex-col flex-1' },
 })
 export class SwipeDeck {
+  private readonly platformService = inject(PlatformService);
+
   readonly deck = input.required<PartyCandidate[]>();
   readonly vetoAvailable = input(false);
   readonly highlight = input<string[] | null>(null);
@@ -153,6 +156,7 @@ export class SwipeDeck {
   protected commit(direction: SwipeDirection) {
     const c = this.top();
     if (!c || this.flying) return;
+    this.platformService.haptic('light');
     this.flying = true;
     this.dx.set(direction === 'left' ? -600 : 600);
     setTimeout(() => {
@@ -165,6 +169,7 @@ export class SwipeDeck {
   protected doVeto() {
     const c = this.top();
     if (!c || this.flying) return;
+    this.platformService.haptic('warning');
     this.flying = true;
     this.dx.set(-600);
     setTimeout(() => {

@@ -14,6 +14,7 @@ import {
 type ActivityDetail = ActivitySummary;
 
 import { domainOf } from '../../core/domain.service';
+import { PlatformService } from '../../core/platform/platform.service';
 import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
 import { FriendProfile, FriendsService } from '../friends/friends.service';
 import { RadarSlot, SlotsService } from '../radar/slots.service';
@@ -76,7 +77,7 @@ import { RadarSlot, SlotsService } from '../radar/slots.service';
                 }
                 <div class="flex gap-2">
                   @if (activity()?.metadata?.maps_url; as maps) {
-                    <a [href]="maps" target="_blank" rel="noopener" class="flex-1 rounded-2xl bg-coral py-3 text-center text-sm font-bold text-ink">
+                    <a [href]="maps" (click)="platform.openExternal(maps, $event)" class="flex-1 rounded-2xl bg-coral py-3 text-center text-sm font-bold text-ink">
                       🗺 Open in Maps
                     </a>
                   }
@@ -84,7 +85,7 @@ import { RadarSlot, SlotsService } from '../radar/slots.service';
                     <a [href]="'tel:' + phone" class="rounded-2xl border border-line px-4 py-3 text-sm font-bold text-muted-2">📞</a>
                   }
                   @if (activity()?.metadata?.website; as site) {
-                    <a [href]="site" target="_blank" rel="noopener" class="rounded-2xl border border-line px-4 py-3 text-sm font-bold text-muted-2">↗</a>
+                    <a [href]="site" (click)="platform.openExternal(site, $event)" class="rounded-2xl border border-line px-4 py-3 text-sm font-bold text-muted-2">↗</a>
                   }
                 </div>
                 @if (activity()?.metadata?.hours; as hours) {
@@ -106,8 +107,7 @@ import { RadarSlot, SlotsService } from '../radar/slots.service';
                 <h2 class="mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">The book</h2>
                 <a
                   [href]="info"
-                  target="_blank"
-                  rel="noopener"
+                  (click)="platform.openExternal(info, $event)"
                   class="block rounded-2xl bg-coral py-3 text-center text-sm font-bold text-ink"
                 >
                   📖 Open on Google Books
@@ -130,8 +130,7 @@ import { RadarSlot, SlotsService } from '../radar/slots.service';
                     <span class="flex-1 text-sm font-bold">{{ s.name }}</span>
                     <a
                       [href]="homepage(s)"
-                      target="_blank"
-                      rel="noopener"
+                      (click)="platform.openExternal(homepage(s), $event)"
                       class="rounded-full bg-coral px-4 py-2 text-xs font-bold text-ink"
                       >Open ↗</a
                     >
@@ -272,6 +271,7 @@ export class ActivityDetailPage {
   private lib = inject(LibraryService);
   private toast = inject(ToastService);
   protected readonly friends = inject(FriendsService);
+  protected readonly platform = inject(PlatformService);
   private readonly slots = inject(SlotsService);
 
   protected readonly slotPreviewCount = 5;

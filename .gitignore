@@ -46,3 +46,18 @@ Thumbs.db
 .env
 src/environments/env.generated.ts
 supabase/.temp/
+
+# Capacitor native build artifacts (the rest of ios/ and android/ IS source)
+ios/App/Pods
+ios/App/build
+ios/App/output
+ios/App/App/public
+ios/App/App/capacitor.config.json
+android/.gradle
+android/build
+android/app/build
+android/local.properties
+android/app/src/main/assets/public
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/capacitor-cordova-android-plugins
