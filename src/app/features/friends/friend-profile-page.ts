@@ -1,7 +1,9 @@
-import { Component, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AuthService } from '../../core/auth.service';
 import { getSupabase } from '../../core/supabase.client';
 import { StarRating } from '../../shared/ui/star-rating';
+import { FriendsService } from './friends.service';
 
 interface FriendActivityRef {
   id: string;
@@ -46,12 +48,39 @@ interface SharedParty {
         <span class="flex size-14 items-center justify-center rounded-full bg-gradient-to-br from-coral to-gold text-xl font-extrabold text-ink">
           {{ initial(name()) }}
         </span>
-        <div>
-          <h1 class="font-display text-2xl font-semibold">{{ name() || '…' }}</h1>
-          <p class="text-xs text-muted-2">Friend</p>
+        <div class="min-w-0 flex-1">
+          <h1 class="truncate font-display text-2xl font-semibold">{{ name() || '…' }}</h1>
+          <p class="text-xs text-muted-2">
+            {{ isFriend() ? 'Friend' : 'Radar profile' }}
+            @if (tasteMatch() !== null) {
+              · <span class="font-bold text-gold">{{ tasteMatch() }}% taste match</span>
+            }
+          </p>
         </div>
       </div>
 
+      @if (isPrivate()) {
+        <div class="flex flex-col items-center gap-3 py-16 text-center">
+          <div class="text-4xl">🔒</div>
+          <p class="font-bold">This profile is private</p>
+        </div>
+      } @else {
+        @if (canSubscribe()) {
+          <button
+            (click)="toggleSubscribe()"
+            class="rounded-2xl border-2 py-3 text-sm font-bold"
+            [class]="
+              friendsService.isSubscribedTo(id())
+                ? 'border-green bg-green/10 text-green'
+                : 'border-coral text-coral'
+            "
+          >
+            {{ friendsService.isSubscribedTo(id()) ? '✓ Subscribed to their radar' : '＋ Subscribe to their radar' }}
+          </button>
+        }
+      }
+
+      @if (!isPrivate()) {
       <!-- their radar -->
       <div>
         <h2 class="mb-2 text-xs font-bold tracking-wide text-muted uppercase">Their radar</h2>
@@ -61,9 +90,11 @@ interface SharedParty {
         <div class="flex flex-col gap-3">
           @for (slot of slots(); track slot.id) {
             <div class="rounded-2xl border border-line bg-surface p-4">
-              <p class="text-sm font-bold">{{ slot.emoji }} {{ slot.name }}
-                <span class="font-normal text-muted"> · {{ slot.items.length }}</span>
-              </p>
+              <a [routerLink]="['/radar/slot', slot.id]" class="flex items-center text-sm font-bold">
+                <span class="min-w-0 flex-1 truncate">{{ slot.emoji }} {{ slot.name }}
+                  <span class="font-normal text-muted"> · {{ slot.items.length }}</span></span>
+                <span class="text-muted">›</span>
+              </a>
               @if (slot.items.length) {
                 <div class="no-scrollbar mt-2.5 flex gap-2 overflow-x-auto">
                   @for (item of slot.items; track item.activity.id) {
@@ -131,27 +162,52 @@ interface SharedParty {
           }
         </div>
       </div>
+      }
     </div>
   `,
 })
 export class FriendProfilePage {
-  /** Route param: the friend's profile id. */
+  protected readonly friendsService = inject(FriendsService);
+  private readonly auth = inject(AuthService);
+
+  /** Route param: the profile id (friend or stranger — RLS scopes content). */
   readonly id = input.required<string>();
 
   protected readonly name = signal('');
+  protected readonly visibility = signal<'public' | 'friends' | 'private'>('friends');
+  protected readonly tasteMatch = signal<number | null>(null);
   protected readonly slots = signal<FriendSlot[]>([]);
   protected readonly watches = signal<FriendWatch[]>([]);
   protected readonly parties = signal<SharedParty[]>([]);
 
+  protected readonly isMe = computed(() => this.id() === this.auth.user()?.id);
+  protected readonly isFriend = computed(() =>
+    this.friendsService.friends().some((f) => f.id === this.id()),
+  );
+  protected readonly isPrivate = computed(() => this.visibility() === 'private' && !this.isMe());
+  protected readonly canSubscribe = computed(
+    () => !this.isMe() && (this.visibility() === 'public' || this.isFriend()),
+  );
+
   constructor() {
+    this.friendsService.load();
     queueMicrotask(() => this.load());
+  }
+
+  protected async toggleSubscribe() {
+    if (this.friendsService.isSubscribedTo(this.id())) {
+      await this.friendsService.unsubscribeProfile(this.id());
+    } else {
+      await this.friendsService.subscribeProfile(this.id());
+    }
   }
 
   private async load() {
     const friendId = this.id();
     const supabase = getSupabase();
+    this.friendsService.tasteMatch(friendId).then((m) => this.tasteMatch.set(m));
     const [profile, slots, watches, memberships] = await Promise.all([
-      supabase.from('profiles').select('display_name').eq('id', friendId).maybeSingle(),
+      supabase.from('profiles').select('display_name, visibility').eq('id', friendId).maybeSingle(),
       supabase
         .from('radar_slots')
         .select(
@@ -176,6 +232,10 @@ export class FriendProfilePage {
     ]);
 
     this.name.set((profile.data?.display_name as string | undefined) ?? '');
+    this.visibility.set(
+      ((profile.data as { visibility?: 'public' | 'friends' | 'private' } | null)?.visibility) ??
+        'friends',
+    );
     this.slots.set(
       ((slots.data ?? []) as unknown as FriendSlot[]).map((s) => ({
         ...s,

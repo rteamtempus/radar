@@ -760,6 +760,39 @@ export type Database = {
           },
         ]
       }
+      profile_subscriptions: {
+        Row: {
+          created_at: string
+          profile_id: string
+          subscriber_id: string
+        }
+        Insert: {
+          created_at?: string
+          profile_id: string
+          subscriber_id: string
+        }
+        Update: {
+          created_at?: string
+          profile_id?: string
+          subscriber_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_subscriptions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_subscriptions_subscriber_id_fkey"
+            columns: ["subscriber_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -772,6 +805,7 @@ export type Database = {
           settings: Json
           taste_embedding: string | null
           taste_embedding_updated_at: string | null
+          visibility: string
         }
         Insert: {
           avatar_url?: string | null
@@ -784,6 +818,7 @@ export type Database = {
           settings?: Json
           taste_embedding?: string | null
           taste_embedding_updated_at?: string | null
+          visibility?: string
         }
         Update: {
           avatar_url?: string | null
@@ -796,6 +831,7 @@ export type Database = {
           settings?: Json
           taste_embedding?: string | null
           taste_embedding_updated_at?: string | null
+          visibility?: string
         }
         Relationships: []
       }
@@ -852,6 +888,7 @@ export type Database = {
         Row: {
           config: Json
           created_at: string
+          description: string | null
           emoji: string | null
           group_id: string | null
           id: string
@@ -859,10 +896,12 @@ export type Database = {
           on_complete: string
           owner_id: string | null
           position: number
+          visibility: string
         }
         Insert: {
           config?: Json
           created_at?: string
+          description?: string | null
           emoji?: string | null
           group_id?: string | null
           id?: string
@@ -870,10 +909,12 @@ export type Database = {
           on_complete?: string
           owner_id?: string | null
           position?: number
+          visibility?: string
         }
         Update: {
           config?: Json
           created_at?: string
+          description?: string | null
           emoji?: string | null
           group_id?: string | null
           id?: string
@@ -881,6 +922,7 @@ export type Database = {
           on_complete?: string
           owner_id?: string | null
           position?: number
+          visibility?: string
         }
         Relationships: [
           {
@@ -937,6 +979,105 @@ export type Database = {
             columns: ["source_party_id"]
             isOneToOne: false
             referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slot_likes: {
+        Row: {
+          created_at: string
+          slot_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          slot_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          slot_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slot_likes_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "radar_slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slot_subscriptions: {
+        Row: {
+          created_at: string
+          last_seen_at: string
+          slot_id: string
+          subscriber_id: string
+        }
+        Insert: {
+          created_at?: string
+          last_seen_at?: string
+          slot_id: string
+          subscriber_id: string
+        }
+        Update: {
+          created_at?: string
+          last_seen_at?: string
+          slot_id?: string
+          subscriber_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slot_subscriptions_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "radar_slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_subscriptions_subscriber_id_fkey"
+            columns: ["subscriber_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slot_tags: {
+        Row: {
+          slot_id: string
+          tag_id: string
+        }
+        Insert: {
+          slot_id: string
+          tag_id: string
+        }
+        Update: {
+          slot_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slot_tags_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "radar_slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
             referencedColumns: ["id"]
           },
         ]
@@ -1192,6 +1333,7 @@ export type Database = {
         Returns: undefined
       }
       recompute_affinities: { Args: { p_user_id: string }; Returns: undefined }
+      taste_match: { Args: { p_other: string }; Returns: number }
     }
     Enums: {
       activity_type:

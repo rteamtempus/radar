@@ -73,7 +73,35 @@ new machinery:
 
 ---
 
-## The 15 ideas (awaiting approve/deny)
+## Status (2026-07-26)
+
+**Rory's verdict:** all approved EXCEPT #13 (private notes on subscribed
+slots — denied for now). Location-based curation (#15) called out as
+especially valuable ("new town → what locals go to").
+
+**Shipped (phases 1–3 + quick ideas), migration 0011:**
+- Visibility tiers on profiles + slots (default `friends`); RLS rewritten;
+  toggle UI in Me (profile) and on slot pages (owner). Verified live:
+  strangers see public slots, private flips hide from subscribers, role
+  slots aren't subscribable.
+- Slot metadata: description + tags (genre/cuisine/theme **+ vibe**, idea
+  #10) with an owner tag-picker; `slot_tags` feeds future search/parties.
+- Thumbs-up (`slot_likes`) with owner-only stats line (idea #8).
+- Profile subscriptions (Friends tab section) + slot subscriptions: "Saved
+  from others" section on Radar home with **+N new** badges (idea #9) and
+  **x/y done** completion (idea #4); opening a slot marks it seen.
+- Slot pages now open for ANY visible slot: viewer mode has like /
+  save-to-radar / **fork with attribution** (idea #5) / share (idea #12,
+  link-level; OG image needs SSR later).
+- **Taste-match %** on profile pages via `taste_match` RPC (idea #6) —
+  server-side cosine, friends or public profiles only.
+
+**Approved, not yet built:** #1 cover collages · #2 blend slots · #3 quest
+from a slot · #7 official curator profile (needs a first-party account) ·
+#11 seasonal windows · #14 slot-context recommendations · #15 featured
+curators (with the Phase-4 discovery/search work).
+
+## The 15 ideas (verdicts inline)
 
 1. **Slot cover collages** — auto-generate a 2×2 poster mosaic from a slot's
    top items (Spotify-style). Makes profiles, subscriptions, and future
@@ -112,9 +140,7 @@ new machinery:
 12. **Share cards** — share any public slot as a link with a proper OG
     preview (title, collage, item count) + QR. Spreads the app through group
     chats — distribution without a social feed.
-13. **Private notes on subscribed slots** — your own annotations on someone
-    else's slot ("skip ep 1, she said") that the owner never sees. Extends
-    the existing per-item notes pattern.
+13. ~~**Private notes on subscribed slots**~~ — **DENIED** (Rory, 2026-07-26).
 14. **Listen-together, watch-later** — a "send to friend's slot" upgrade:
     recommending FROM a slot context attaches which slot it came from, so
     the receiver sees "Dave sent this from his Halloween slot."

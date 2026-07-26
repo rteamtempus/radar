@@ -5,7 +5,7 @@ import { DOMAINS, Domain, DomainService } from '../../core/domain.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { LibraryEntry, LibraryService } from '../library/library.service';
 import { PartyService } from '../party/party.service';
-import { RadarSlot, SlotItem, SlotsService } from './slots.service';
+import { RadarSlot, SlotItem, SlotsService, SubscribedSlot } from './slots.service';
 
 /**
  * The Radar home: your slots — curated, active queues (ideas doc §2).
@@ -144,6 +144,40 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
         Add things from <a routerLink="/explore" class="font-bold text-coral">Explore</a> or any detail page's My Radar section.
       </p>
 
+      <!-- slots saved from other people (live references, read-only) -->
+      @if (subscribedForDomain().length) {
+        <h2 class="mt-6 mb-2 text-xs font-bold tracking-wide text-muted uppercase">Saved from others</h2>
+        <div class="flex flex-col gap-4">
+          @for (slot of subscribedForDomain(); track slot.id) {
+            <a [routerLink]="['/radar/slot', slot.id]" class="block rounded-3xl border border-violet/30 bg-surface p-4">
+              <div class="flex items-center gap-2">
+                <span class="text-lg">{{ slot.emoji ?? '🎬' }}</span>
+                <span class="min-w-0 flex-1 truncate font-display text-lg font-semibold">{{ slot.name }}</span>
+                @if (newCount(slot); as n) {
+                  <span class="flex-none rounded-full bg-gold px-2 py-0.5 text-[10px] font-bold text-ink">+{{ n }} new</span>
+                }
+                <span class="flex-none text-xs font-bold text-muted">{{ slot.items.length }} ›</span>
+              </div>
+              <p class="mt-0.5 text-[11px] text-muted">
+                by {{ slot.owner?.display_name ?? 'someone' }}
+                @if (completionOf(slot); as c) {
+                  · <span class="text-green">{{ c }}</span>
+                }
+              </p>
+              @if (slot.items.length) {
+                <div class="no-scrollbar mt-3 flex gap-2 overflow-x-auto">
+                  @for (item of preview(slot); track item.activity_id) {
+                    @if (item.activity.image_url) {
+                      <img [src]="item.activity.image_url" [alt]="item.activity.title" class="h-24 w-16 flex-none rounded-lg object-cover" />
+                    }
+                  }
+                </div>
+              }
+            </a>
+          }
+        </div>
+      }
+
       <!-- new slot -->
       <div class="mt-5 rounded-3xl border border-dashed border-line p-4">
         <p class="text-xs font-bold tracking-wide text-muted uppercase">New slot</p>
@@ -220,7 +254,30 @@ export class RadarPage {
 
   constructor() {
     this.lib.load();
+    this.slots.loadSubscribed();
     this.partyService.pendingOutcome().then((o) => this.outcome.set(o));
+  }
+
+  protected readonly subscribedForDomain = computed(() =>
+    this.slots.subscribed().filter((s) => (s.config?.domain ?? 'watch') === this.domain.domain()),
+  );
+
+  /** "+N new since you looked" (idea #9). */
+  protected newCount(slot: SubscribedSlot): number {
+    return slot.items.filter((i) => i.added_at && i.added_at > slot.last_seen_at).length;
+  }
+
+  /** "4/12 done" completion (idea #4), from my own history. */
+  protected completionOf(slot: SubscribedSlot): string | null {
+    if (!slot.items.length) return null;
+    const mine = new Set(
+      this.lib
+        .entries()
+        .filter((e) => e.status === 'completed')
+        .map((e) => e.activity.id),
+    );
+    const done = slot.items.filter((i) => mine.has(i.activity_id)).length;
+    return done ? `${done}/${slot.items.length} done` : null;
   }
 
   protected switchDomain(d: Domain) {

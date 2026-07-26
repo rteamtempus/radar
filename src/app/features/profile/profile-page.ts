@@ -36,6 +36,21 @@ import { TasteService } from './taste.service';
           </button>
         </div>
         <p class="mt-3 text-xs text-muted">Signed in as {{ auth.user()?.email }}</p>
+        <p class="mt-4 text-xs font-bold tracking-wide text-muted uppercase">Profile visibility</p>
+        <div class="mt-2 flex gap-2">
+          @for (v of visibilityOptions; track v.key) {
+            <button
+              (click)="setVisibility(v.key)"
+              class="flex-1 rounded-2xl border py-2 text-xs font-bold"
+              [class]="profileVisibility() === v.key ? 'border-coral bg-coral/15 text-coral' : 'border-line text-muted-2'"
+            >
+              {{ v.label }}
+            </button>
+          }
+        </div>
+        <p class="mt-1.5 text-[11px] text-muted">
+          Public: anyone can view your page & public slots · Friends: friends only · Private: just you.
+        </p>
       </div>
 
       <div class="rounded-2xl border border-line bg-surface p-5">
@@ -217,6 +232,17 @@ export class ProfilePage {
 
   protected name = '';
   protected readonly saved = signal(false);
+  protected readonly profileVisibility = signal<'public' | 'friends' | 'private'>('friends');
+  protected readonly visibilityOptions: { key: 'public' | 'friends' | 'private'; label: string }[] = [
+    { key: 'public', label: '🌐 Public' },
+    { key: 'friends', label: '👥 Friends' },
+    { key: 'private', label: '🔒 Private' },
+  ];
+
+  protected async setVisibility(v: 'public' | 'friends' | 'private') {
+    this.profileVisibility.set(v);
+    await this.auth.setProfileVisibility(v);
+  }
 
   protected readonly pendingItems = signal<HistoryItem[] | null>(null);
   protected readonly droppedCount = signal(0);
@@ -266,6 +292,7 @@ export class ProfilePage {
     this.lib.load();
     this.auth.getOrCreateProfile().then((p) => {
       if (p && !this.name) this.name = p.display_name;
+      if (p?.visibility) this.profileVisibility.set(p.visibility);
     });
   }
 

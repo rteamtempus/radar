@@ -35,6 +35,7 @@ export class FriendsService {
   readonly friends = signal<FriendProfile[]>([]);
   readonly incoming = signal<FriendProfile[]>([]); // pending requests to me
   readonly outgoing = signal<FriendProfile[]>([]); // my pending requests
+  readonly subscribedProfiles = signal<FriendProfile[]>([]); // one-directional follows
   readonly myCode = signal<string | null>(null);
   readonly loading = signal(false);
 
@@ -44,11 +45,20 @@ export class FriendsService {
     this.loading.set(true);
     try {
       const supabase = getSupabase();
-      const [conns, profile] = await Promise.all([
+      const [conns, profile, subs] = await Promise.all([
         supabase.from('connections').select(CONNECTION_SELECT),
         supabase.from('profiles').select('friend_code').eq('id', me).maybeSingle(),
+        supabase
+          .from('profile_subscriptions')
+          .select('profile:profiles!profile_subscriptions_profile_id_fkey(id, display_name, avatar_url)')
+          .eq('subscriber_id', me),
       ]);
       this.myCode.set((profile.data?.friend_code as string | null) ?? null);
+      this.subscribedProfiles.set(
+        ((subs.data ?? []) as unknown as { profile: FriendProfile }[])
+          .map((r) => r.profile)
+          .sort((a, b) => a.display_name.localeCompare(b.display_name)),
+      );
 
       const rows = (conns.data ?? []) as unknown as ConnectionRow[];
       const friends = new Map<string, FriendProfile>();
@@ -128,6 +138,38 @@ export class FriendsService {
     if (!me) return;
     await getSupabase().from('connections').delete().eq('user_id', friendId).eq('friend_id', me);
     await this.load();
+  }
+
+  isSubscribedTo(profileId: string): boolean {
+    return this.subscribedProfiles().some((p) => p.id === profileId);
+  }
+
+  /** Follow someone's radar (one-directional, no approval). */
+  async subscribeProfile(profileId: string): Promise<void> {
+    const me = this.auth.user()?.id;
+    if (!me) return;
+    const { error } = await getSupabase()
+      .from('profile_subscriptions')
+      .upsert({ subscriber_id: me, profile_id: profileId }, { ignoreDuplicates: true });
+    if (error) this.toast.error('Could not subscribe.');
+    await this.load();
+  }
+
+  async unsubscribeProfile(profileId: string): Promise<void> {
+    const me = this.auth.user()?.id;
+    if (!me) return;
+    await getSupabase()
+      .from('profile_subscriptions')
+      .delete()
+      .eq('subscriber_id', me)
+      .eq('profile_id', profileId);
+    await this.load();
+  }
+
+  /** One privacy-safe overlap number (0–100), or null when not allowed/computable. */
+  async tasteMatch(profileId: string): Promise<number | null> {
+    const { data } = await getSupabase().rpc('taste_match', { p_other: profileId });
+    return (data as number | null) ?? null;
   }
 
   /** Drop a title into a friend's "Recommended to me" slot (RPC). */

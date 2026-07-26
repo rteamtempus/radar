@@ -62,16 +62,22 @@ export class AuthService {
     const supabase = getSupabase();
     const { data } = await supabase
       .from('profiles')
-      .select('id, display_name, settings')
+      .select('id, display_name, settings, visibility')
       .eq('id', user.id)
       .maybeSingle();
     if (data) return data as ProfileRow;
     const { data: created } = await supabase
       .from('profiles')
       .insert({ id: user.id, display_name: this.defaultDisplayName() })
-      .select('id, display_name, settings')
+      .select('id, display_name, settings, visibility')
       .single();
     return created as ProfileRow | null;
+  }
+
+  async setProfileVisibility(visibility: 'public' | 'friends' | 'private'): Promise<void> {
+    const user = this.user();
+    if (!user) return;
+    await getSupabase().from('profiles').update({ visibility }).eq('id', user.id);
   }
 
   /** Where to land after auth: onboarding for first-timers, else the app. */
@@ -102,4 +108,5 @@ export interface ProfileRow {
   id: string;
   display_name: string;
   settings: { onboarded?: boolean } & Record<string, unknown>;
+  visibility: 'public' | 'friends' | 'private';
 }

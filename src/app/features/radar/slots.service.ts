@@ -32,8 +32,11 @@ export interface SlotItem {
   activity_id: string;
   position: number;
   note: string | null;
+  added_at?: string;
   activity: SlotItemActivity;
 }
+
+export type SlotVisibility = 'public' | 'friends' | 'private';
 
 export interface RadarSlot {
   id: string;
@@ -41,13 +44,34 @@ export interface RadarSlot {
   emoji: string | null;
   position: number;
   on_complete: SlotOnComplete;
-  config: { role?: SlotRole; domain?: Domain };
+  visibility: SlotVisibility;
+  description: string | null;
+  config: {
+    role?: SlotRole;
+    domain?: Domain;
+    forked_from?: { profile_id: string; name: string };
+  };
   items: SlotItem[];
 }
 
+/** A slot viewed socially — includes the owner and my relationship to it. */
+export interface SlotView extends RadarSlot {
+  owner: { id: string; display_name: string } | null;
+  tags: { id: string; slug: string; label: string; kind: string }[];
+  likeCount: number;
+  likedByMe: boolean;
+  subscriberCount: number;
+  subscribedByMe: boolean;
+}
+
+export interface SubscribedSlot extends RadarSlot {
+  owner: { id: string; display_name: string } | null;
+  last_seen_at: string;
+}
+
 const SLOT_SELECT =
-  'id, name, emoji, position, on_complete, config, ' +
-  'items:radar_slot_items(activity_id, position, note, ' +
+  'id, name, emoji, position, on_complete, visibility, description, config, ' +
+  'items:radar_slot_items(activity_id, position, note, added_at, ' +
   'activity:activities(id, title, image_url, type, duration_min, metadata, location, ' +
   'activity_tags(tag:tags(slug, label, kind)), ' +
   'activity_availability(service:streaming_services(slug, name))))';
@@ -285,6 +309,156 @@ export class SlotsService {
       .delete()
       .eq('slot_id', slot.id)
       .eq('activity_id', activityId);
+  }
+
+  // ------------------------------------------------------------- social layer
+
+  /** Fetch ANY visible slot (mine or someone else's) with social context. */
+  async fetchSlotView(slotId: string): Promise<SlotView | null> {
+    const me = this.auth.user()?.id;
+    const supabase = getSupabase();
+    const [slotRes, tagsRes, likesRes, subsRes] = await Promise.all([
+      supabase
+        .from('radar_slots')
+        .select(SLOT_SELECT + ', owner:profiles!radar_slots_owner_id_fkey(id, display_name)')
+        .eq('id', slotId)
+        .maybeSingle(),
+      supabase.from('slot_tags').select('tag:tags(id, slug, label, kind)').eq('slot_id', slotId),
+      supabase.from('slot_likes').select('user_id').eq('slot_id', slotId),
+      supabase.from('slot_subscriptions').select('subscriber_id').eq('slot_id', slotId),
+    ]);
+    if (!slotRes.data) return null;
+    const likes = (likesRes.data ?? []) as { user_id: string }[];
+    const subs = (subsRes.data ?? []) as { subscriber_id: string }[];
+    return {
+      ...(slotRes.data as unknown as RadarSlot & { owner: SlotView['owner'] }),
+      tags: ((tagsRes.data ?? []) as unknown as { tag: SlotView['tags'][number] }[]).map((t) => t.tag),
+      likeCount: likes.length,
+      likedByMe: likes.some((l) => l.user_id === me),
+      subscriberCount: subs.length,
+      subscribedByMe: subs.some((s) => s.subscriber_id === me),
+    };
+  }
+
+  async setVisibility(slotId: string, visibility: SlotVisibility): Promise<void> {
+    await getSupabase().from('radar_slots').update({ visibility }).eq('id', slotId);
+    await this.load();
+  }
+
+  async setDescription(slotId: string, description: string): Promise<void> {
+    await getSupabase()
+      .from('radar_slots')
+      .update({ description: description.trim() || null })
+      .eq('id', slotId);
+    await this.load();
+  }
+
+  async setSlotTag(slotId: string, tagId: string, on: boolean): Promise<void> {
+    const supabase = getSupabase();
+    if (on) {
+      await supabase.from('slot_tags').upsert({ slot_id: slotId, tag_id: tagId }, { ignoreDuplicates: true });
+    } else {
+      await supabase.from('slot_tags').delete().eq('slot_id', slotId).eq('tag_id', tagId);
+    }
+  }
+
+  async setLike(slotId: string, on: boolean): Promise<void> {
+    const me = this.auth.user()?.id;
+    if (!me) return;
+    const supabase = getSupabase();
+    if (on) await supabase.from('slot_likes').upsert({ slot_id: slotId, user_id: me }, { ignoreDuplicates: true });
+    else await supabase.from('slot_likes').delete().eq('slot_id', slotId).eq('user_id', me);
+  }
+
+  async setSubscribed(slotId: string, on: boolean): Promise<void> {
+    const me = this.auth.user()?.id;
+    if (!me) return;
+    const supabase = getSupabase();
+    if (on) {
+      const { error } = await supabase
+        .from('slot_subscriptions')
+        .upsert({ subscriber_id: me, slot_id: slotId }, { ignoreDuplicates: true });
+      if (error) this.toast.error('Could not subscribe to that slot.');
+    } else {
+      await supabase.from('slot_subscriptions').delete().eq('subscriber_id', me).eq('slot_id', slotId);
+    }
+    await this.loadSubscribed();
+  }
+
+  readonly subscribed = signal<SubscribedSlot[]>([]);
+
+  /** Slots I've saved from other people — live references, read-only. */
+  async loadSubscribed(): Promise<void> {
+    const me = this.auth.user()?.id;
+    if (!me) return;
+    const { data } = await getSupabase()
+      .from('slot_subscriptions')
+      .select(
+        `last_seen_at, slot:radar_slots(${SLOT_SELECT}, owner:profiles!radar_slots_owner_id_fkey(id, display_name))`,
+      )
+      .eq('subscriber_id', me);
+    const rows = (data ?? []) as unknown as { last_seen_at: string; slot: (RadarSlot & { owner: SubscribedSlot['owner'] }) | null }[];
+    this.subscribed.set(
+      rows
+        .filter((r) => r.slot) // slots that went private drop out (RLS)
+        .map((r) => ({ ...r.slot!, last_seen_at: r.last_seen_at })),
+    );
+  }
+
+  /** Opening a subscribed slot resets its "+N new" badge. */
+  async markSeen(slotId: string): Promise<void> {
+    const me = this.auth.user()?.id;
+    if (!me) return;
+    await getSupabase()
+      .from('slot_subscriptions')
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq('subscriber_id', me)
+      .eq('slot_id', slotId);
+  }
+
+  /** Idea #5: duplicate someone's slot as my own editable copy, attributed. */
+  async fork(view: SlotView): Promise<string | null> {
+    const me = this.auth.user()?.id;
+    if (!me || !view.owner) return null;
+    const supabase = getSupabase();
+    const position = Math.max(-1, ...this.slots().map((s) => s.position)) + 1;
+    const { data: created, error } = await supabase
+      .from('radar_slots')
+      .insert({
+        owner_id: me,
+        name: view.name,
+        emoji: view.emoji,
+        on_complete: view.on_complete,
+        description: view.description,
+        position,
+        config: {
+          domain: view.config?.domain ?? 'watch',
+          forked_from: { profile_id: view.owner.id, name: view.owner.display_name },
+        },
+      })
+      .select('id')
+      .single();
+    if (error || !created) {
+      this.toast.error('Could not fork the slot.');
+      return null;
+    }
+    if (view.items.length) {
+      await supabase.from('radar_slot_items').insert(
+        view.items.map((i) => ({
+          slot_id: created.id,
+          activity_id: i.activity_id,
+          position: i.position,
+          added_by: me,
+        })),
+      );
+    }
+    if (view.tags.length) {
+      await supabase
+        .from('slot_tags')
+        .insert(view.tags.map((t) => ({ slot_id: created.id, tag_id: t.id })));
+    }
+    await this.load();
+    return created.id;
   }
 
   /**

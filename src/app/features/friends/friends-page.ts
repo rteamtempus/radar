@@ -125,6 +125,24 @@ import { FriendProfile, FriendsService } from './friends.service';
           </p>
         }
       </div>
+
+      <!-- profiles I follow (one-directional) -->
+      @if (friends.subscribedProfiles().length) {
+        <div>
+          <h2 class="mb-2 text-xs font-bold tracking-wide text-muted uppercase">Subscribed</h2>
+          <div class="flex flex-col gap-2">
+            @for (p of friends.subscribedProfiles(); track p.id) {
+              <a [routerLink]="['/friends', p.id]" class="flex items-center gap-3 rounded-2xl bg-surface px-4 py-3">
+                <span class="flex size-10 flex-none items-center justify-center rounded-full bg-gradient-to-br from-violet to-coral font-extrabold text-ink">
+                  {{ initial(p.display_name) }}
+                </span>
+                <span class="min-w-0 flex-1 truncate font-bold">{{ p.display_name }}</span>
+                <span class="text-muted">›</span>
+              </a>
+            }
+          </div>
+        </div>
+      }
     </div>
   `,
 })
