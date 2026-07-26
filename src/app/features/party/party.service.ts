@@ -13,6 +13,9 @@ export type SwipeDirection = 'left' | 'right' | 'super';
 export interface PartyConstraints {
   max_duration_min?: number | null;
   must_be_streamable_by_all?: boolean;
+  /** Idea #3: candidate pool restricted to one slot's items. */
+  source_slot_id?: string | null;
+  source_slot_name?: string | null;
 }
 
 export interface PartyRow {
@@ -202,6 +205,7 @@ export class PartyService {
     activityType: 'movie' | 'tv_show' | null;
     maxDurationMin: number | null;
     mustBeStreamableByAll: boolean;
+    sourceSlot?: { id: string; name: string } | null;
   }): Promise<string> {
     const userId = this.auth.user()?.id;
     if (!userId) throw new Error('Not signed in');
@@ -217,6 +221,8 @@ export class PartyService {
           constraints: {
             max_duration_min: opts.maxDurationMin,
             must_be_streamable_by_all: opts.mustBeStreamableByAll,
+            source_slot_id: opts.sourceSlot?.id ?? null,
+            source_slot_name: opts.sourceSlot?.name ?? null,
           },
           decision_config: {
             votes_per_member: VOTES_PER_MEMBER,

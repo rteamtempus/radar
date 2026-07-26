@@ -29,6 +29,9 @@ import { SwipeDeck } from './swipe-deck';
                   ? 'Waiting for friends… share the code'
                   : party.members().length + ' in so far'
               }}
+              @if (p.constraints.source_slot_name; as slotName) {
+                · picking from <span class="font-bold text-violet">{{ slotName }}</span>
+              }
             </p>
 
             <div class="mt-5 rounded-3xl border border-line bg-surface p-6 text-center">

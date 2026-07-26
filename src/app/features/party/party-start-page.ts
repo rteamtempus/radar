@@ -1,5 +1,6 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { SlotsService } from '../radar/slots.service';
 import { PartyService, PartyStatus } from './party.service';
 
 type TypeChoice = 'movie' | 'tv_show' | null;
@@ -60,6 +61,37 @@ const STATUS_LABELS: Record<PartyStatus, string> = {
         }
       </div>
 
+      @if (slotOptions().length) {
+        <h2 class="mt-6 mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">
+          Pick from…
+        </h2>
+        <div class="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+          <button
+            (click)="sourceSlot.set(null)"
+            class="flex-none rounded-full border px-4 py-2 text-xs font-bold"
+            [class]="!sourceSlot() ? 'border-coral bg-coral/15 text-coral' : 'border-line text-muted-2'"
+          >
+            🌍 Everything
+          </button>
+          @for (s of slotOptions(); track s.id) {
+            <button
+              (click)="sourceSlot.set({ id: s.id, name: s.name })"
+              class="flex-none rounded-full border px-4 py-2 text-xs font-bold"
+              [class]="
+                sourceSlot()?.id === s.id ? 'border-violet bg-violet/15 text-violet' : 'border-line text-muted-2'
+              "
+            >
+              {{ s.emoji }} {{ s.name }}
+            </button>
+          }
+        </div>
+        @if (sourceSlot()) {
+          <p class="mt-1.5 text-[11px] text-muted">
+            Candidates come only from this slot — quest night, curated.
+          </p>
+        }
+      }
+
       <h2 class="mt-6 mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">Constraints</h2>
       <div class="flex flex-wrap gap-2">
         @for (c of runtimeChips; track c.label) {
@@ -106,7 +138,17 @@ const STATUS_LABELS: Record<PartyStatus, string> = {
 })
 export class PartyStartPage {
   private partyService = inject(PartyService);
+  private slots = inject(SlotsService);
   private router = inject(Router);
+
+  protected readonly sourceSlot = signal<{ id: string; name: string } | null>(null);
+
+  /** Watch-domain slots with items — mine plus ones I've saved (pipeline is media-only). */
+  protected readonly slotOptions = computed(() => {
+    const mine = this.slots.forDomain('watch');
+    const saved = this.slots.subscribed().filter((s) => (s.config?.domain ?? 'watch') === 'watch');
+    return [...mine, ...saved].filter((s) => s.items.length >= 2);
+  });
 
   protected readonly typeChips = [
     { label: '🎬 Movies', value: 'movie' as TypeChoice },
@@ -126,6 +168,8 @@ export class PartyStartPage {
 
   constructor() {
     this.partyService.myActiveParties().then((p) => this.activeParties.set(p));
+    this.slots.load();
+    this.slots.loadSubscribed();
   }
 
   protected statusLabel(status: PartyStatus): string {
@@ -140,6 +184,7 @@ export class PartyStartPage {
         activityType: this.type(),
         maxDurationMin: this.maxRuntime(),
         mustBeStreamableByAll: this.streamableByAll(),
+        sourceSlot: this.sourceSlot(),
       });
       this.router.navigate(['/party', id]);
     } catch (e) {

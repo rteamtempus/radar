@@ -7,7 +7,15 @@ import { SubscriptionsService } from '../../core/subscriptions.service';
 import { ServiceBadges } from '../../shared/ui/service-badges';
 import { ToastService } from '../../shared/ui/toast.service';
 import { LibraryService } from '../library/library.service';
-import { ExploreItem, ExploreService, FriendSignal, distanceMiles } from './explore.service';
+import { SlotCollage } from '../../shared/ui/slot-collage';
+import {
+  DiscoveryPerson,
+  DiscoverySlot,
+  ExploreItem,
+  ExploreService,
+  FriendSignal,
+  distanceMiles,
+} from './explore.service';
 
 type WatchSort = 'popular' | 'rating' | 'newest' | 'az';
 type EatSort = 'rating' | 'distance' | 'reviews';
@@ -22,29 +30,124 @@ const PAGE = 40;
  */
 @Component({
   selector: 'pp-explore-page',
-  imports: [FormsModule, RouterLink, ServiceBadges],
+  imports: [FormsModule, RouterLink, ServiceBadges, SlotCollage],
   template: `
     <div class="mx-auto max-w-md px-5 py-6">
-      <h1 class="font-display text-3xl font-semibold">Explore</h1>
-      <div class="no-scrollbar mt-3 flex gap-1 overflow-x-auto rounded-full bg-surface p-1">
-        @for (d of domains; track d.id) {
-          <button
-            (click)="switchDomain(d.id)"
-            class="flex-1 rounded-full px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-colors"
-            [class]="domain.domain() === d.id ? 'bg-coral text-ink' : 'text-muted-2'"
-          >
-            {{ d.emoji }} {{ d.label }}
-          </button>
-        }
+      <div class="flex items-center justify-between">
+        <h1 class="font-display text-3xl font-semibold">Explore</h1>
+        <div class="flex gap-1 rounded-full bg-surface p-1">
+          @for (m of modes; track m.key) {
+            <button
+              (click)="switchMode(m.key)"
+              class="rounded-full px-3 py-1.5 text-xs font-bold transition-colors"
+              [class]="mode() === m.key ? 'bg-violet text-ink' : 'text-muted-2'"
+            >
+              {{ m.label }}
+            </button>
+          }
+        </div>
       </div>
+
+      @if (mode() !== 'people') {
+        <div class="no-scrollbar mt-3 flex gap-1 overflow-x-auto rounded-full bg-surface p-1">
+          @for (d of domains; track d.id) {
+            <button
+              (click)="switchDomain(d.id)"
+              class="flex-1 rounded-full px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-colors"
+              [class]="domain.domain() === d.id ? 'bg-coral text-ink' : 'text-muted-2'"
+            >
+              {{ d.emoji }} {{ d.label }}
+            </button>
+          }
+        </div>
+      }
 
       <input
         type="search"
-        [placeholder]="domain.def().searchPlaceholder"
+        [placeholder]="
+          mode() === 'slots' ? 'Search slots…' : mode() === 'people' ? 'Search people…' : domain.def().searchPlaceholder
+        "
         [ngModel]="query()"
         (ngModelChange)="onQuery($event)"
         class="mt-4 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-cream placeholder:text-muted focus:border-coral focus:outline-none"
       />
+
+      @if (mode() === 'slots') {
+        <!-- ============ slot discovery ============ -->
+        <div class="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
+          <button (click)="slotSort.set('popular')" [class]="chip(slotSort() === 'popular')">👍 Popular</button>
+          <button (click)="slotSort.set('new')" [class]="chip(slotSort() === 'new')">✨ New</button>
+          @for (t of slotTagChips(); track t.slug) {
+            <button (click)="toggleTag(t.slug)" [class]="chip(tagSel().has(t.slug), 'gold')">{{ t.label }}</button>
+          }
+        </div>
+        @if (!filteredSlots().length) {
+          <div class="mt-10 flex flex-col items-center gap-3 text-center">
+            <div class="text-4xl">📡</div>
+            <p class="font-bold">No slots found</p>
+            <p class="max-w-64 text-sm text-muted-2">
+              Public and friends' slots show up here — get your people making lists.
+            </p>
+          </div>
+        }
+        <div class="mt-3 grid grid-cols-2 gap-3">
+          @for (s of filteredSlots(); track s.id) {
+            <a [routerLink]="['/radar/slot', s.id]" class="rounded-2xl border border-line bg-surface p-3">
+              <pp-slot-collage class="aspect-square w-full" [images]="collageOf(s)" [emoji]="s.emoji" />
+              <p class="mt-2 truncate text-sm font-bold">{{ s.emoji }} {{ s.name }}</p>
+              <p class="truncate text-[11px] text-muted">
+                {{ s.owner?.display_name ?? 'someone' }} · {{ s.items.length }} items
+                @if (likesOf(s)) {
+                  · 👍 {{ likesOf(s) }}
+                }
+              </p>
+              @if (s.slot_tags.length) {
+                <p class="mt-1 truncate text-[10px] text-muted-2">
+                  {{ tagLabels(s) }}
+                </p>
+              }
+            </a>
+          }
+        </div>
+      } @else if (mode() === 'people') {
+        <!-- ============ people discovery ============ -->
+        @if (query().trim().length < 2) {
+          @if (featured().length) {
+            <h2 class="mt-4 mb-2 text-xs font-bold tracking-wide text-muted uppercase">⭐ Featured curators</h2>
+          } @else {
+            <p class="mt-6 text-center text-sm text-muted-2">
+              Search for people by name — public profiles show up here.
+            </p>
+          }
+          <div class="flex flex-col gap-2">
+            @for (p of featured(); track p.id) {
+              <a [routerLink]="['/friends', p.id]" class="flex items-center gap-3 rounded-2xl bg-surface px-4 py-3">
+                <span class="flex size-10 flex-none items-center justify-center rounded-full bg-gradient-to-br from-gold to-coral font-extrabold text-ink">
+                  {{ p.display_name.charAt(0).toUpperCase() }}
+                </span>
+                <span class="min-w-0 flex-1 truncate font-bold">{{ p.display_name }}</span>
+                <span class="flex-none rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold">⭐ Featured</span>
+                <span class="text-muted">›</span>
+              </a>
+            }
+          </div>
+        } @else {
+          <div class="mt-3 flex flex-col gap-2">
+            @if (!people().length) {
+              <p class="mt-6 text-center text-sm font-bold text-muted-2">No public profiles match.</p>
+            }
+            @for (p of people(); track p.id) {
+              <a [routerLink]="['/friends', p.id]" class="flex items-center gap-3 rounded-2xl bg-surface px-4 py-3">
+                <span class="flex size-10 flex-none items-center justify-center rounded-full bg-gradient-to-br from-coral to-gold font-extrabold text-ink">
+                  {{ p.display_name.charAt(0).toUpperCase() }}
+                </span>
+                <span class="min-w-0 flex-1 truncate font-bold">{{ p.display_name }}</span>
+                <span class="text-muted">›</span>
+              </a>
+            }
+          </div>
+        }
+      } @else {
 
       <!-- ============ filters ============ -->
       @if (isWatch()) {
@@ -255,6 +358,7 @@ const PAGE = 40;
               : 'Showing the shared catalog — typing searches TMDB automatically.'
         }}
       </p>
+      }
     </div>
   `,
 })
@@ -268,6 +372,74 @@ export class ExplorePage implements OnDestroy {
 
   protected readonly domains = DOMAINS;
   protected readonly pageSize = PAGE;
+
+  // ---- discovery modes ----
+  protected readonly modes = [
+    { key: 'things' as const, label: 'Things' },
+    { key: 'slots' as const, label: 'Slots' },
+    { key: 'people' as const, label: 'People' },
+  ];
+  protected readonly mode = signal<'things' | 'slots' | 'people'>('things');
+  protected readonly slotSort = signal<'popular' | 'new'>('popular');
+  private readonly allSlots = signal<DiscoverySlot[]>([]);
+  protected readonly featured = signal<DiscoveryPerson[]>([]);
+  protected readonly people = signal<DiscoveryPerson[]>([]);
+
+  protected switchMode(m: 'things' | 'slots' | 'people') {
+    this.mode.set(m);
+    this.query.set('');
+    this.tagSel.set(new Set());
+    if (m === 'slots' && !this.allSlots().length) {
+      this.explore.searchSlots().then((s) => this.allSlots.set(s));
+    }
+    if (m === 'people' && !this.featured().length) {
+      this.explore.featuredPeople().then((p) => this.featured.set(p));
+    }
+  }
+
+  protected readonly filteredSlots = computed(() => {
+    const q = this.query().trim().toLowerCase();
+    const d = this.domain.domain();
+    const sel = this.tagSel();
+    const list = this.allSlots().filter((s) => {
+      if ((s.config?.domain ?? 'watch') !== d) return false;
+      if (
+        q &&
+        !s.name.toLowerCase().includes(q) &&
+        !(s.description ?? '').toLowerCase().includes(q) &&
+        !(s.owner?.display_name ?? '').toLowerCase().includes(q)
+      ) {
+        return false;
+      }
+      if (sel.size && !s.slot_tags.some((t) => sel.has(t.tag.slug))) return false;
+      return true;
+    });
+    return this.slotSort() === 'new'
+      ? list.sort((a, b) => b.created_at.localeCompare(a.created_at))
+      : list.sort((a, b) => this.likesOf(b) - this.likesOf(a) || b.items.length - a.items.length);
+  });
+
+  protected readonly slotTagChips = computed(() => {
+    const d = this.domain.domain();
+    const seen = new Map<string, string>();
+    for (const s of this.allSlots()) {
+      if ((s.config?.domain ?? 'watch') !== d) continue;
+      for (const t of s.slot_tags) seen.set(t.tag.slug, t.tag.label);
+    }
+    return [...seen].map(([slug, label]) => ({ slug, label })).slice(0, 12);
+  });
+
+  protected likesOf(s: DiscoverySlot): number {
+    return s.likes?.[0]?.count ?? 0;
+  }
+
+  protected collageOf(s: DiscoverySlot): (string | null)[] {
+    return [...s.items].sort((a, b) => a.position - b.position).map((i) => i.activity.image_url);
+  }
+
+  protected tagLabels(s: DiscoverySlot): string {
+    return s.slot_tags.map((t) => t.tag.label).join(' · ');
+  }
 
   // ---- filter state ----
   protected readonly query = signal('');
@@ -519,6 +691,14 @@ export class ExplorePage implements OnDestroy {
     this.shown.set(this.pageSize);
     clearTimeout(this.debounce);
     const trimmed = q.trim();
+    if (this.mode() === 'people') {
+      if (trimmed.length < 2) return;
+      this.debounce = setTimeout(async () => {
+        this.people.set(await this.explore.searchPeople(trimmed));
+      }, 400);
+      return;
+    }
+    if (this.mode() === 'slots') return; // client-side filtering only
     // Free APIs top up automatically (TMDB / Google Books); Places is button-only.
     if (this.isEat() || trimmed.length < 2) return;
     this.debounce = setTimeout(async () => {

@@ -1,4 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { AuthService } from '../../core/auth.service';
 import { Domain } from '../../core/domain.service';
 import { LatLng } from '../../core/location.service';
 import { getSupabase } from '../../core/supabase.client';
@@ -34,15 +35,38 @@ export function distanceMiles(a: LatLng, b: { lat?: number; lng?: number }): num
   return 3959 * 2 * Math.asin(Math.sqrt(h));
 }
 
+/** A slot as it appears in discovery — someone else's, visible to me. */
+export interface DiscoverySlot {
+  id: string;
+  name: string;
+  emoji: string | null;
+  description: string | null;
+  visibility: string;
+  created_at: string;
+  config: { domain?: Domain; role?: string };
+  owner: { id: string; display_name: string } | null;
+  items: { position: number; activity: { image_url: string | null } }[];
+  slot_tags: { tag: { slug: string; label: string } }[];
+  likes: { count: number }[];
+}
+
+export interface DiscoveryPerson {
+  id: string;
+  display_name: string;
+  visibility: string;
+  settings: { featured?: boolean } | null;
+}
+
 /**
  * The Explore catalog: everything Radar collectively knows (the shared
  * activities table), enriched with friends' engagement signals. External
  * searches (TMDB auto, Places on demand) upsert into the same catalog and
- * merge in here.
+ * merge in here. Also: slot + people discovery (social phase 4).
  */
 @Injectable({ providedIn: 'root' })
 export class ExploreService {
   private friendsService = inject(FriendsService);
+  private auth = inject(AuthService);
 
   readonly items = signal<Map<string, ExploreItem>>(new Map());
   readonly friendSignals = signal<Map<string, FriendSignal[]>>(new Map());
@@ -85,6 +109,51 @@ export class ExploreService {
       }
       return next;
     });
+  }
+
+  /**
+   * Discoverable slots: everything RLS lets me see (public + friends'),
+   * minus my own and minus role slots (personal queues aren't curated lists).
+   * Popularity = like count (subscriber counts are owner-private by design).
+   */
+  async searchSlots(): Promise<DiscoverySlot[]> {
+    const me = this.auth.user()?.id;
+    const { data } = await getSupabase()
+      .from('radar_slots')
+      .select(
+        'id, name, emoji, description, visibility, created_at, config, ' +
+          'owner:profiles!radar_slots_owner_id_fkey(id, display_name), ' +
+          'items:radar_slot_items(position, activity:activities(image_url)), ' +
+          'slot_tags(tag:tags(slug, label)), ' +
+          'likes:slot_likes(count)',
+      )
+      .neq('owner_id', me ?? '')
+      .limit(200);
+    return ((data ?? []) as unknown as DiscoverySlot[]).filter((s) => !s.config?.role);
+  }
+
+  /** Featured curators (idea #15): public profiles flagged in settings. */
+  async featuredPeople(): Promise<DiscoveryPerson[]> {
+    const { data } = await getSupabase()
+      .from('profiles')
+      .select('id, display_name, visibility, settings')
+      .eq('visibility', 'public')
+      .eq('settings->>featured', 'true')
+      .limit(20);
+    return (data ?? []) as unknown as DiscoveryPerson[];
+  }
+
+  /** Public-profile search by name. */
+  async searchPeople(query: string): Promise<DiscoveryPerson[]> {
+    const me = this.auth.user()?.id;
+    const { data } = await getSupabase()
+      .from('profiles')
+      .select('id, display_name, visibility, settings')
+      .eq('visibility', 'public')
+      .ilike('display_name', `%${query.trim()}%`)
+      .neq('id', me ?? '')
+      .limit(20);
+    return (data ?? []) as unknown as DiscoveryPerson[];
   }
 
   /** activity_id → friends who want/are watching/finished it (RLS-visible). */

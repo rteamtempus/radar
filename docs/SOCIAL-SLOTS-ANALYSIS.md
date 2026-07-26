@@ -96,10 +96,23 @@ especially valuable ("new town → what locals go to").
 - **Taste-match %** on profile pages via `taste_match` RPC (idea #6) —
   server-side cosine, friends or public profiles only.
 
-**Approved, not yet built:** #1 cover collages · #2 blend slots · #3 quest
-from a slot · #7 official curator profile (needs a first-party account) ·
-#11 seasonal windows · #14 slot-context recommendations · #15 featured
-curators (with the Phase-4 discovery/search work).
+**Also shipped (Phase 4 discovery + more ideas, 2026-07-26):**
+- Explore gains **Things / Slots / People** modes. Slots mode: discover
+  public + friends' custom slots (per domain) with **cover collages** (#1),
+  owner bylines, 👍 counts, tag chips, popular/new sort, name/description/
+  owner search. People mode: public-profile name search + a **⭐ Featured
+  curators** rail (#15 — flag a public profile with
+  `settings.featured=true` via SQL; the future official account (#7) uses
+  this). Verified: strangers see only public slots.
+- **Quest from a slot** (#3): party creation offers "Pick from…" (my
+  watch-domain slots + saved ones, ≥2 items); the pipeline pools ONLY from
+  that slot (host access verified server-side, unknown availability passes,
+  all other filters/scoring/AI unchanged); lobby shows "picking from {slot}".
+  Verified live: slot-only candidates, seen-titles still filtered.
+
+**Approved, still queued:** #2 blend slots · #7 official curator ACCOUNT
+(mechanism ready — needs Rory to create the profile) · #11 seasonal windows ·
+#14 slot-context recommendations.
 
 ## The 15 ideas (verdicts inline)
 

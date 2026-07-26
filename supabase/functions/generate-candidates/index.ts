@@ -156,15 +156,51 @@ serve(async (req) => {
   const kinds: TmdbKind[] =
     party.activity_type === 'movie' ? ['movie'] : party.activity_type === 'tv_show' ? ['tv'] : ['movie', 'tv'];
 
+  // Quest-from-a-slot (idea #3): the pool is exactly one slot's items —
+  // no discover, no want_to sweep. Host must be able to view the slot.
+  const sourceSlotId = party.constraints?.source_slot_id as string | undefined | null;
+  const slotPoolIds = new Set<string>();
+  if (sourceSlotId) {
+    const { data: slot } = await db
+      .from('radar_slots')
+      .select('id, owner_id, visibility')
+      .eq('id', sourceSlotId)
+      .maybeSingle();
+    if (!slot) throw new HttpError(404, 'Source slot not found');
+    const hostCanView =
+      slot.owner_id === user.id ||
+      slot.visibility === 'public' ||
+      (slot.visibility === 'friends' &&
+        (
+          await db
+            .from('connections')
+            .select('user_id')
+            .eq('status', 'accepted')
+            .or(
+              `and(user_id.eq.${user.id},friend_id.eq.${slot.owner_id}),and(user_id.eq.${slot.owner_id},friend_id.eq.${user.id})`,
+            )
+            .limit(1)
+        ).data?.length);
+    if (!hostCanView) throw new HttpError(403, 'You cannot use that slot');
+    const { data: slotItems } = await db
+      .from('radar_slot_items')
+      .select('activity_id')
+      .eq('slot_id', sourceSlotId);
+    for (const row of slotItems ?? []) slotPoolIds.add(row.activity_id);
+    if (!slotPoolIds.size) throw new HttpError(422, 'That slot is empty');
+  }
+
   // 1a. everyone's want_to lists (highest-signal candidates)
   const wantToIds = new Set<string>();
-  for (const eng of engByUser.values()) {
-    for (const [activityId, e] of Object.entries(eng)) if (e.status === 'want_to') wantToIds.add(activityId);
+  if (!sourceSlotId) {
+    for (const eng of engByUser.values()) {
+      for (const [activityId, e] of Object.entries(eng)) if (e.status === 'want_to') wantToIds.add(activityId);
+    }
   }
 
   // 1b. TMDB discover: popularity + top-genre targeted, on the group's providers
   const discovered = new Map<string, ActivityRow>(); // by activity id — known streamable
-  if (discoverProviderIds.length) {
+  if (!sourceSlotId && discoverProviderIds.length) {
     const genreTags = (vibeRes.data ?? []).filter((t) => t.kind === 'genre');
     const genreAvg = genreTags
       .map((t) => ({
@@ -209,7 +245,7 @@ serve(async (req) => {
 
   // 1c. local activities already available on the shared services
   const localIds = new Set<string>();
-  if (sharedServiceIds.size) {
+  if (!sourceSlotId && sharedServiceIds.size) {
     const { data: local } = await db
       .from('activity_availability')
       .select('activity_id')
@@ -220,7 +256,9 @@ serve(async (req) => {
     for (const row of local ?? []) localIds.add(row.activity_id);
   }
 
-  const poolIds = new Set<string>([...wantToIds, ...localIds, ...discovered.keys()]);
+  const poolIds = sourceSlotId
+    ? slotPoolIds
+    : new Set<string>([...wantToIds, ...localIds, ...discovered.keys()]);
 
   // Load rows + tags + availability for the whole pool
   const activityById = new Map<string, PoolActivity>(
@@ -265,7 +303,10 @@ serve(async (req) => {
     if (mustStreamAll) {
       const avail = availByActivity.get(id) ?? new Set<string>();
       const onShared = [...sharedServiceIds].some((s) => avail.has(s));
-      if (!onShared && !discovered.has(id)) continue;
+      // Slot pools: the group explicitly chose this list — unknown
+      // availability passes rather than emptying the deck.
+      const unknownPasses = sourceSlotId ? avail.size === 0 : discovered.has(id);
+      if (!onShared && !unknownPasses) continue;
     }
     const excluded = memberFacts.some((m) => {
       const e = m.engagements[id];
