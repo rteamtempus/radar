@@ -99,6 +99,21 @@ import { RadarSlot, SlotsService } from '../radar/slots.service';
                 }
               </div>
             </div>
+          } @else if (isBook()) {
+            <!-- ============ book links ============ -->
+            @if (activity()?.metadata?.info_url; as info) {
+              <div>
+                <h2 class="mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">The book</h2>
+                <a
+                  [href]="info"
+                  target="_blank"
+                  rel="noopener"
+                  class="block rounded-2xl bg-coral py-3 text-center text-sm font-bold text-ink"
+                >
+                  📖 Open on Google Books
+                </a>
+              </div>
+            }
           } @else {
             <!-- ============ media: streaming availability ============ -->
             <div>
@@ -143,13 +158,7 @@ import { RadarSlot, SlotsService } from '../radar/slots.service';
                 </button>
               }
             </div>
-            <p class="mt-1.5 text-[11px] text-muted">
-              {{
-                isRestaurant()
-                  ? 'Want to try → your Want-to-try slot · statuses drive your radar.'
-                  : 'Want to → Up next · Watching → Watching now · statuses drive your slots.'
-              }}
-            </p>
+            <p class="mt-1.5 text-[11px] text-muted">Statuses drive your radar slots.</p>
             @if (status() === 'completed') {
               <div class="mt-3 flex items-center gap-3">
                 <pp-star-rating [rating]="rating()" (rated)="rate($event)" />
@@ -165,9 +174,9 @@ import { RadarSlot, SlotsService } from '../radar/slots.service';
                 "
               >
                 <span class="text-lg">🔁</span>
-                {{ isRestaurant() ? 'Would go again' : 'Would watch again' }}
+                {{ rewatchLabel() }}
                 @if (isRewatchable()) {
-                  <span class="ml-auto">✓ {{ isRestaurant() ? 'a go-to spot' : 'in your Rewatch slot' }}</span>
+                  <span class="ml-auto">✓ {{ rewatchHint() }}</span>
                 }
               </button>
             }
@@ -345,23 +354,52 @@ export class ActivityDetailPage {
   protected readonly activity = signal<ActivityDetail | null>(null);
   protected readonly checkingAvailability = signal(true);
 
-  protected readonly isRestaurant = computed(() => this.activity()?.type === 'restaurant');
-
-  protected readonly statusOptions = computed<{ key: EngagementStatus; label: string }[]>(() =>
-    this.isRestaurant()
-      ? [
-          { key: 'want_to', label: 'Want to try' },
-          { key: 'completed', label: 'Been there' },
-          { key: 'not_interested', label: 'Not for me' },
-        ]
-      : [
-          { key: 'want_to', label: 'Want to' },
-          { key: 'in_progress', label: 'Watching' },
-          { key: 'completed', label: 'Done' },
-          { key: 'abandoned', label: 'Stopped' },
-          { key: 'not_interested', label: 'Not for me' },
-        ],
+  /** restaurant + outing share the Google Places "Visit" treatment. */
+  protected readonly isRestaurant = computed(() =>
+    ['restaurant', 'outing'].includes(this.activity()?.type ?? ''),
   );
+  protected readonly isBook = computed(() => this.activity()?.type === 'book');
+
+  protected readonly statusOptions = computed<{ key: EngagementStatus; label: string }[]>(() => {
+    const type = this.activity()?.type;
+    if (type === 'restaurant' || type === 'outing') {
+      return [
+        { key: 'want_to', label: type === 'outing' ? 'Want to go' : 'Want to try' },
+        { key: 'completed', label: 'Been there' },
+        { key: 'not_interested', label: 'Not for me' },
+      ];
+    }
+    if (type === 'book') {
+      return [
+        { key: 'want_to', label: 'Want to read' },
+        { key: 'in_progress', label: 'Reading' },
+        { key: 'completed', label: 'Finished' },
+        { key: 'abandoned', label: 'Stopped' },
+        { key: 'not_interested', label: 'Not for me' },
+      ];
+    }
+    return [
+      { key: 'want_to', label: 'Want to' },
+      { key: 'in_progress', label: 'Watching' },
+      { key: 'completed', label: 'Done' },
+      { key: 'abandoned', label: 'Stopped' },
+      { key: 'not_interested', label: 'Not for me' },
+    ];
+  });
+
+  protected rewatchLabel(): string {
+    const type = this.activity()?.type;
+    if (type === 'restaurant' || type === 'outing') return 'Would go again';
+    if (type === 'book') return 'Would read again';
+    return 'Would watch again';
+  }
+
+  protected rewatchHint(): string {
+    const type = this.activity()?.type;
+    if (type === 'restaurant') return 'a go-to spot';
+    if (type === 'outing' || type === 'book') return 'a favorite';
+    return 'in your Rewatch slot';
+  }
 
   protected readonly status = computed(
     () => this.lib.entries().find((e) => e.activity.id === this.id())?.status,
@@ -412,7 +450,7 @@ export class ActivityDetailPage {
   protected subtitle(): string {
     const a = this.activity();
     if (!a) return '';
-    if (a.type === 'restaurant') {
+    if (a.type === 'restaurant' || a.type === 'outing') {
       const parts: string[] = [];
       if (a.metadata?.price_level) parts.push('$'.repeat(a.metadata.price_level));
       if (a.metadata?.rating) {
@@ -420,7 +458,15 @@ export class ActivityDetailPage {
           `★ ${a.metadata.rating}${a.metadata.rating_count ? ` (${a.metadata.rating_count})` : ''}`,
         );
       }
-      return parts.join(' · ') || 'Restaurant';
+      return parts.join(' · ') || (a.type === 'outing' ? 'Place to go' : 'Restaurant');
+    }
+    if (a.type === 'book') {
+      const parts: string[] = [];
+      if (a.metadata?.authors?.length) parts.push(a.metadata.authors.slice(0, 2).join(', '));
+      if (a.metadata?.release_year) parts.push(String(a.metadata.release_year));
+      if (a.metadata?.page_count) parts.push(`${a.metadata.page_count}p`);
+      if (a.metadata?.rating) parts.push(`★ ${a.metadata.rating}`);
+      return parts.join(' · ') || 'Book';
     }
     const parts: string[] = [];
     if (a.metadata?.release_year) parts.push(String(a.metadata.release_year));

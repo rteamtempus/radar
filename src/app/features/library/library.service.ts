@@ -18,7 +18,7 @@ export interface ServiceRef {
 
 export interface ActivitySummary {
   id: string;
-  type: 'movie' | 'tv_show' | 'restaurant';
+  type: 'movie' | 'tv_show' | 'restaurant' | 'outing' | 'book';
   title: string;
   description: string | null;
   image_url: string | null;
@@ -29,7 +29,7 @@ export interface ActivitySummary {
     release_year?: number | null;
     tmdb_vote?: number | null;
     seasons?: number | null;
-    // restaurant fields (google_places)
+    // place fields (google_places: restaurant + outing)
     rating?: number | null;
     rating_count?: number | null;
     price_level?: number | null;
@@ -39,6 +39,10 @@ export interface ActivitySummary {
     hours?: string[] | null;
     phone?: string | null;
     website?: string | null;
+    // book fields (google_books)
+    authors?: string[];
+    page_count?: number | null;
+    info_url?: string | null;
   };
   activity_availability?: { service: ServiceRef }[];
   activity_tags?: { tag: { slug: string; label: string; kind: string } }[];
@@ -120,14 +124,25 @@ export class LibraryService {
     return data?.results ?? [];
   }
 
-  /** Restaurant search — text (location-biased) or plain nearby when query is empty. */
+  /** Place search (eat/do) — text (location-biased) or nearby when query is empty. */
   async searchPlaces(
     query: string,
     location: { lat: number; lng: number } | null,
+    kind: 'eat' | 'do' = 'eat',
   ): Promise<ActivitySummary[]> {
     const { data, error } = await getSupabase().functions.invoke<{ results: ActivitySummary[] }>(
       'places-search',
-      { body: { query: query || undefined, lat: location?.lat, lng: location?.lng } },
+      { body: { query: query || undefined, lat: location?.lat, lng: location?.lng, kind } },
+    );
+    if (error) throw error;
+    return data?.results ?? [];
+  }
+
+  /** Book search via Google Books. */
+  async searchBooks(query: string): Promise<ActivitySummary[]> {
+    const { data, error } = await getSupabase().functions.invoke<{ results: ActivitySummary[] }>(
+      'books-search',
+      { body: { query } },
     );
     if (error) throw error;
     return data?.results ?? [];
@@ -231,6 +246,8 @@ export class LibraryService {
    * refreshed rather than cached anyway).
    */
   hydrate(activity: Pick<ActivitySummary, 'external_source' | 'external_id'>): Promise<void> {
+    // Books are fully hydrated at search time — nothing to refresh.
+    if (activity.external_source === 'google_books') return Promise.resolve();
     if (activity.external_source === 'google_places' && activity.external_id) {
       return getSupabase()
         .functions.invoke('place-detail', { body: { placeId: activity.external_id } })

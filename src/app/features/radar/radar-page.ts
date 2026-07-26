@@ -17,23 +17,19 @@ import { RadarSlot, SlotItem, SlotsService } from './slots.service';
   imports: [FormsModule, RouterLink],
   template: `
     <div class="mx-auto max-w-md px-5 py-6">
-      <div class="flex items-center justify-between">
-        <h1 class="font-display text-3xl font-semibold">Radar</h1>
-        <div class="flex gap-1 rounded-full bg-surface p-1">
-          @for (d of domains; track d.id) {
-            <button
-              (click)="switchDomain(d.id)"
-              class="rounded-full px-3 py-1.5 text-xs font-bold transition-colors"
-              [class]="domain.domain() === d.id ? 'bg-coral text-ink' : 'text-muted-2'"
-            >
-              {{ d.emoji }} {{ d.label }}
-            </button>
-          }
-        </div>
+      <h1 class="font-display text-3xl font-semibold">Radar</h1>
+      <div class="no-scrollbar mt-3 flex gap-1 overflow-x-auto rounded-full bg-surface p-1">
+        @for (d of domains; track d.id) {
+          <button
+            (click)="switchDomain(d.id)"
+            class="flex-1 rounded-full px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-colors"
+            [class]="domain.domain() === d.id ? 'bg-coral text-ink' : 'text-muted-2'"
+          >
+            {{ d.emoji }} {{ d.label }}
+          </button>
+        }
       </div>
-      <p class="mt-1 text-sm text-muted-2">
-        {{ domain.domain() === 'eat' ? 'Places worth trying — queues with a pulse.' : 'Your personal TV guide — queues with a pulse.' }}
-      </p>
+      <p class="mt-2 text-sm text-muted-2">{{ domain.def().tagline }}</p>
 
       <!-- stale-show nudge -->
       @if (staleEntry(); as stale) {

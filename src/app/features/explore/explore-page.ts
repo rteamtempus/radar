@@ -1,7 +1,7 @@
 import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { DOMAINS, Domain, DomainService } from '../../core/domain.service';
+import { DOMAINS, Domain, DomainService, isPlaceDomain } from '../../core/domain.service';
 import { LatLng, LocationService } from '../../core/location.service';
 import { SubscriptionsService } from '../../core/subscriptions.service';
 import { ServiceBadges } from '../../shared/ui/service-badges';
@@ -25,31 +25,29 @@ const PAGE = 40;
   imports: [FormsModule, RouterLink, ServiceBadges],
   template: `
     <div class="mx-auto max-w-md px-5 py-6">
-      <div class="flex items-center justify-between">
-        <h1 class="font-display text-3xl font-semibold">Explore</h1>
-        <div class="flex gap-1 rounded-full bg-surface p-1">
-          @for (d of domains; track d.id) {
-            <button
-              (click)="switchDomain(d.id)"
-              class="rounded-full px-3 py-1.5 text-xs font-bold transition-colors"
-              [class]="domain.domain() === d.id ? 'bg-coral text-ink' : 'text-muted-2'"
-            >
-              {{ d.emoji }} {{ d.label }}
-            </button>
-          }
-        </div>
+      <h1 class="font-display text-3xl font-semibold">Explore</h1>
+      <div class="no-scrollbar mt-3 flex gap-1 overflow-x-auto rounded-full bg-surface p-1">
+        @for (d of domains; track d.id) {
+          <button
+            (click)="switchDomain(d.id)"
+            class="flex-1 rounded-full px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-colors"
+            [class]="domain.domain() === d.id ? 'bg-coral text-ink' : 'text-muted-2'"
+          >
+            {{ d.emoji }} {{ d.label }}
+          </button>
+        }
       </div>
 
       <input
         type="search"
-        [placeholder]="isEat() ? 'Search restaurants…' : 'Search everything…'"
+        [placeholder]="domain.def().searchPlaceholder"
         [ngModel]="query()"
         (ngModelChange)="onQuery($event)"
         class="mt-4 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-cream placeholder:text-muted focus:border-coral focus:outline-none"
       />
 
       <!-- ============ filters ============ -->
-      @if (!isEat()) {
+      @if (isWatch()) {
         <div class="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
           @for (t of typeChips; track t.value) {
             <button (click)="typeFilter.set(t.value)" [class]="chip(typeFilter() === t.value)">
@@ -90,6 +88,19 @@ const PAGE = 40;
           }
           <button (click)="minVote.set(minVote() === 7 ? null : 7)" [class]="chip(minVote() === 7)">★ 7+</button>
           <button (click)="minVote.set(minVote() === 8 ? null : 8)" [class]="chip(minVote() === 8)">★ 8+</button>
+        </div>
+      } @else if (isRead()) {
+        <div class="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
+          <button (click)="hideSeen.set(!hideSeen())" [class]="chip(hideSeen())">🙈 Hide read</button>
+          <button (click)="minRating.set(minRating() === 4 ? null : 4)" [class]="chip(minRating() === 4)">★ 4+</button>
+          @for (f of friendChips(); track f.value) {
+            <button
+              (click)="friendFilter.set(friendFilter() === f.value ? null : f.value)"
+              [class]="chip(friendFilter() === f.value, 'violet')"
+            >
+              {{ f.label }}
+            </button>
+          }
         </div>
       } @else {
         <div class="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -236,7 +247,13 @@ const PAGE = 40;
         </div>
       }
       <p class="mt-3 text-center text-[10px] text-muted">
-        {{ isEat() ? 'Showing every place Radar knows — pulls add fresh ones from Google.' : 'Showing the shared catalog — typing searches TMDB automatically.' }}
+        {{
+          isEat()
+            ? 'Showing every place Radar knows — pulls add fresh ones from Google.'
+            : isRead()
+              ? 'Showing the shared catalog — typing searches Google Books automatically.'
+              : 'Showing the shared catalog — typing searches TMDB automatically.'
+        }}
       </p>
     </div>
   `,
@@ -300,39 +317,65 @@ export class ExplorePage implements OnDestroy {
     { label: '📍 <10 mi', value: 10 },
   ];
 
-  protected readonly isEat = computed(() => this.domain.domain() === 'eat');
+  /** eat + do are both Google-Places-backed (geo, price, hours). */
+  protected readonly isEat = computed(() => isPlaceDomain(this.domain.domain()));
+  protected readonly isWatch = computed(() => this.domain.domain() === 'watch');
+  protected readonly isRead = computed(() => this.domain.domain() === 'read');
 
-  protected readonly friendChips = computed(() =>
-    this.isEat()
-      ? [
+  protected readonly friendChips = computed(() => {
+    switch (this.domain.domain()) {
+      case 'eat':
+        return [
           { label: '👀 Friends want to try', value: 'want_to' as FriendFilter },
           { label: '♥ Friends loved', value: 'loved' as FriendFilter },
-        ]
-      : [
+        ];
+      case 'do':
+        return [
+          { label: '👀 Friends want to go', value: 'want_to' as FriendFilter },
+          { label: '♥ Friends loved', value: 'loved' as FriendFilter },
+        ];
+      case 'read':
+        return [
+          { label: '👀 Friends want to read', value: 'want_to' as FriendFilter },
+          { label: '📖 Friends reading', value: 'in_progress' as FriendFilter },
+          { label: '♥ Friends loved', value: 'loved' as FriendFilter },
+        ];
+      default:
+        return [
           { label: '👀 Friends want to', value: 'want_to' as FriendFilter },
           { label: '▶ Friends watching', value: 'in_progress' as FriendFilter },
           { label: '♥ Friends loved', value: 'loved' as FriendFilter },
-        ],
-  );
+        ];
+    }
+  });
 
-  protected readonly sortChips = computed(() =>
-    this.isEat()
-      ? [
-          { label: 'Top rated', value: 'rating' as EatSort },
-          { label: 'Closest', value: 'distance' as EatSort },
-          { label: 'Most reviewed', value: 'reviews' as EatSort },
-        ]
-      : [
-          { label: 'Popular', value: 'popular' as WatchSort },
-          { label: 'Top rated', value: 'rating' as WatchSort },
-          { label: 'Newest', value: 'newest' as WatchSort },
-          { label: 'A–Z', value: 'az' as WatchSort },
-        ],
-  );
+  protected readonly sortChips = computed(() => {
+    if (this.isEat()) {
+      return [
+        { label: 'Top rated', value: 'rating' as EatSort },
+        { label: 'Closest', value: 'distance' as EatSort },
+        { label: 'Most reviewed', value: 'reviews' as EatSort },
+      ];
+    }
+    if (this.isRead()) {
+      return [
+        { label: 'Top rated', value: 'rating' as WatchSort },
+        { label: 'Newest', value: 'newest' as WatchSort },
+        { label: 'A–Z', value: 'az' as WatchSort },
+      ];
+    }
+    return [
+      { label: 'Popular', value: 'popular' as WatchSort },
+      { label: 'Top rated', value: 'rating' as WatchSort },
+      { label: 'Newest', value: 'newest' as WatchSort },
+      { label: 'A–Z', value: 'az' as WatchSort },
+    ];
+  });
 
-  /** Top genres/cuisines present in the current catalog, by frequency. */
+  /** Top genres/cuisines/themes present in the current catalog, by frequency. */
   protected readonly tagChips = computed(() => {
-    const kind = this.isEat() ? 'cuisine' : 'genre';
+    const d = this.domain.domain();
+    const kind = d === 'eat' ? 'cuisine' : d === 'do' ? 'theme' : 'genre';
     const counts = new Map<string, { label: string; n: number }>();
     for (const item of this.explore.items().values()) {
       for (const t of item.activity_tags ?? []) {
@@ -360,7 +403,7 @@ export class ExplorePage implements OnDestroy {
     const out: ExploreItem[] = [];
     for (const item of this.explore.items().values()) {
       if (q && !item.title.toLowerCase().includes(q)) continue;
-      if (!this.isEat() && this.typeFilter() !== 'all' && item.type !== this.typeFilter()) continue;
+      if (this.isWatch() && this.typeFilter() !== 'all' && item.type !== this.typeFilter()) continue;
 
       const myStatus = mine.get(item.id);
       if (this.hideSeen() && myStatus && ['completed', 'not_interested', 'abandoned'].includes(myStatus)) continue;
@@ -373,7 +416,7 @@ export class ExplorePage implements OnDestroy {
       const sel = this.tagSel();
       if (sel.size && !(item.activity_tags ?? []).some((t) => sel.has(t.tag.slug))) continue;
 
-      if (!this.isEat()) {
+      if (this.isWatch()) {
         const cap = this.runtimeMax();
         if (cap && item.duration_min && item.duration_min > cap) continue;
         const dec = this.decade();
@@ -381,7 +424,7 @@ export class ExplorePage implements OnDestroy {
         if (dec === 1 && year && year >= 2000) continue;
         if (dec && dec !== 1 && (!year || year < dec || year >= dec + 10)) continue;
         if (this.minVote() && (item.metadata?.tmdb_vote ?? 0) < this.minVote()!) continue;
-      } else {
+      } else if (this.isEat()) {
         if (this.priceSel().size && !this.priceSel().has(item.metadata?.price_level ?? 0)) continue;
         if (this.minRating() && (item.metadata?.rating ?? 0) < this.minRating()!) continue;
         if (this.openNow() && item.metadata?.open_now !== true) continue;
@@ -390,6 +433,8 @@ export class ExplorePage implements OnDestroy {
           const mi = myLoc && item.location ? distanceMiles(myLoc, item.location) : null;
           if (mi == null || mi > cap) continue;
         }
+      } else if (this.isRead()) {
+        if (this.minRating() && (item.metadata?.rating ?? 0) < this.minRating()!) continue;
       }
 
       const ff = this.friendFilter();
@@ -450,8 +495,8 @@ export class ExplorePage implements OnDestroy {
     this.tagSel.set(new Set());
     this.friendFilter.set(null);
     this.shown.set(PAGE);
-    this.sort.set(d === 'eat' ? 'rating' : 'popular');
-    this.hideSeen.set(d !== 'eat');
+    this.sort.set(d === 'watch' ? 'popular' : 'rating');
+    this.hideSeen.set(d === 'watch');
   }
 
   protected clearFilters() {
@@ -474,11 +519,13 @@ export class ExplorePage implements OnDestroy {
     this.shown.set(this.pageSize);
     clearTimeout(this.debounce);
     const trimmed = q.trim();
-    // Watch: local filtering is instant; TMDB tops up in the background.
+    // Free APIs top up automatically (TMDB / Google Books); Places is button-only.
     if (this.isEat() || trimmed.length < 2) return;
     this.debounce = setTimeout(async () => {
       try {
-        this.explore.merge(await this.lib.search(trimmed));
+        this.explore.merge(
+          this.isRead() ? await this.lib.searchBooks(trimmed) : await this.lib.search(trimmed),
+        );
       } catch {
         /* background top-up; local results still shown */
       }
@@ -494,7 +541,7 @@ export class ExplorePage implements OnDestroy {
         this.toast.error('Location is off — allow it in your browser settings.');
         return;
       }
-      this.explore.merge(await this.lib.searchPlaces('', loc));
+      this.explore.merge(await this.lib.searchPlaces('', loc, this.placeKind()));
     } catch {
       this.toast.error('Could not pull nearby places.');
     } finally {
@@ -505,7 +552,9 @@ export class ExplorePage implements OnDestroy {
   protected async placesSearch() {
     this.pulling.set(true);
     try {
-      this.explore.merge(await this.lib.searchPlaces(this.query().trim(), await this.location.get()));
+      this.explore.merge(
+        await this.lib.searchPlaces(this.query().trim(), await this.location.get(), this.placeKind()),
+      );
     } catch {
       this.toast.error('Google search failed — try again.');
     } finally {
@@ -513,11 +562,15 @@ export class ExplorePage implements OnDestroy {
     }
   }
 
+  private placeKind(): 'eat' | 'do' {
+    return this.domain.domain() === 'do' ? 'do' : 'eat';
+  }
+
   protected async quickAdd(item: ExploreItem) {
     try {
       await this.lib.setStatus(item.id, 'want_to');
       this.lib.hydrate(item);
-      this.toast.success(`${item.title} → ${this.isEat() ? 'Want to try' : 'Up next'} ✓`);
+      this.toast.success(`${item.title} → ${this.domain.def().wantLabel} ✓`);
     } catch {
       this.toast.error('Could not add — try again.');
     }
@@ -579,12 +632,22 @@ export class ExplorePage implements OnDestroy {
     if (!status) return null;
     const labels: Record<string, string> = this.isEat()
       ? { want_to: '👀 on my list', completed: '✓ been', not_interested: '✕' }
-      : { want_to: '👀 on my list', in_progress: '▶ watching', completed: '✓ seen', abandoned: '⏸', not_interested: '✕' };
+      : this.isRead()
+        ? { want_to: '👀 on my list', in_progress: '📖 reading', completed: '✓ read', abandoned: '⏸', not_interested: '✕' }
+        : { want_to: '👀 on my list', in_progress: '▶ watching', completed: '✓ seen', abandoned: '⏸', not_interested: '✕' };
     return labels[status] ?? null;
   }
 
   protected sub(item: ExploreItem): string {
-    if (item.type === 'restaurant') {
+    if (item.type === 'book') {
+      const parts: string[] = [];
+      if (item.metadata?.authors?.length) parts.push(item.metadata.authors[0]);
+      if (item.metadata?.release_year) parts.push(String(item.metadata.release_year));
+      if (item.metadata?.page_count) parts.push(`${item.metadata.page_count}p`);
+      if (item.metadata?.rating) parts.push(`★ ${item.metadata.rating}`);
+      return parts.join(' · ') || 'Book';
+    }
+    if (item.type === 'restaurant' || item.type === 'outing') {
       const parts: string[] = [];
       if (item.metadata?.rating) {
         parts.push(`★ ${item.metadata.rating}${item.metadata.rating_count ? ` (${item.metadata.rating_count})` : ''}`);
@@ -593,7 +656,7 @@ export class ExplorePage implements OnDestroy {
       const loc = this.myLoc();
       const mi = loc && item.location ? distanceMiles(loc, item.location) : null;
       if (mi != null) parts.push(`${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`);
-      return parts.join(' · ') || 'Restaurant';
+      return parts.join(' · ') || (item.type === 'outing' ? 'Place to go' : 'Restaurant');
     }
     const parts: string[] = [];
     if (item.metadata?.release_year) parts.push(String(item.metadata.release_year));

@@ -15,7 +15,17 @@ serve(async (req) => {
     throw new HttpError(400, 'Expected body { placeId: string }');
   }
 
+  const db = serviceClient();
+  // Preserve the existing activity type (restaurant vs outing) on refresh.
+  const { data: existing } = await db
+    .from('activities')
+    .select('type')
+    .eq('external_source', 'google_places')
+    .eq('external_id', placeId)
+    .maybeSingle();
+  const kind = existing?.type === 'outing' ? 'do' : 'eat';
+
   const place = await placeDetails(placeId);
-  const activity = await upsertPlace(serviceClient(), place);
+  const activity = await upsertPlace(db, place, kind);
   return json({ activity });
 });

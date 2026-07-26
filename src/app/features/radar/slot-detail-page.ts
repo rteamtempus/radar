@@ -44,7 +44,7 @@ type SlotSort = 'queue' | 'rating' | 'newest' | 'az' | 'distance';
 
         <!-- filters -->
         <div class="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
-          @if (!isEat()) {
+          @if (isWatchSlot()) {
             <button (click)="mineOnly.set(!mineOnly())" [class]="chip(mineOnly(), 'green')">📡 On my services</button>
             @for (r of runtimeChips; track r.value) {
               <button (click)="runtimeMax.set(runtimeMax() === r.value ? null : r.value)" [class]="chip(runtimeMax() === r.value)">
@@ -52,7 +52,7 @@ type SlotSort = 'queue' | 'rating' | 'newest' | 'az' | 'distance';
               </button>
             }
             <button (click)="minVote.set(minVote() === 7 ? null : 7)" [class]="chip(minVote() === 7)">★ 7+</button>
-          } @else {
+          } @else if (isEat()) {
             <button (click)="openNow.set(!openNow())" [class]="chip(openNow(), 'green')">● Open now</button>
             @for (m of distanceChips; track m.value) {
               <button (click)="maxMiles.set(maxMiles() === m.value ? null : m.value)" [class]="chip(maxMiles() === m.value)">
@@ -172,7 +172,10 @@ export class SlotDetailPage {
   ];
 
   protected readonly slot = computed(() => this.slots.slots().find((s) => s.id === this.id()));
-  protected readonly isEat = computed(() => (this.slot()?.config?.domain ?? 'watch') === 'eat');
+  private readonly slotDomain = computed(() => this.slot()?.config?.domain ?? 'watch');
+  /** Google-Places-backed slots (eat + do) share the geo/price filters. */
+  protected readonly isEat = computed(() => ['eat', 'do'].includes(this.slotDomain()));
+  protected readonly isWatchSlot = computed(() => this.slotDomain() === 'watch');
 
   protected readonly sortChips = computed(() =>
     this.isEat()
@@ -191,7 +194,8 @@ export class SlotDetailPage {
   );
 
   protected readonly tagChips = computed(() => {
-    const kind = this.isEat() ? 'cuisine' : 'genre';
+    const d = this.slotDomain();
+    const kind = d === 'eat' ? 'cuisine' : d === 'do' ? 'theme' : 'genre';
     const seen = new Map<string, string>();
     for (const item of this.slot()?.items ?? []) {
       for (const t of item.activity.activity_tags ?? []) {
@@ -231,11 +235,11 @@ export class SlotDetailPage {
       if (services && !(a.activity_availability ?? []).some((x) => services.has(x.service.slug))) return false;
       const sel = this.tagSel();
       if (sel.size && !(a.activity_tags ?? []).some((t) => sel.has(t.tag.slug))) return false;
-      if (!this.isEat()) {
+      if (this.isWatchSlot()) {
         const cap = this.runtimeMax();
         if (cap && a.duration_min && a.duration_min > cap) return false;
         if (this.minVote() && (a.metadata?.tmdb_vote ?? 0) < this.minVote()!) return false;
-      } else {
+      } else if (this.isEat()) {
         if (this.priceSel().size && !this.priceSel().has(a.metadata?.price_level ?? 0)) return false;
         if (this.openNow() && a.metadata?.open_now !== true) return false;
         const cap = this.maxMiles();
@@ -250,12 +254,11 @@ export class SlotDetailPage {
     const dist = (x: SlotItem) =>
       myLoc && x.activity.location ? (distanceMiles(myLoc, x.activity.location) ?? 1e9) : 1e9;
     switch (this.sort()) {
-      case 'rating':
-        return out.sort((a, b) =>
-          this.isEat()
-            ? (b.activity.metadata?.rating ?? 0) - (a.activity.metadata?.rating ?? 0)
-            : (b.activity.metadata?.tmdb_vote ?? 0) - (a.activity.metadata?.tmdb_vote ?? 0),
-        );
+      case 'rating': {
+        const score = (x: SlotItem) =>
+          x.activity.metadata?.rating ?? x.activity.metadata?.tmdb_vote ?? 0;
+        return out.sort((a, b) => score(b) - score(a));
+      }
       case 'newest':
         return out.sort(
           (a, b) => (b.activity.metadata?.release_year ?? 0) - (a.activity.metadata?.release_year ?? 0),
@@ -321,7 +324,14 @@ export class SlotDetailPage {
 
   protected sub(item: SlotItem): string {
     const a = item.activity;
-    if (a.type === 'restaurant') {
+    if (a.type === 'book') {
+      const parts: string[] = [];
+      if (a.metadata?.authors?.length) parts.push(a.metadata.authors[0]);
+      if (a.metadata?.release_year) parts.push(String(a.metadata.release_year));
+      if (a.metadata?.page_count) parts.push(`${a.metadata.page_count}p`);
+      return parts.join(' · ') || 'Book';
+    }
+    if (a.type === 'restaurant' || a.type === 'outing') {
       const parts: string[] = [];
       if (a.metadata?.rating) parts.push(`★ ${a.metadata.rating}`);
       if (a.metadata?.price_level) parts.push('$'.repeat(a.metadata.price_level));

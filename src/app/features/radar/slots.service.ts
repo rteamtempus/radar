@@ -11,7 +11,7 @@ export interface SlotItemActivity {
   id: string;
   title: string;
   image_url: string | null;
-  type: 'movie' | 'tv_show' | 'restaurant';
+  type: 'movie' | 'tv_show' | 'restaurant' | 'outing' | 'book';
   duration_min: number | null;
   metadata: {
     release_year?: number | null;
@@ -20,6 +20,8 @@ export interface SlotItemActivity {
     rating_count?: number | null;
     price_level?: number | null;
     open_now?: boolean | null;
+    authors?: string[];
+    page_count?: number | null;
   };
   location?: { lat?: number; lng?: number } | null;
   activity_tags?: { tag: { slug: string; label: string; kind: string } }[];
@@ -66,6 +68,17 @@ const DEFAULT_SLOTS: Record<
     { name: 'Want to try', emoji: '🍜', on_complete: 'remove', role: 'up_next' },
     // Restaurants are repeatable — the go-to list keeps its spots.
     { name: 'Go-to spots', emoji: '⭐', on_complete: 'keep', role: 'rewatch' },
+    { name: 'Recommended to me', emoji: '💡', on_complete: 'remove', role: 'recommended' },
+  ],
+  do: [
+    { name: 'Want to go', emoji: '🎯', on_complete: 'remove', role: 'up_next' },
+    { name: 'Favorites', emoji: '⭐', on_complete: 'keep', role: 'rewatch' },
+    { name: 'Recommended to me', emoji: '💡', on_complete: 'remove', role: 'recommended' },
+  ],
+  read: [
+    { name: 'Reading', emoji: '📖', on_complete: 'remove', role: 'watching' },
+    { name: 'Want to read', emoji: '📚', on_complete: 'remove', role: 'up_next' },
+    { name: 'Favorites', emoji: '⭐', on_complete: 'keep', role: 'rewatch' },
     { name: 'Recommended to me', emoji: '💡', on_complete: 'remove', role: 'recommended' },
   ],
 };

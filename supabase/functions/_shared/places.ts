@@ -67,16 +67,37 @@ function headers(fieldMask: string): Record<string, string> {
   };
 }
 
+/** 'eat' = restaurants; 'do' = permanent go-and-do-something establishments. */
+export type PlaceKind = 'eat' | 'do';
+
+const NEARBY_TYPES: Record<PlaceKind, string[]> = {
+  eat: ['restaurant'],
+  do: [
+    'tourist_attraction',
+    'museum',
+    'art_gallery',
+    'amusement_park',
+    'aquarium',
+    'zoo',
+    'bowling_alley',
+    'park',
+    'performing_arts_theater',
+    'historical_landmark',
+  ],
+};
+
 export async function placesTextSearch(
   query: string,
   location: { lat: number; lng: number } | null,
+  kind: PlaceKind,
 ): Promise<GooglePlace[]> {
   const res = await fetch(`${PLACES_BASE}/places:searchText`, {
     method: 'POST',
     headers: headers(SEARCH_FIELD_MASK),
     body: JSON.stringify({
       textQuery: query,
-      includedType: 'restaurant',
+      // 'do' spans many types — let free text do the work ("mini golf", "art museum")
+      ...(kind === 'eat' ? { includedType: 'restaurant' } : {}),
       pageSize: 12,
       ...(location
         ? {
@@ -94,19 +115,19 @@ export async function placesTextSearch(
   return ((await res.json()).places ?? []) as GooglePlace[];
 }
 
-export async function placesNearby(location: {
-  lat: number;
-  lng: number;
-}): Promise<GooglePlace[]> {
+export async function placesNearby(
+  location: { lat: number; lng: number },
+  kind: PlaceKind,
+): Promise<GooglePlace[]> {
   const res = await fetch(`${PLACES_BASE}/places:searchNearby`, {
     method: 'POST',
     headers: headers(SEARCH_FIELD_MASK),
     body: JSON.stringify({
-      includedTypes: ['restaurant'],
+      includedTypes: NEARBY_TYPES[kind],
       maxResultCount: 12,
       rankPreference: 'POPULARITY',
       locationRestriction: {
-        circle: { center: { latitude: location.lat, longitude: location.lng }, radius: 8000 },
+        circle: { center: { latitude: location.lat, longitude: location.lng }, radius: kind === 'eat' ? 8000 : 25000 },
       },
     }),
   });
@@ -158,7 +179,7 @@ const GENERIC_TYPES = new Set([
   'meal_delivery',
 ]);
 
-function cuisineTags(place: GooglePlace): { slug: string; label: string }[] {
+function categoryTags(place: GooglePlace): { slug: string; label: string }[] {
   return (place.types ?? [])
     .filter((t) => !GENERIC_TYPES.has(t))
     .map((t) => {
@@ -172,10 +193,11 @@ function cuisineTags(place: GooglePlace): { slug: string; label: string }[] {
     .slice(0, 4);
 }
 
-/** Upsert one Google place into activities (+ cuisine tags). */
+/** Upsert one Google place into activities (+ cuisine/theme tags). */
 export async function upsertPlace(
   service: SupabaseClient,
   place: GooglePlace,
+  kind: PlaceKind = 'eat',
 ): Promise<ActivityRow> {
   const photoUri = await resolvePhoto(place);
   const lat = place.location?.latitude ?? null;
@@ -185,7 +207,7 @@ export async function upsertPlace(
     .from('activities')
     .upsert(
       {
-        type: 'restaurant',
+        type: kind === 'eat' ? 'restaurant' : 'outing',
         title: place.displayName?.text ?? 'Unknown place',
         description: place.editorialSummary?.text ?? null,
         ...(photoUri ? { image_url: photoUri } : {}),
@@ -211,14 +233,15 @@ export async function upsertPlace(
     .single();
   if (error) throw new Error(`place upsert failed: ${error.message}`);
 
-  const tags = cuisineTags(place);
+  const tagKind = kind === 'eat' ? 'cuisine' : 'theme';
+  const tags = categoryTags(place);
   if (tags.length) {
-    const rows = tags.map((t) => ({ kind: 'cuisine', slug: t.slug, label: t.label }));
+    const rows = tags.map((t) => ({ kind: tagKind, slug: t.slug, label: t.label }));
     await service.from('tags').upsert(rows, { onConflict: 'kind,slug', ignoreDuplicates: true });
     const { data: tagRows } = await service
       .from('tags')
       .select('id')
-      .eq('kind', 'cuisine')
+      .eq('kind', tagKind)
       .in('slug', tags.map((t) => t.slug));
     if (tagRows?.length) {
       await service.from('activity_tags').upsert(

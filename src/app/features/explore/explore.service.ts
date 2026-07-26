@@ -51,8 +51,14 @@ export class ExploreService {
   async load(domain: Domain): Promise<void> {
     this.loading.set(true);
     try {
-      const types: ('movie' | 'tv_show' | 'restaurant')[] =
-        domain === 'eat' ? ['restaurant'] : ['movie', 'tv_show'];
+      const types: ('movie' | 'tv_show' | 'restaurant' | 'outing' | 'book')[] =
+        domain === 'eat'
+          ? ['restaurant']
+          : domain === 'do'
+            ? ['outing']
+            : domain === 'read'
+              ? ['book']
+              : ['movie', 'tv_show'];
       const { data } = await getSupabase()
         .from('activities')
         .select(CATALOG_SELECT)

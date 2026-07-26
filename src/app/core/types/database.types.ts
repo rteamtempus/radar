@@ -1201,6 +1201,7 @@ export type Database = {
         | "live_performance"
         | "outing"
         | "custom"
+        | "book"
       engagement_status:
         | "want_to"
         | "in_progress"
@@ -1362,6 +1363,7 @@ export const Constants = {
         "live_performance",
         "outing",
         "custom",
+        "book",
       ],
       engagement_status: [
         "want_to",
