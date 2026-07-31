@@ -3,9 +3,10 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "prestart": "node scripts/generate-env.mjs",
+    "notes:build": "node scripts/build-release-notes.mjs",
+    "prestart": "node scripts/generate-env.mjs && node scripts/build-release-notes.mjs",
     "start": "ng serve",
-    "prebuild": "node scripts/generate-env.mjs",
+    "prebuild": "node scripts/generate-env.mjs && node scripts/build-release-notes.mjs",
     "build": "ng build",
     "native:sync": "npm run build && npx cap sync",
     "native:ios": "npm run native:sync && npx cap open ios",

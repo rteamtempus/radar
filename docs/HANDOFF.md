@@ -31,7 +31,7 @@ domains, social slots phases 1–4 are **live in production**.
    key API-restricted to those two). Parse `.env` into `$env:` per PowerShell
    call (state doesn't persist across calls; **cd to radar first — the shell
    resets to c:\Workspace-2 between turns**).
-2. **DB changes** = numbered migration in `supabase/migrations` (next: 0012)
+2. **DB changes** = numbered migration in `supabase/migrations` (next: 0013)
    → `npx -y supabase db push` → regenerate types:
    `npx -y supabase gen types typescript --linked > src/app/core/types/database.types.ts`
    (write BOM-safely via `[IO.File]::WriteAllLines`, prepend the GENERATED
@@ -131,9 +131,23 @@ $25 manual first releases → CI (Phase 6) → name decision before launch.
 **Process debts**: real-phones end-to-end party run (Rory's court, from
 PLAN.md M8); behavioral RLS spot-checks after any new visibility policy.
 
+## Process: every task ends with docs (added 2026-07-31)
+
+Release notes ship *inside the app*, so they are part of the code change, not
+an afterthought. **CLAUDE.md § Release notes & regression testing is binding.**
+Short version: a user-visible change ⇒ a note in `docs/release-notes/` +
+`npm run notes:build` (commit the generated file) + edit the matching
+`docs/regression-testing/` feature file + an entry in its `RELEASES.md`.
+Invisible work (refactors, the Capacitor port) gets neither.
+
 ## Docs index (radar/docs/)
 
 - `HANDOFF.md` — this file.
+- `release-notes/` — the in-app changelog, authored as markdown, compiled into
+  the build. `README.md` there is the authoring guide; `0001`–`0009` are the
+  backfilled history, `0010` onward are written as work ships.
+- `regression-testing/` — living manual test scripts per feature, plus
+  `RELEASES.md` (what to retest per release) and the test-account table.
 - `partypick-poc-handoff.md` — original spec (§7 pipeline math still canonical).
 - `PLAN.md` — milestones 1–8 ✅ + Netflix import ✅ (checklists, deviations).
 - `IDEAS-ANALYSIS.md` — friend-notes analysis; phases A✅ B✅, C/D partial

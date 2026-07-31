@@ -47,6 +47,65 @@ migrations) + `functions/{_shared,tmdb-search,tmdb-detail,generate-candidates}`.
 Migrations are plain PostgreSQL — VS Code's default T-SQL linter flags them
 falsely; ignore or set the SQL dialect to Postgres.
 
+## Release notes & regression testing (NOT optional)
+
+Every task that changes the app for its users ends with **two doc updates, in
+the same commit as the code**. This is not paperwork — the release notes ship
+*inside the app* (the What's-new modal), and the regression files are how Rory
+and his partners test a release.
+
+**1. Release note** — `docs/release-notes/NNNN-slug.md`, format and rules in
+that folder's `README.md`. Then `npm run notes:build` (also runs on
+`prestart`/`prebuild`) to regenerate
+`src/app/core/release-notes.generated.ts` — **commit the generated file, never
+hand-edit it**.
+
+- **Write one for:** new features, changed behaviour or wording, noticeable
+  visual changes, bug fixes. Anything a user could notice.
+- **Skip:** refactors, docs, tests, dependency bumps, build/CI, and shell work
+  that changes nothing visible. The Capacitor port is the reference example —
+  real work, no release note. When in doubt, ask "would a user notice?"
+- **One note per release, not per commit.** Multiple commits in a session share
+  one note; if the current note hasn't shipped yet, edit it instead of adding
+  another.
+- The `NNNN` prefix is the sequence compared against
+  `profiles.last_seen_release_seq`. It increments by one and is **never**
+  reused or renumbered.
+- Write for the person using the app, not for someone reading the diff.
+- Big non-code milestones (an App Store launch, say) get a note too — Rory will
+  drive those with you.
+
+**2. Regression tests** — `docs/regression-testing/`:
+
+- Add or **edit** the feature file for what you changed. These files describe
+  the feature as it is *now*; they are edited in place, never appended to.
+- Add an entry to `RELEASES.md` for the release, listing every feature file it
+  touched **and why** — including files you didn't change but whose behaviour
+  your change could break (shared RPCs, RLS, triggers, services). That list is
+  the release's test plan.
+- Test IDs (`RT-NOTIF-03`) are stable forever. Delete a dead test; never
+  renumber around it.
+
+## Notifications
+
+Generic activity-stream inbox (`notifications`, migration 0012). `verb` is
+free text, so **a new notification kind is a new producer, not a migration**.
+
+1. **Clients never insert.** Every notification comes from a `SECURITY
+   DEFINER` trigger or RPC calling `notify_user()`. There is deliberately no
+   insert policy — don't add one.
+2. **Denormalise into `payload`.** Rendering must never need a join the
+   recipient's RLS might refuse. Add the display fields (title, image, names)
+   to the payload at write time.
+3. **Set a `group_key`** for anything that could fire repeatedly; re-firing
+   updates the row in place and re-unreads it instead of stacking duplicates.
+4. **Triggers fire on UPDATE, not INSERT**, for engagement-shaped events — the
+   Netflix importer inserts hundreds of completed rows and must stay silent.
+5. New verb ⇒ add a case to `describe()` in `core/notifications.service.ts`
+   (unknown verbs fall back safely) + a release note + a regression test.
+6. **Release notes are not notification rows** — they ship with the build and
+   collapse into one synthetic "What's new" entry. See `core/release-notes.ts`.
+
 ## Native shells (Capacitor)
 
 The app ships as web (Vercel) AND native shells (Capacitor 7, `ios/` +
@@ -75,7 +134,8 @@ requires the Mac; the ios/ project itself is generated and committed here.
 
 ## Commands
 
-`npm start` (serve; runs generate-env first) · `npm run build` · `npm test`.
+`npm start` (serve) · `npm run build` · `npm test` · `npm run notes:build`.
+`prestart`/`prebuild` run `generate-env` then `build-release-notes`.
 Supabase (once linked): `supabase db push`, `supabase functions deploy <name>`,
 `supabase secrets set K=V`, `supabase gen types typescript --linked >
 src/app/core/types/database.types.ts`.

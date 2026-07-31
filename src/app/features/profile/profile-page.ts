@@ -2,21 +2,71 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { NotificationsService } from '../../core/notifications.service';
+import { ReleaseNote, ReleaseNotesService } from '../../core/release-notes';
 import { SubscriptionsService } from '../../core/subscriptions.service';
 import { LibraryEntry, LibraryService } from '../library/library.service';
+import { NotificationBadge } from '../../shared/ui/notification-badge';
 import { ServiceBadges } from '../../shared/ui/service-badges';
 import { StarRating } from '../../shared/ui/star-rating';
 import { ToastService } from '../../shared/ui/toast.service';
 import { ImportService } from './import.service';
 import { HistoryItem, parseNetflixHistory } from './netflix-csv';
+import { NotificationsPanel } from './notifications-panel';
+import { ReleaseNotesModal } from './release-notes-modal';
 import { TasteService } from './taste.service';
 
 @Component({
   selector: 'pp-profile-page',
-  imports: [FormsModule, RouterLink, ServiceBadges, StarRating],
+  imports: [
+    FormsModule,
+    RouterLink,
+    NotificationBadge,
+    NotificationsPanel,
+    ReleaseNotesModal,
+    ServiceBadges,
+    StarRating,
+  ],
   template: `
     <div class="mx-auto flex max-w-md flex-col gap-6 px-5 py-6">
-      <h1 class="font-display text-3xl font-semibold">You</h1>
+      <div class="flex items-center gap-3">
+        <h1 class="font-display flex-1 text-3xl font-semibold">You</h1>
+
+        <div class="relative flex-none">
+          <button
+            (click)="panelOpen.set(!panelOpen())"
+            aria-label="Notifications"
+            class="relative flex size-11 items-center justify-center rounded-full border border-line bg-surface"
+            [class.border-coral]="notifications.badgeCount() > 0"
+          >
+            <!-- bell -->
+            <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+              [class]="notifications.badgeCount() > 0 ? 'text-coral' : 'text-muted-2'">
+              <path d="M6 9a6 6 0 0 1 12 0c0 4 1.2 5.4 1.8 6H4.2C4.8 14.4 6 13 6 9Z" />
+              <path d="M10 19a2 2 0 0 0 4 0" />
+            </svg>
+            <pp-notification-badge [count]="notifications.badgeCount()" />
+          </button>
+
+          @if (panelOpen()) {
+            <pp-notifications-panel
+              (close)="panelOpen.set(false)"
+              (whatsNew)="openWhatsNew()"
+            />
+          }
+        </div>
+
+        <div
+          class="flex size-11 flex-none items-center justify-center rounded-full bg-gradient-to-br from-coral to-gold font-display text-lg font-semibold text-ink"
+          [attr.aria-label]="name || 'Your profile'"
+        >
+          {{ initial() }}
+        </div>
+      </div>
+
+      @if (whatsNewNotes(); as notes) {
+        <pp-release-notes-modal [notes]="notes" (close)="whatsNewNotes.set(null)" />
+      }
 
       <div class="rounded-2xl border border-line bg-surface p-5">
         <p class="text-xs font-bold tracking-wide text-muted uppercase">Display name</p>
@@ -196,6 +246,20 @@ import { TasteService } from './taste.service';
         }
       </div>
 
+      <a
+        routerLink="/profile/whats-new"
+        class="flex items-center gap-3 rounded-2xl border border-line bg-surface px-5 py-4"
+      >
+        <span class="text-lg leading-none">✨</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-bold">What's new</span>
+          <span class="block text-xs text-muted-2">
+            Every release, newest first — you're on v{{ latestVersion() }}
+          </span>
+        </span>
+        <span class="text-muted-2">→</span>
+      </a>
+
       <button
         (click)="signOut()"
         class="rounded-2xl border border-line bg-surface px-4 py-3.5 font-bold text-coral"
@@ -207,6 +271,8 @@ import { TasteService } from './taste.service';
 })
 export class ProfilePage {
   protected readonly auth = inject(AuthService);
+  protected readonly notifications = inject(NotificationsService);
+  protected readonly releases = inject(ReleaseNotesService);
   protected readonly subs = inject(SubscriptionsService);
   protected readonly importer = inject(ImportService);
   protected readonly taste = inject(TasteService);
@@ -228,6 +294,28 @@ export class ProfilePage {
     } catch {
       this.toast.error('Could not save your rating — try again.');
     }
+  }
+
+  protected readonly panelOpen = signal(false);
+  /** Non-null while the What's-new modal is up; holds the notes it was opened with. */
+  protected readonly whatsNewNotes = signal<readonly ReleaseNote[] | null>(null);
+  protected readonly latestVersion = computed(() => this.releases.all[0]?.version ?? '0');
+  protected readonly initial = computed(() =>
+    (this.name || this.auth.user()?.email || '?').trim().charAt(0).toUpperCase(),
+  );
+
+  /**
+   * Snapshot the unseen notes BEFORE marking them seen — otherwise
+   * `releases.unseen()` empties the moment the watermark moves and the modal
+   * renders nothing.
+   */
+  protected openWhatsNew() {
+    const notes = this.releases.unseen();
+    this.panelOpen.set(false);
+    if (!notes.length) return;
+    this.whatsNewNotes.set(notes);
+    const userId = this.auth.user()?.id;
+    if (userId) void this.releases.markAllSeen(userId);
   }
 
   protected name = '';
@@ -290,6 +378,7 @@ export class ProfilePage {
     this.subs.load();
     this.taste.load();
     this.lib.load();
+    this.notifications.load();
     this.auth.getOrCreateProfile().then((p) => {
       if (p && !this.name) this.name = p.display_name;
       if (p?.visibility) this.profileVisibility.set(p.visibility);
@@ -303,6 +392,7 @@ export class ProfilePage {
   }
 
   protected async signOut() {
+    this.notifications.reset(); // drop the channel + this account's inbox
     await this.auth.signOut();
     this.router.navigateByUrl('/login');
   }

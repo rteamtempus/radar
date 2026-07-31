@@ -58,8 +58,14 @@ export const routes: Routes = [
   },
   {
     path: 'profile',
+    pathMatch: 'full',
     canActivate: [authGuard],
     loadComponent: () => import('./features/profile/profile-page').then((m) => m.ProfilePage),
+  },
+  {
+    path: 'profile/whats-new',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/profile/whats-new-page').then((m) => m.WhatsNewPage),
   },
   { path: '**', redirectTo: 'radar' },
 ];

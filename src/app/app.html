@@ -98,12 +98,15 @@
         class="-mt-px flex flex-1 flex-col items-center gap-1 border-t-2 border-transparent pt-2 pb-1 text-[10px] font-bold text-muted"
       >
         <!-- smiley -->
-        <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M8.5 14.2a4.5 4.5 0 0 0 7 0" />
-          <circle cx="9" cy="10" r="1" fill="currentColor" stroke="none" />
-          <circle cx="15" cy="10" r="1" fill="currentColor" stroke="none" />
-        </svg>
+        <span class="relative">
+          <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M8.5 14.2a4.5 4.5 0 0 0 7 0" />
+            <circle cx="9" cy="10" r="1" fill="currentColor" stroke="none" />
+            <circle cx="15" cy="10" r="1" fill="currentColor" stroke="none" />
+          </svg>
+          <pp-notification-badge [count]="notifications.badgeCount()" />
+        </span>
         Me
       </a>
     </nav>
