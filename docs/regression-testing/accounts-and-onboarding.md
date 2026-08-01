@@ -63,8 +63,9 @@ than all at once. After 12 answers a **Skip** option appears.
 
 **Steps:** Mark several titles of one genre as Loved and several of another as
 Never would. Finish onboarding, then go to **Me → My taste**.
-**Expected:** The genres you loved and avoided are reflected in your taste, and
-party picks weight them.
+**Expected:** The genres you loved and avoided are reflected in your taste.
+Since v0.11 this feeds the **taste match** percentage on friends' profiles, not
+quest picks.
 
 ### RT-ACCT-09 — Step 3: streaming services
 
@@ -113,8 +114,9 @@ history, but your display name still appears in parties and friend lists.
 
 **Steps:** On **My taste**, tap a genre chip repeatedly.
 **Expected:** It cycles neutral → love (green, ♥) → avoid (coral, struck
-through) → neutral. The change applies to the next party's picks without a
-reload.
+through) → neutral, and sticks after a reload. The copy says it shapes your
+**taste match** with friends — since v0.11 removed the AI picks, it must not
+claim quests use it.
 
 ### RT-ACCT-16 — Sign out
 

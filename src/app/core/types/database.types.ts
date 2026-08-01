@@ -189,6 +189,83 @@ export type Database = {
           },
         ]
       }
+      adventure_members: {
+        Row: {
+          adventure_id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          adventure_id: string
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          adventure_id?: string
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adventure_members_adventure_id_fkey"
+            columns: ["adventure_id"]
+            isOneToOne: false
+            referencedRelation: "adventures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adventure_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      adventures: {
+        Row: {
+          created_at: string
+          emoji: string | null
+          finished_at: string | null
+          id: string
+          join_code: string | null
+          name: string
+          owner_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          emoji?: string | null
+          finished_at?: string | null
+          id?: string
+          join_code?: string | null
+          name: string
+          owner_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string | null
+          finished_at?: string | null
+          id?: string
+          join_code?: string | null
+          name?: string
+          owner_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adventures_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_invocations: {
         Row: {
           cost_usd: number | null
@@ -488,44 +565,69 @@ export type Database = {
       parties: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"] | null
+          adventure_id: string | null
           constraints: Json
           created_at: string
           decided_activity_id: string | null
           decided_at: string | null
           decision_config: Json
+          domain: string | null
           group_id: string | null
           host_id: string
           id: string
           join_code: string | null
+          position: number
+          scheduled_at: string | null
+          scheduled_end: string | null
           status: Database["public"]["Enums"]["party_status"]
+          title: string | null
         }
         Insert: {
           activity_type?: Database["public"]["Enums"]["activity_type"] | null
+          adventure_id?: string | null
           constraints?: Json
           created_at?: string
           decided_activity_id?: string | null
           decided_at?: string | null
           decision_config?: Json
+          domain?: string | null
           group_id?: string | null
           host_id: string
           id?: string
           join_code?: string | null
+          position?: number
+          scheduled_at?: string | null
+          scheduled_end?: string | null
           status?: Database["public"]["Enums"]["party_status"]
+          title?: string | null
         }
         Update: {
           activity_type?: Database["public"]["Enums"]["activity_type"] | null
+          adventure_id?: string | null
           constraints?: Json
           created_at?: string
           decided_activity_id?: string | null
           decided_at?: string | null
           decision_config?: Json
+          domain?: string | null
           group_id?: string | null
           host_id?: string
           id?: string
           join_code?: string | null
+          position?: number
+          scheduled_at?: string | null
+          scheduled_end?: string | null
           status?: Database["public"]["Enums"]["party_status"]
+          title?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "parties_adventure_id_fkey"
+            columns: ["adventure_id"]
+            isOneToOne: false
+            referencedRelation: "adventures"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "parties_decided_activity_id_fkey"
             columns: ["decided_activity_id"]
@@ -705,6 +807,61 @@ export type Database = {
             columns: ["party_id"]
             isOneToOne: true
             referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      party_slots: {
+        Row: {
+          created_at: string
+          item_count: number
+          member_id: string
+          owner_name: string | null
+          party_id: string
+          slot_emoji: string | null
+          slot_id: string
+          slot_name: string
+        }
+        Insert: {
+          created_at?: string
+          item_count?: number
+          member_id: string
+          owner_name?: string | null
+          party_id: string
+          slot_emoji?: string | null
+          slot_id: string
+          slot_name: string
+        }
+        Update: {
+          created_at?: string
+          item_count?: number
+          member_id?: string
+          owner_name?: string | null
+          party_id?: string
+          slot_emoji?: string | null
+          slot_id?: string
+          slot_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_slots_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "party_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "party_slots_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "party_slots_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "radar_slots"
             referencedColumns: ["id"]
           },
         ]
@@ -1385,6 +1542,35 @@ export type Database = {
     }
     Functions: {
       add_friend_by_code: { Args: { p_code: string }; Returns: string }
+      adventure_add_quest: {
+        Args: { p_adventure_id: string; p_domain: string; p_title: string }
+        Returns: string
+      }
+      adventure_create_from_party: {
+        Args: { p_name: string; p_party_id: string }
+        Returns: string
+      }
+      adventure_finish: {
+        Args: { p_adventure_id: string; p_status: string }
+        Returns: undefined
+      }
+      adventure_join_by_code: { Args: { p_code: string }; Returns: string }
+      adventure_remove_quest: {
+        Args: { p_party_id: string }
+        Returns: undefined
+      }
+      adventure_reorder: {
+        Args: { p_adventure_id: string; p_party_ids: string[] }
+        Returns: undefined
+      }
+      adventure_schedule_quest: {
+        Args: { p_end: string; p_party_id: string; p_start: string }
+        Returns: undefined
+      }
+      is_adventure_member: {
+        Args: { p_adventure_id: string }
+        Returns: boolean
+      }
       is_friend: { Args: { p_user: string }; Returns: boolean }
       is_party_member: { Args: { p_party_id: string }; Returns: boolean }
       join_party: { Args: { p_code: string }; Returns: string }
@@ -1400,6 +1586,18 @@ export type Database = {
           p_verb: string
         }
         Returns: string
+      }
+      quest_cancel: { Args: { p_party_id: string }; Returns: undefined }
+      quest_pick_slot: {
+        Args: { p_party_id: string; p_slot_id: string }
+        Returns: undefined
+      }
+      quest_restart: { Args: { p_party_id: string }; Returns: undefined }
+      quest_slot_options: { Args: { p_party_id: string }; Returns: Json }
+      quest_start: { Args: { p_party_id: string }; Returns: number }
+      quest_unpick_slot: {
+        Args: { p_party_id: string; p_slot_id: string }
+        Returns: undefined
       }
       recommend_to_friend: {
         Args: { p_activity_id: string; p_friend_id: string }

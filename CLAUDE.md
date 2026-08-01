@@ -86,6 +86,36 @@ hand-edit it**.
 - Test IDs (`RT-NOTIF-03`) are stable forever. Delete a dead test; never
   renumber around it.
 
+## Quests & adventures
+
+A quest's deck is **the union of the slots people pick** — no AI, no external
+calls, no constraints (migration 0013 replaced the whole pipeline; the
+`generate-candidates` function is deleted, not dormant). Don't reintroduce
+scoring or a shortlist without asking.
+
+1. **Cross-member slot reads go through `quest_slot_options()`, never RLS.**
+   Explore's `searchSlots()` relies on `radar_slots` RLS alone, so widening
+   that policy would leak friends-only slots into public discovery. If you need
+   a new cross-member slot read, add it to the SECURITY DEFINER RPC.
+2. **⚠ INTERIM VISIBILITY RULE (owed a redesign).** Rory approved "anyone can
+   pick any member's slots" and explicitly deferred the visibility system. The
+   rule shipped is: **slots marked `private` are never offered to anyone,
+   including their owner, inside a quest**; public and friends-only slots, and
+   slots a member saved from a third party, are offered to every member — which
+   does mean a stranger who joined by code can see a friends-only slot's
+   contents. Revisit before stranger-facing discovery grows.
+3. **Server-side re-checks.** `quest_pick_slot` re-validates domain,
+   visibility, membership and the 3-slot cap — never trust the picker's list.
+4. **`party_slots` is denormalised** (slot name/emoji/owner/count) so the lobby
+   renders everyone's picks without any member reading the underlying
+   `radar_slots` row. Keep it that way.
+5. **Ties are a random draw** (`tallyWinner` in `party-logic.ts`), injectable
+   for tests. There is no `final_score` any more.
+6. Adventures own the roster and the join code; quests inside them inherit
+   both. The join box tries **adventures first** — an adventure reuses its
+   founding quest's code, so trying quests first would drop people into day one
+   only.
+
 ## Notifications
 
 Generic activity-stream inbox (`notifications`, migration 0012). `verb` is

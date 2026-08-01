@@ -77,11 +77,12 @@ prompts.
 Covered by `friends-and-recommendations.md` RT-FRND-09. Re-run it whenever a
 domain is added or `recommend_to_friend` is touched.
 
-### RT-DOM-09 — Quests are watch-only
+### RT-DOM-09 — Quests work in every domain
 
-**Steps:** Try to start a quest from Eat, Do or Read.
-**Expected:** Not offered. This is a known limitation, not a bug — the pipeline
-is media-only today.
+**Steps:** Start a quest in each of the four domains.
+**Expected:** All four work (this changed in v0.11 — quests used to be
+watch-only). The slot picker offers only slots from that domain, and the swipe
+deck shows the right kind of detail for it. See `quests.md`.
 
 ### RT-DOM-10 — Adding a fifth domain
 

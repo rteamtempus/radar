@@ -2,8 +2,7 @@
 import assert from 'node:assert/strict';
 import { SwipeFact, computeSurvivors, tallyWinner } from './party-logic.ts';
 
-const cands = (n: number) =>
-  Array.from({ length: n }, (_, i) => ({ id: `c${i + 1}`, finalScore: (n - i) / 10 }));
+const cands = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `c${i + 1}` }));
 
 const right = (candidateId: string, memberId: string): SwipeFact => ({
   candidateId,
@@ -25,7 +24,7 @@ const left = (candidateId: string, memberId: string): SwipeFact => ({
     2,
   );
   assert.ok(s.includes('c1') && s.includes('c2') && s.includes('c4'), '50%+ survive');
-  // c1 (2 rights, score .4) ranks above c4 (2 rights, score .1); c2 (1 right) last.
+  // c1 and c4 both have 2 rights → id order; c2 (1 right) last.
   assert.deepEqual(s, ['c1', 'c4', 'c2']);
 }
 
@@ -40,12 +39,12 @@ const left = (candidateId: string, memberId: string): SwipeFact => ({
   assert.ok(!s.includes('c1'), 'vetoed candidate excluded when enough survive');
 }
 
-// Fewer than 3 survivors → fill to top 3 by (rights, score), non-vetoed first.
+// Fewer than 3 survivors → fill to top 3, non-vetoed first.
 {
   const s = computeSurvivors(cands(5), [right('c5', 'm1'), right('c5', 'm2')], ['c1'], 2);
   assert.equal(s.length, 3);
   assert.equal(s[0], 'c5', 'only real survivor first');
-  assert.deepEqual(s.slice(1), ['c2', 'c3'], 'filled by score, vetoed c1 skipped');
+  assert.deepEqual(s.slice(1), ['c2', 'c3'], 'filled by id order, vetoed c1 skipped');
 }
 
 // Vetoed candidates are last-resort fill when nothing else exists.
@@ -54,26 +53,46 @@ const left = (candidateId: string, memberId: string): SwipeFact => ({
   assert.equal(s.length, 2, 'clamped to candidate count');
 }
 
-// Zero members → nothing meets 50%, falls back to top-3 by score.
+// Zero members → nothing meets 50%, falls back to top 3.
 assert.deepEqual(computeSurvivors(cands(4), [], [], 0), ['c1', 'c2', 'c3']);
 
-// Tally: points win; final_score breaks ties; non-survivor votes ignored.
+// Tally: most points wins outright; non-survivor votes ignored.
 {
-  const { winnerId, totals } = tallyWinner(
+  const { winnerId, totals, tiedIds } = tallyWinner(
     ['a', 'b', 'c'],
     [
-      { candidateId: 'a', memberId: 'm1', points: 1 },
-      { candidateId: 'b', memberId: 'm1', points: 2 },
-      { candidateId: 'b', memberId: 'm2', points: 1 },
-      { candidateId: 'a', memberId: 'm2', points: 2 },
+      { candidateId: 'a', memberId: 'm1', points: 3 },
+      { candidateId: 'b', memberId: 'm1', points: 1 },
       { candidateId: 'zz', memberId: 'm2', points: 3 }, // not a survivor
     ],
-    { a: 0.9, b: 0.2, c: 0.5 },
+    () => 0,
   );
   assert.equal(totals['a'], 3);
-  assert.equal(totals['b'], 3);
-  assert.equal(winnerId, 'a', 'tie on points → higher final_score wins');
+  assert.equal(totals['b'], 1);
+  assert.equal(totals['zz'], undefined, 'votes for non-survivors are dropped');
+  assert.deepEqual(tiedIds, ['a'], 'a clear winner is a tie of one');
+  assert.equal(winnerId, 'a');
 }
-assert.equal(tallyWinner([], [], {}).winnerId, null);
+
+// A tie at the top is broken by the random draw, not by ordering.
+{
+  const votes = [
+    { candidateId: 'a', memberId: 'm1', points: 2 },
+    { candidateId: 'b', memberId: 'm2', points: 2 },
+  ];
+  const first = tallyWinner(['a', 'b', 'c'], votes, () => 0);
+  const second = tallyWinner(['a', 'b', 'c'], votes, () => 1);
+  assert.deepEqual(first.tiedIds, ['a', 'b'], 'both tied at 2 points');
+  assert.equal(first.winnerId, 'a');
+  assert.equal(second.winnerId, 'b', 'the draw picks the other one');
+}
+
+// An out-of-range draw index can never crash the reveal.
+{
+  const r = tallyWinner(['a', 'b'], [], () => 99);
+  assert.ok(r.winnerId === 'a' || r.winnerId === 'b', 'clamped into range');
+}
+
+assert.equal(tallyWinner([], []).winnerId, null);
 
 console.log('party-logic.test.ts: all assertions passed ✓');

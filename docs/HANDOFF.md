@@ -113,8 +113,8 @@ domains, social slots phases 1–4 are **live in production**.
 9. **AI-filled slots** — "make a slot for my Japan trip": Gemini + affinities
    → hydrate titles → create slot. All plumbing exists.
 10. **Events vertical** (Ticketmaster Discovery, free API) — 5th domain;
-    "artist in town" alerts. Restaurants party flow ("dinner quest") also
-    unbuilt — pipeline is media-only (quest-from-slot pools work for watch only).
+    "artist in town" alerts. (Quests now run in all four existing domains —
+    v0.11 replaced the media-only pipeline with slot-driven decks.)
 11. **Themes** (90s/modern/luxury) — palette is all `@theme` tokens; also the
     icon's purple/pink vs app's coral/gold mismatch noted.
 12. **Smaller/parked**: PWA push notifications; OG share-card images (needs
@@ -130,6 +130,14 @@ $25 manual first releases → CI (Phase 6) → name decision before launch.
 
 **Process debts**: real-phones end-to-end party run (Rory's court, from
 PLAN.md M8); behavioral RLS spot-checks after any new visibility policy.
+
+**⚠ Design debt — quest slot visibility (v0.11).** Quests let any member pick
+any other member's slots, which Rory approved while explicitly deferring the
+visibility design. The interim rule is in CLAUDE.md § Quests & adventures:
+`private` slots are offered to nobody; public/friends-only slots and saved
+third-party slots are offered to every member — so a stranger who joined by
+code can see a friends-only slot's contents. Needs a proper model before
+stranger-facing discovery grows.
 
 ## Process: every task ends with docs (added 2026-07-31)
 

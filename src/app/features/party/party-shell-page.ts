@@ -1,37 +1,49 @@
 import { Component, OnDestroy, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { DOMAINS, Domain } from '../../core/domain.service';
 import { PlatformService } from '../../core/platform/platform.service';
 import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
 import { SubscriptionsService } from '../../core/subscriptions.service';
 import { ServiceBadges } from '../../shared/ui/service-badges';
+import { AdventureService } from './adventure.service';
+import { PartyPooperModal } from './party-pooper-modal';
 import { PartyCandidate, PartyService } from './party.service';
+import { QuestSlotPicker } from './quest-slot-picker';
 import { SwipeDeck } from './swipe-deck';
 
 /**
- * The live party room. Renders the stage for parties.status; every client
- * follows along via the party's realtime channel (handoff §6.3):
- *   gathering → lobby + mood · swiping → deck · voting → point grid ·
- *   decided → reveal · completed → thanks
+ * The live quest room. Renders the stage for parties.status; every client
+ * follows along via the quest's realtime channel:
+ *   gathering → lobby + slot picking · swiping → deck · voting → point grid ·
+ *   decided → reveal · cancelled/completed → the end
  */
 @Component({
   selector: 'pp-party-shell-page',
-  imports: [FormsModule, ServiceBadges, SwipeDeck],
+  imports: [
+    FormsModule,
+    RouterLink,
+    ServiceBadges,
+    SwipeDeck,
+    QuestSlotPicker,
+    PartyPooperModal,
+  ],
   template: `
     @if (party.party(); as p) {
       <div class="mx-auto flex min-h-dvh max-w-md flex-col px-6 py-8">
         @switch (p.status) {
           @case ('gathering') {
-            <!-- ============ lobby ============ -->
-            <h1 class="font-display text-3xl font-semibold">The lobby</h1>
+            <!-- ============ lobby + slot picking ============ -->
+            <h1 class="font-display text-3xl font-semibold">
+              {{ p.title ?? domainLabel(p.domain) + ' quest' }}
+            </h1>
             <p class="mt-1 text-sm text-muted-2">
               {{
                 party.members().length === 1
                   ? 'Waiting for friends… share the code'
                   : party.members().length + ' in so far'
               }}
-              @if (p.constraints.source_slot_name; as slotName) {
-                · picking from <span class="font-bold text-violet">{{ slotName }}</span>
-              }
+              · {{ party.pickedCount() }} picked slots
             </p>
 
             <div class="mt-5 rounded-3xl border border-line bg-surface p-6 text-center">
@@ -54,7 +66,7 @@ import { SwipeDeck } from './swipe-deck';
               @for (m of party.members(); track m.id) {
                 <div class="flex items-center gap-3 rounded-2xl bg-surface px-4 py-3">
                   <span
-                    class="flex size-9 flex-none items-center justify-center rounded-full bg-gradient-to-br from-coral to-gold text-sm font-extrabold text-ink"
+                    class="font-display flex size-9 flex-none items-center justify-center rounded-full bg-gradient-to-br from-coral to-gold text-sm font-extrabold text-ink"
                   >
                     {{ initial(m.profile?.display_name) }}
                   </span>
@@ -64,82 +76,42 @@ import { SwipeDeck } from './swipe-deck';
                       <span class="text-muted">· host</span>
                     }
                   </span>
-                  @if (isReady(m.id)) {
-                    <span class="text-xs font-bold text-green">✓ ready</span>
+                  @if (slotsPickedBy(m.id); as n) {
+                    <span class="text-xs font-bold text-green">✓ {{ n }} in</span>
                   } @else {
-                    <span class="text-xs font-bold text-muted">thinking…</span>
+                    <span class="text-xs font-bold text-muted">browsing…</span>
                   }
                 </div>
               }
             </div>
 
-            <!-- ============ mood check-in ============ -->
-            @if (!party.myCheckin()) {
-              <h2 class="mt-8 font-display text-xl font-semibold">How are you feeling?</h2>
-              <p class="mt-1 text-xs font-bold text-muted">
-                Pick up to 3 · <span class="text-gold">{{ vibeIds().size }} of 3</span>
-              </p>
-              <div class="mt-3 flex flex-wrap gap-2">
-                @for (v of party.vibes(); track v.id) {
-                  <button
-                    (click)="toggleVibe(v.id)"
-                    class="rounded-full border-2 px-4 py-2 text-sm font-bold"
-                    [class]="
-                      vibeIds().has(v.id) ? 'border-gold bg-gold/15 text-gold' : 'border-line text-muted-2'
-                    "
-                  >
-                    {{ v.label }}
-                  </button>
-                }
-              </div>
-
-              <p class="mt-5 text-xs font-bold tracking-wide text-muted uppercase">Energy level</p>
-              <input type="range" min="1" max="5" step="1" [(ngModel)]="energy" class="mt-2 w-full accent-gold" />
-              <div class="flex justify-between text-xs font-bold text-muted">
-                <span>😴 Comatose</span>
-                <span class="text-gold">{{ energy }}/5</span>
-                <span>Bouncing 🤸</span>
-              </div>
-
-              <input
-                type="text"
-                maxlength="120"
-                [(ngModel)]="freeText"
-                placeholder="Optional: “something like Severance but funnier”"
-                class="mt-4 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-cream placeholder:text-muted focus:border-coral focus:outline-none"
-              />
-
-              <button
-                (click)="submitMood()"
-                [disabled]="busy()"
-                class="mt-4 rounded-2xl bg-gradient-to-br from-coral to-gold px-4 py-3.5 font-display text-lg font-semibold text-ink shadow-lg shadow-coral/35 disabled:opacity-50"
-              >
-                I'm ready ✓
-              </button>
-            } @else {
-              <div class="mt-8 rounded-2xl border border-green/40 bg-green/10 p-4 text-center">
-                <p class="font-bold text-green">You're checked in ✓</p>
-                <p class="mt-1 text-xs text-muted-2">
-                  {{ party.readyCount() }} of {{ party.members().length }} ready
-                </p>
-              </div>
-            }
+            <div class="mt-8">
+              <pp-quest-slot-picker />
+            </div>
 
             @if (party.isHost()) {
-              <div class="mt-6">
+              <div class="mt-7">
                 <button
-                  (click)="generate()"
-                  [disabled]="busy() || party.readyCount() === 0"
-                  class="w-full rounded-2xl border-2 border-coral py-3.5 font-display text-lg font-semibold text-coral disabled:opacity-40"
+                  (click)="start()"
+                  [disabled]="busy() || !party.picks().length"
+                  class="font-display w-full rounded-2xl bg-gradient-to-br from-coral to-gold py-4 text-lg font-semibold text-ink shadow-lg shadow-coral/35 disabled:opacity-40"
                 >
-                  {{ busy() ? 'Summoning suggestions… (~20s)' : '✨ Generate suggestions' }}
+                  {{
+                    busy()
+                      ? 'Shuffling the deck…'
+                      : party.picks().length
+                        ? 'Start swiping (' + party.pooledCount() + ') →'
+                        : 'Pick at least one slot'
+                  }}
                 </button>
-                @if (party.readyCount() < party.members().length) {
-                  <p class="mt-2 text-center text-xs text-muted">
-                    Not everyone's checked in — you can start anyway.
-                  </p>
-                }
+                <p class="mt-2 text-center text-xs text-muted">
+                  Anyone can add slots until you start. Nobody has to pick — one slot is enough.
+                </p>
               </div>
+            } @else {
+              <p class="mt-7 text-center text-xs font-bold text-muted">
+                The host starts the swiping when the pot looks good.
+              </p>
             }
           }
 
@@ -300,15 +272,46 @@ import { SwipeDeck } from './swipe-deck';
                 <p class="mt-8 text-sm text-muted-2">Loading the winner…</p>
               }
 
-              @if (party.isHost()) {
-                <button
-                  (click)="startOver()"
-                  [disabled]="busy()"
-                  class="mt-auto pt-6 text-sm font-bold text-muted-2 disabled:opacity-50"
-                >
-                  {{ busy() ? 'Summoning fresh picks…' : '↺ Start over with new suggestions' }}
-                </button>
-              }
+              <div class="mt-auto flex w-full flex-col items-center gap-3 pt-8">
+                @if (!p.adventure_id && party.isHost()) {
+                  <button
+                    (click)="makeAdventure()"
+                    [disabled]="busy()"
+                    class="font-display w-full rounded-2xl border-2 border-violet py-3.5 text-lg font-semibold text-violet disabled:opacity-50"
+                  >
+                    🗺️ Make it an adventure!
+                  </button>
+                  <p class="text-center text-[11px] text-muted">
+                    Turn tonight into an itinerary — add more quests, set times, keep the crew.
+                  </p>
+                }
+                @if (p.adventure_id) {
+                  <a
+                    [routerLink]="['/adventure', p.adventure_id]"
+                    class="font-display w-full rounded-2xl border-2 border-violet py-3.5 text-center text-lg font-semibold text-violet"
+                  >
+                    ← Back to the adventure
+                  </a>
+                }
+                @if (party.isHost()) {
+                  <button
+                    (click)="startOver()"
+                    [disabled]="busy()"
+                    class="text-sm font-bold text-muted-2 disabled:opacity-50"
+                  >
+                    {{ busy() ? 'Resetting…' : '↺ Start over — pick different slots' }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
+
+          @case ('cancelled') {
+            <div class="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+              <div class="text-5xl">💩</div>
+              <h1 class="font-display text-2xl font-semibold">This quest got pooped</h1>
+              <p class="text-sm text-muted-2">Somebody bailed. There's always next time.</p>
+              <a routerLink="/party" class="mt-4 text-sm font-bold text-coral">Start a new one →</a>
             </div>
           }
 
@@ -316,14 +319,29 @@ import { SwipeDeck } from './swipe-deck';
             <div class="flex flex-1 flex-col items-center justify-center gap-3 text-center">
               <div class="text-4xl">🏁</div>
               <h1 class="font-display text-2xl font-semibold">That's a wrap</h1>
-              <p class="text-sm text-muted-2">This party is {{ p.status }}.</p>
+              <p class="text-sm text-muted-2">This quest is {{ p.status }}.</p>
             </div>
           }
         }
+
+        <!-- host bail-out, available until the winner is crowned -->
+        @if (party.isHost() && canCancel(p.status)) {
+          <button
+            (click)="confirmCancel.set(true)"
+            class="mt-6 text-center text-xs font-bold text-muted"
+          >
+            Cancel this quest
+          </button>
+        }
+
         @if (error()) {
           <p class="mt-3 text-center text-sm font-bold text-coral">{{ error() }}</p>
         }
       </div>
+
+      @if (confirmCancel()) {
+        <pp-party-pooper-modal (confirmed)="doCancel()" (dismissed)="confirmCancel.set(false)" />
+      }
     } @else {
       <div class="flex min-h-dvh items-center justify-center">
         <div class="size-10 animate-spin rounded-full border-4 border-surface-2 border-t-coral"></div>
@@ -335,16 +353,16 @@ export class PartyShellPage implements OnDestroy {
   protected readonly party = inject(PartyService);
   protected readonly subs = inject(SubscriptionsService);
   protected readonly platform = inject(PlatformService);
+  private readonly adventures = inject(AdventureService);
+  private readonly router = inject(Router);
 
   /** Route param. */
   readonly id = input.required<string>();
 
-  protected energy = 3;
-  protected freeText = '';
-  protected readonly vibeIds = signal<ReadonlySet<string>>(new Set());
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly copied = signal(false);
+  protected readonly confirmCancel = signal(false);
 
   protected readonly confetti = Array.from({ length: 18 }, (_, i) => ({
     left: 4 + i * 5.2,
@@ -356,7 +374,10 @@ export class PartyShellPage implements OnDestroy {
   }));
 
   private readonly openOnIdChange = effect(() => {
-    this.party.open(this.id());
+    void this.party.open(this.id()).then(() => {
+      // The picker only matters while gathering; skip the RPC otherwise.
+      if (this.party.party()?.status === 'gathering') void this.party.loadSlotOptions();
+    });
   });
 
   constructor() {
@@ -367,8 +388,18 @@ export class PartyShellPage implements OnDestroy {
     this.party.close();
   }
 
-  protected readonly isReady = (memberId: string) =>
-    this.party.checkins().some((c) => c.member_id === memberId);
+  /** How many slots this member has thrown in (0 renders as "browsing…"). */
+  protected slotsPickedBy(memberId: string): number {
+    return this.party.picks().filter((p) => p.member_id === memberId).length;
+  }
+
+  protected domainLabel(domain: Domain): string {
+    return DOMAINS.find((d) => d.id === domain)?.label ?? 'Watch';
+  }
+
+  protected canCancel(status: string): boolean {
+    return status === 'gathering' || status === 'swiping' || status === 'voting';
+  }
 
   protected readonly votePips = computed(() => {
     const used = 3 - this.party.myVotesLeft();
@@ -377,13 +408,6 @@ export class PartyShellPage implements OnDestroy {
 
   protected initial(name: string | undefined | null): string {
     return (name ?? '?').trim().charAt(0).toUpperCase() || '?';
-  }
-
-  protected toggleVibe(id: string) {
-    const next = new Set(this.vibeIds());
-    if (next.has(id)) next.delete(id);
-    else if (next.size < 3) next.add(id);
-    this.vibeIds.set(next);
   }
 
   protected async shareLink() {
@@ -402,22 +426,10 @@ export class PartyShellPage implements OnDestroy {
     }
   }
 
-  protected async submitMood() {
+  protected async start() {
     this.busy.set(true);
     this.error.set('');
-    try {
-      await this.party.submitMood(this.energy, [...this.vibeIds()], this.freeText);
-    } catch (e) {
-      this.error.set(e instanceof Error ? e.message : 'Could not save your check-in');
-    } finally {
-      this.busy.set(false);
-    }
-  }
-
-  protected async generate() {
-    this.busy.set(true);
-    this.error.set('');
-    const { error } = await this.party.generateCandidates();
+    const { error } = await this.party.startQuest();
     if (error) this.error.set(error);
     this.busy.set(false);
   }
@@ -425,9 +437,26 @@ export class PartyShellPage implements OnDestroy {
   protected async startOver() {
     this.busy.set(true);
     this.error.set('');
-    const { error } = await this.party.generateCandidates();
+    const { error } = await this.party.restartQuest();
     if (error) this.error.set(error);
+    else await this.party.loadSlotOptions();
     this.busy.set(false);
+  }
+
+  protected async doCancel() {
+    const { error } = await this.party.cancelQuest();
+    this.confirmCancel.set(false);
+    if (error) this.error.set(error);
+  }
+
+  protected async makeAdventure() {
+    const partyId = this.party.party()?.id;
+    if (!partyId) return;
+    this.busy.set(true);
+    const name = this.party.party()?.title?.trim() || 'Our adventure';
+    const id = await this.adventures.createFromParty(partyId, name);
+    this.busy.set(false);
+    if (id) await this.router.navigate(['/adventure', id]);
   }
 
   protected myPoints(candidateId: string): number {

@@ -61,7 +61,8 @@ one private/incognito window.
 | `explore.md` | Discovery browser, filters, friend signals, one-tap add |
 | `friends-and-recommendations.md` | Friend codes, requests, friend profiles, recommending |
 | `social-slots.md` | Visibility tiers, likes, saves, forks, taste match, slot & people discovery |
-| `quests.md` | Party create/join/lobby/mood, AI picks, swiping, voting, reveal, pulse |
+| `quests.md` | Quest create/join, slot picking, swiping, voting, reveal, cancel, pulse |
+| `adventures.md` | Itineraries of quests: roster, code, scheduling, reordering, recap |
 | `domains.md` | Watch / Eat / Do / Read behaviour and per-domain differences |
 | `netflix-import.md` | CSV import |
 | `notifications.md` | Notification bell, badges, What's new, release notes |

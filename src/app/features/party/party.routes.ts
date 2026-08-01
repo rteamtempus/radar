@@ -1,11 +1,12 @@
 import { Routes } from '@angular/router';
 
 /**
- * Party flow (milestones 5–7):
- *   /party        → start a party (constraints, join code)
- *   /party/join   → enter a join code (?code=XXXXXX deeplink)
- *   /party/:id    → the live party: lobby → mood → swipe → vote → reveal,
- *                   driven by parties.status over Supabase Realtime.
+ * Quest flow:
+ *   /party        → start a quest (pick a domain) + your adventures
+ *   /party/join   → enter a code (?code=XXXXXX deeplink); tries adventures first
+ *   /party/:id    → the live quest: lobby + slot picking → swipe → vote →
+ *                   reveal, driven by parties.status over Supabase Realtime.
+ * Adventures live at /adventure/:id (registered in app.routes.ts).
  */
 export const PARTY_ROUTES: Routes = [
   { path: '', loadComponent: () => import('./party-start-page').then((m) => m.PartyStartPage) },

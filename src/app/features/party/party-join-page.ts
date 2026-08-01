@@ -1,9 +1,15 @@
 import { Component, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { AdventureService } from './adventure.service';
 import { PartyService } from './party.service';
 
-/** Enter a 6-char code, or arrive via the shared link /party/join?code=XXXXXX. */
+/**
+ * Enter a 6-char code, or arrive via the shared link /party/join?code=XXXXXX.
+ * One field covers both: an adventure inherits its founding quest's code, so
+ * adventures are tried FIRST — otherwise that code would drop you into day one
+ * only, instead of the whole itinerary.
+ */
 @Component({
   selector: 'pp-party-join-page',
   imports: [FormsModule],
@@ -11,8 +17,10 @@ import { PartyService } from './party.service';
     <div class="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6 py-12">
       <div class="text-center">
         <div class="mb-3 text-4xl">🔑</div>
-        <h1 class="font-display text-3xl font-semibold">Join a party</h1>
-        <p class="mt-2 text-sm text-muted-2">Ask the host for their 6-character code.</p>
+        <h1 class="font-display text-3xl font-semibold">Join the fun</h1>
+        <p class="mt-2 text-sm text-muted-2">
+          Ask the host for their 6-character code — quest or adventure, same box.
+        </p>
       </div>
 
       <form class="flex flex-col gap-3" (ngSubmit)="join()">
@@ -45,6 +53,7 @@ import { PartyService } from './party.service';
 })
 export class PartyJoinPage {
   private partyService = inject(PartyService);
+  private adventureService = inject(AdventureService);
   private router = inject(Router);
 
   /** Bound from ?code=XXXXXX (withComponentInputBinding). */
@@ -70,8 +79,14 @@ export class PartyJoinPage {
     this.busy.set(true);
     this.error.set('');
     try {
+      // Adventures first — see the class comment.
+      const adventureId = await this.adventureService.joinByCode(this.codeInput()).catch(() => null);
+      if (adventureId) {
+        await this.router.navigate(['/adventure', adventureId]);
+        return;
+      }
       const partyId = await this.partyService.joinParty(this.codeInput());
-      this.router.navigate(['/party', partyId]);
+      await this.router.navigate(['/party', partyId]);
     } catch (e) {
       this.error.set(e instanceof Error ? e.message : 'Could not join');
     } finally {

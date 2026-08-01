@@ -157,7 +157,7 @@ import { TasteService } from './taste.service';
         <p class="text-xs font-bold tracking-wide text-muted uppercase">My taste</p>
         <p class="mt-2 text-xs text-muted-2">
           Tap to cycle: neutral → <span class="text-green">love</span> →
-          <span class="text-coral">avoid</span>. Parties use this immediately.
+          <span class="text-coral">avoid</span>. This shapes your taste match with friends.
         </p>
         <div class="mt-3 flex flex-wrap gap-2">
           @for (t of taste.tags(); track t.id) {

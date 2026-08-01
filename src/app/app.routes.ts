@@ -57,6 +57,11 @@ export const routes: Routes = [
     loadChildren: () => import('./features/party/party.routes').then((m) => m.PARTY_ROUTES),
   },
   {
+    path: 'adventure/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/party/adventure-page').then((m) => m.AdventurePage),
+  },
+  {
     path: 'profile',
     pathMatch: 'full',
     canActivate: [authGuard],

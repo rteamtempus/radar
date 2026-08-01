@@ -1,19 +1,12 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { SlotsService } from '../radar/slots.service';
-import { PartyService, PartyStatus } from './party.service';
-
-type TypeChoice = 'movie' | 'tv_show' | null;
-
-const RUNTIME_CHIPS = [
-  { label: '⏱ < 90 min', value: 90 },
-  { label: '⏱ < 2 hrs', value: 120 },
-  { label: '⏱ < 3 hrs', value: 180 },
-  { label: 'Any length', value: null },
-];
+import { DOMAINS, Domain, DomainService } from '../../core/domain.service';
+import { AdventureSummary, AdventureService } from './adventure.service';
+import { ActivePartySummary, PartyService, PartyStatus } from './party.service';
 
 const STATUS_LABELS: Record<PartyStatus, string> = {
-  gathering: 'Gathering',
+  gathering: 'Picking slots',
   swiping: 'Swiping',
   voting: 'Voting',
   decided: 'Decided',
@@ -21,113 +14,102 @@ const STATUS_LABELS: Record<PartyStatus, string> = {
   cancelled: 'Cancelled',
 };
 
+/**
+ * Starting a quest is now one decision: what KIND of thing are we deciding?
+ * Everything else (what's in the running) comes from the slots people pick in
+ * the lobby — no runtime caps, no streamable-by-all, no AI shortlist.
+ */
 @Component({
   selector: 'pp-party-start-page',
-  imports: [RouterLink],
+  imports: [FormsModule, RouterLink],
   template: `
     <div class="mx-auto flex min-h-dvh max-w-md flex-col px-6 py-8">
-      <h1 class="font-display text-3xl font-semibold">Start a party</h1>
-      <p class="mt-1 text-sm text-muted-2">Who's in tonight?</p>
+      <h1 class="font-display text-3xl font-semibold">Start a quest</h1>
+      <p class="mt-1 text-sm text-muted-2">What are we deciding together?</p>
 
-      @if (activeParties().length) {
-        <div class="mt-5 flex flex-col gap-2">
-          @for (p of activeParties(); track p.id) {
+      @if (adventures().length) {
+        <h2 class="mt-7 mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">
+          Your adventures
+        </h2>
+        <div class="flex flex-col gap-2">
+          @for (a of adventures(); track a.id) {
+            <a
+              [routerLink]="['/adventure', a.id]"
+              class="flex items-center gap-3 rounded-2xl border border-violet/40 bg-violet/10 px-4 py-3"
+            >
+              <span class="text-lg">{{ a.emoji ?? '🗺️' }}</span>
+              <span class="min-w-0 flex-1 truncate text-sm font-bold">{{ a.name }}</span>
+              <span class="flex-none text-sm font-bold text-violet">Open →</span>
+            </a>
+          }
+        </div>
+      }
+
+      @if (looseParties().length) {
+        <h2 class="mt-7 mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">
+          Still going
+        </h2>
+        <div class="flex flex-col gap-2">
+          @for (p of looseParties(); track p.id) {
             <a
               [routerLink]="['/party', p.id]"
               class="flex items-center gap-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3"
             >
-              <span class="text-lg">🎉</span>
-              <span class="flex-1 text-sm font-bold">
-                Party {{ p.join_code }} <span class="text-muted-2">· {{ statusLabel(p.status) }}</span>
+              <span class="text-lg">{{ emojiFor(p.domain) }}</span>
+              <span class="min-w-0 flex-1 truncate text-sm font-bold">
+                {{ p.title ?? 'Quest ' + p.join_code }}
+                <span class="text-muted-2">· {{ statusLabel(p.status) }}</span>
               </span>
-              <span class="text-sm font-bold text-gold">Jump back in →</span>
+              <span class="flex-none text-sm font-bold text-gold">Jump back in →</span>
             </a>
           }
         </div>
       }
 
       <h2 class="mt-7 mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">
-        What are we deciding?
+        Pick a kind
       </h2>
-      <div class="flex gap-2.5">
-        @for (t of typeChips; track t.label) {
+      <div class="grid grid-cols-2 gap-3">
+        @for (d of domains; track d.id) {
           <button
-            (click)="type.set(t.value)"
-            class="flex-1 rounded-2xl border-2 px-3 py-3 text-sm font-bold"
-            [class]="type() === t.value ? 'border-coral bg-coral/15 text-coral' : 'border-line text-muted-2'"
+            (click)="domain.set(d.id)"
+            class="rounded-2xl border-2 px-3 py-5 text-center"
+            [class]="domain() === d.id ? 'border-coral bg-coral/15' : 'border-line'"
           >
-            {{ t.label }}
-          </button>
-        }
-      </div>
-
-      @if (slotOptions().length) {
-        <h2 class="mt-6 mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">
-          Pick from…
-        </h2>
-        <div class="no-scrollbar flex gap-2 overflow-x-auto pb-1">
-          <button
-            (click)="sourceSlot.set(null)"
-            class="flex-none rounded-full border px-4 py-2 text-xs font-bold"
-            [class]="!sourceSlot() ? 'border-coral bg-coral/15 text-coral' : 'border-line text-muted-2'"
-          >
-            🌍 Everything
-          </button>
-          @for (s of slotOptions(); track s.id) {
-            <button
-              (click)="sourceSlot.set({ id: s.id, name: s.name })"
-              class="flex-none rounded-full border px-4 py-2 text-xs font-bold"
-              [class]="
-                sourceSlot()?.id === s.id ? 'border-violet bg-violet/15 text-violet' : 'border-line text-muted-2'
-              "
+            <span class="block text-3xl">{{ d.emoji }}</span>
+            <span
+              class="mt-1.5 block text-sm font-bold"
+              [class]="domain() === d.id ? 'text-coral' : 'text-muted-2'"
             >
-              {{ s.emoji }} {{ s.name }}
-            </button>
-          }
-        </div>
-        @if (sourceSlot()) {
-          <p class="mt-1.5 text-[11px] text-muted">
-            Candidates come only from this slot — quest night, curated.
-          </p>
-        }
-      }
-
-      <h2 class="mt-6 mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">Constraints</h2>
-      <div class="flex flex-wrap gap-2">
-        @for (c of runtimeChips; track c.label) {
-          <button
-            (click)="maxRuntime.set(c.value)"
-            class="rounded-full border px-4 py-2 text-xs font-bold"
-            [class]="maxRuntime() === c.value ? 'border-gold bg-gold/15 text-gold' : 'border-line text-muted-2'"
-          >
-            {{ c.label }}
+              {{ d.label }}
+            </span>
           </button>
         }
       </div>
 
-      <button
-        (click)="streamableByAll.set(!streamableByAll())"
-        class="mt-4 flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-left"
-      >
-        <span
-          class="flex h-6 w-11 flex-none items-center rounded-full p-1 transition-colors"
-          [class]="streamableByAll() ? 'justify-end bg-green' : 'justify-start bg-surface-2'"
-        >
-          <span class="size-4 rounded-full bg-cream"></span>
-        </span>
-        <span class="text-sm font-bold">Only things everyone can stream</span>
-      </button>
+      <input
+        type="text"
+        maxlength="40"
+        [(ngModel)]="title"
+        placeholder="Name it? (optional) — “Friday horror night”"
+        class="mt-4 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-cream placeholder:text-muted focus:border-coral focus:outline-none"
+      />
+
+      <p class="mt-4 text-xs leading-relaxed text-muted">
+        Next: everyone picks up to 3 slots — theirs, yours, or ones they've saved — and you swipe
+        through everything in them together.
+      </p>
 
       <div class="mt-auto pt-8">
         <button
           (click)="start()"
           [disabled]="busy()"
-          class="w-full rounded-2xl bg-gradient-to-br from-coral to-gold px-4 py-4 text-center font-display text-lg font-semibold text-ink shadow-lg shadow-coral/35 disabled:opacity-50"
+          class="font-display w-full rounded-2xl bg-gradient-to-br from-coral to-gold px-4 py-4 text-center text-lg font-semibold text-ink shadow-lg shadow-coral/35 disabled:opacity-50"
         >
-          {{ busy() ? 'Setting up…' : 'Start the party →' }}
+          {{ busy() ? 'Setting up…' : 'Start the quest →' }}
         </button>
         <a routerLink="/party/join" class="mt-4 block text-center text-sm font-bold text-muted-2">
-          Have a code? <span class="text-coral">Join a party</span>
+          Have a code? <span class="text-coral">Join a quest or adventure</span>
         </a>
         @if (error()) {
           <p class="mt-3 text-center text-sm font-bold text-coral">{{ error() }}</p>
@@ -138,42 +120,32 @@ const STATUS_LABELS: Record<PartyStatus, string> = {
 })
 export class PartyStartPage {
   private partyService = inject(PartyService);
-  private slots = inject(SlotsService);
+  private adventureService = inject(AdventureService);
+  private domains_ = inject(DomainService);
   private router = inject(Router);
 
-  protected readonly sourceSlot = signal<{ id: string; name: string } | null>(null);
-
-  /** Watch-domain slots with items — mine plus ones I've saved (pipeline is media-only). */
-  protected readonly slotOptions = computed(() => {
-    const mine = this.slots.forDomain('watch');
-    const saved = this.slots.subscribed().filter((s) => (s.config?.domain ?? 'watch') === 'watch');
-    return [...mine, ...saved].filter((s) => s.items.length >= 2);
-  });
-
-  protected readonly typeChips = [
-    { label: '🎬 Movies', value: 'movie' as TypeChoice },
-    { label: '📺 Shows', value: 'tv_show' as TypeChoice },
-    { label: '🎲 Either', value: null as TypeChoice },
-  ];
-  protected readonly runtimeChips = RUNTIME_CHIPS;
-
-  protected readonly type = signal<TypeChoice>('movie');
-  protected readonly maxRuntime = signal<number | null>(120);
-  protected readonly streamableByAll = signal(true);
+  protected readonly domains = DOMAINS;
+  protected readonly domain = signal<Domain>(this.domains_.domain());
+  protected title = '';
   protected readonly busy = signal(false);
   protected readonly error = signal('');
-  protected readonly activeParties = signal<
-    { id: string; status: PartyStatus; join_code: string | null }[]
-  >([]);
+  protected readonly activeParties = signal<ActivePartySummary[]>([]);
+  protected readonly adventures = signal<AdventureSummary[]>([]);
+
+  /** Quests inside an adventure are listed on the adventure, not here. */
+  protected readonly looseParties = () => this.activeParties().filter((p) => !p.adventure_id);
 
   constructor() {
     this.partyService.myActiveParties().then((p) => this.activeParties.set(p));
-    this.slots.load();
-    this.slots.loadSubscribed();
+    this.adventureService.myAdventures().then((a) => this.adventures.set(a));
   }
 
   protected statusLabel(status: PartyStatus): string {
     return STATUS_LABELS[status];
+  }
+
+  protected emojiFor(domain: Domain): string {
+    return DOMAINS.find((d) => d.id === domain)?.emoji ?? '🎬';
   }
 
   protected async start() {
@@ -181,14 +153,12 @@ export class PartyStartPage {
     this.error.set('');
     try {
       const id = await this.partyService.createParty({
-        activityType: this.type(),
-        maxDurationMin: this.maxRuntime(),
-        mustBeStreamableByAll: this.streamableByAll(),
-        sourceSlot: this.sourceSlot(),
+        domain: this.domain(),
+        title: this.title,
       });
       this.router.navigate(['/party', id]);
     } catch (e) {
-      this.error.set(e instanceof Error ? e.message : 'Could not create the party');
+      this.error.set(e instanceof Error ? e.message : 'Could not create the quest');
     } finally {
       this.busy.set(false);
     }

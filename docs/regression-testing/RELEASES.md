@@ -8,6 +8,30 @@ See `CLAUDE.md` → *Release notes & regression testing*.
 
 ---
 
+## v0.11 — Quests, rebuilt — and adventures (2026-07-31)
+
+**New:** `adventures.md`. **Rewritten:** `quests.md` (the flow changed
+completely — old test IDs no longer describe the product).
+
+**Retest, because this release changed code they depend on:**
+
+| File | Why |
+| --- | --- |
+| `quests.md` | Rebuilt end to end — run the whole file. Pay special attention to RT-QUEST-10 (private slots are never offered) and RT-QUEST-12 (a quest must not make friends-only slots discoverable in Explore). |
+| `adventures.md` | New feature — run the whole file. |
+| `social-slots.md` | Slots are now the input to quests. Visibility tiers, saving, and forking must behave exactly as before, and **RT-SOC-16/18/20 (Explore discovery) are the leak check** for the new cross-member slot access. |
+| `explore.md` | `searchSlots` relies on slot RLS alone. This release deliberately did NOT widen that policy — confirm Explore still shows only public + friends' slots (RT-EXPL-01, and RT-SOC-20 as u3). |
+| `domains.md` | Quests stopped being watch-only; RT-DOM-09 was inverted. Check a quest in each of the four domains, and that per-domain starter slots and statuses are untouched. |
+| `radar-and-slots.md` | Slots feed the quest picker now. Creating, deleting, reordering and the completion behaviour must be unchanged, and a deleted slot must not break a quest that picked it. |
+| `accounts-and-onboarding.md` | The taste-chip copy changed (RT-ACCT-08, RT-ACCT-15) now that AI picks are gone. Calibration and taste match must still work. |
+| `notifications.md` | Unchanged by this release, but `parties` gained columns and quests write to new tables — a smoke pass on the inbox confirms nothing regressed. |
+
+**Not covered by a test, worth knowing:** the `generate-candidates` edge
+function and its scoring module were deleted and the deployed function removed.
+Nothing in the app calls Gemini any more.
+
+---
+
 ## v0.10 — Notifications and What's new (2026-07-31)
 
 **New:** `notifications.md`

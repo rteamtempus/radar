@@ -1,19 +1,21 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { PlatformService } from '../../core/platform/platform.service';
-import { ScoreRing } from '../../shared/ui/score-ring';
 import { ServiceBadges } from '../../shared/ui/service-badges';
 import { PartyCandidate, SwipeDirection } from './party.service';
 
 const COMMIT_THRESHOLD_PX = 90;
 
 /**
- * The group swipe deck (wireframe 06): full-bleed card with score ring, AI
- * blurb, and service badges. Drag with pointer events (rotate + translate) or
- * use the ✕ / ★ / ♥ buttons; 🚫 veto is anonymous and single-use.
+ * The group swipe deck (wireframe 06): full-bleed card with service badges and
+ * a how-many-left counter. Drag with pointer events (rotate + translate) or use
+ * the ✕ / ★ / ♥ buttons; 🚫 veto is anonymous and single-use.
+ *
+ * v0.11 dropped the fit ring and the AI blurb along with the scoring pipeline —
+ * the deck is everyone's picked slots now, so there's no score to show.
  */
 @Component({
   selector: 'pp-swipe-deck',
-  imports: [ScoreRing, ServiceBadges],
+  imports: [ServiceBadges],
   template: `
     <div class="relative flex-1" style="min-height: 380px">
       <!-- next card peeking behind -->
@@ -43,8 +45,10 @@ const COMMIT_THRESHOLD_PX = 90;
               draggable="false"
             />
           }
-          <div class="absolute top-4 right-4">
-            <pp-score-ring [score]="c.final_score" />
+          <div
+            class="absolute top-4 right-4 rounded-full bg-bg/70 px-3 py-1.5 text-xs font-bold text-cream backdrop-blur"
+          >
+            {{ deck().length }} left
           </div>
           @if (dx() > 30) {
             <div class="absolute top-6 left-6 rotate-[-12deg] rounded-xl border-4 border-green px-3 py-1 font-display text-2xl font-bold text-green">
@@ -58,12 +62,6 @@ const COMMIT_THRESHOLD_PX = 90;
           <div class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg/95 via-bg/60 to-transparent p-5 pt-20">
             <div class="font-display text-3xl font-bold drop-shadow">{{ c.activity.title }}</div>
             <div class="mt-1 text-sm font-bold text-muted-2">{{ subtitle(c) }}</div>
-            @if (c.ai_blurb) {
-              <div class="mt-3 rounded-xl border border-gold/30 bg-gold/15 px-3 py-2.5">
-                <div class="text-[11px] font-bold text-gold">✨ AI read</div>
-                <div class="mt-0.5 text-sm font-semibold">{{ c.ai_blurb }}</div>
-              </div>
-            }
             <pp-service-badges
               class="mt-3"
               [services]="servicesOf(c)"
