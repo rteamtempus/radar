@@ -51,7 +51,10 @@ direct pruning himself.
   signed-in user (CLAUDE.md § Visual checks 4).
 - **Playwright installed** (`@playwright/test` + Chromium). `node
   scripts/shot.mjs /route` → iPhone 13 screenshot in `__screenshots__/`.
-  Verified working end-to-end against `npm start` on :4200.
+  Verified working end-to-end against `npm start` on :4200. **Local only** —
+  it needs a running dev server and the gitignored `.env.test`, so it will not
+  work from a Claude Code *web* session (cloud sandbox). Remote Control
+  sessions run on this machine and are fine.
 - **Playwright MCP configured** in `.mcp.json` (chromium, iPhone 13,
   `--isolated`) and pre-approved via `.claude/settings.json`
   (`enabledMcpjsonServers`), so it activates with no prompt. **Still untested**
