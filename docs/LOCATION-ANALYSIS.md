@@ -5,9 +5,9 @@ and slots get location settings; Explore gets a custom-location picker for
 slots, people, and eat/do activities; adventures double as trips ("things to
 do/eat on the trip"); discovery like "most popular slots in this city" and
 "high-taste-match locals and their favorite places". This doc holds the
-analysis, the idea list with verdicts, and the gotchas. **Decision pass in
-progress** — Rory is answering the idea list in batches from mobile; verdicts
-land here as they arrive.*
+analysis, the idea list with verdicts, and the gotchas. **Decision pass
+COMPLETE (2026-08-01):** approved 2–10, 12, 13 · denied 11, 14 ·
+deferred 1, 15.*
 
 ## The core feature (approved direction)
 
@@ -61,9 +61,9 @@ Verdicts: ✅ approved · 🚫 denied · ⏸ deferred · ⏳ awaiting Rory.
 | 10 | **Curated city starter slots** — official curator account (#7, mechanism live) stocked per city; doubles as the cold-start fallback (G6) | ✅ **Approved** (2026-08-01) — requires the curator account to actually be created (needs-Rory list; it unblocks this + future curation features) |
 | 11 | **"On your radar nearby"** — passive: open the app, a want-to place from your slots is 400m away; own data + haversine (geofenced push = native-era upgrade, not now) | 🚫 **Denied** (2026-08-01, "not sure — skip it") |
 | 12 | **Map view** — pins for slot items / Explore results / itineraries | ✅ **Approved on the free path** (2026-08-01): build with **Leaflet/MapLibre + OpenStreetMap tiles** — genuinely $0, no key, no Google billing exposure (Google Maps JS SDK has a monthly free quota but means enabling a new API; avoid). Cost concern stands: **gate map view behind the premium subscription before extensive-tester rollout** |
-| 13 | **Saved places** — "home / work / parents'" quick-toggle locations in Explore; gives `home_location` a UX | ⏳ |
-| 14 | **Seasonal × location slots** — queue #11 seasonal slots + place: "cherry blossom Kyoto" surfaces in-season and in-place | ⏳ |
-| 15 | **Events vertical** — Ticketmaster Discovery is location-first; "artist in town during your trip"; merges queue #10 with the location layer | ⏳ |
+| 13 | **Saved places** — "home / work / parents'" quick-toggle locations in Explore; gives `home_location` a UX | ✅ **Approved** (2026-08-01) — with a bloat warning: keep the search/picker UI lean; **Rory reviews the UI** before it ships |
+| 14 | **Seasonal × location slots** — queue #11 seasonal slots + place: "cherry blossom Kyoto" surfaces in-season and in-place | 🚫 **Denied** (2026-08-01, "too niche") — note this does NOT deny plain seasonal slots (SOCIAL-SLOTS #11), only the location crossover |
+| 15 | **Events vertical** — Ticketmaster Discovery is location-first; "artist in town during your trip"; merges queue #10 with the location layer | ⏸ **Deferred** (2026-08-01): Rory wants to think more before committing; noted for future work (HANDOFF queue #10 remains the home for it) |
 
 Note: ideas 6, 9, 10, 14, 15 complete existing approved HANDOFF queue items —
 the location layer is the substrate several of them were waiting on.
@@ -139,7 +139,42 @@ floor** — 3 shared sparse tags can cosine to "97% match". Show "not enough
 data" below threshold. Cache results (table or on-demand RPC); N×M live
 computation won't survive a city browse.
 
-**G8 — Smaller but real:**
+**G8 — Places billing is set by FIELD MASK, not by filters — and ours puts
+every search in the worst tier.** Since Google's March-2025 repricing, each
+Places SKU has its own monthly free quota by field tier: **Essentials ≈10K ·
+Pro ≈5K · Enterprise ≈1K · Enterprise+Atmosphere ≈1K** free calls/month. The
+tier of a request = the most expensive field in its mask. Our search masks
+([places.ts:14-31](../supabase/functions/_shared/places.ts#L14-L31)) request
+`rating`, `userRatingCount`, `priceLevel`, `currentOpeningHours.openNow`
+(Enterprise) **and `editorialSummary` (Enterprise+Atmosphere)** — so every
+text/nearby search bills at the ~1K-free tier today.
+
+**Fix (decided 2026-08-01): split the masks.**
+- **Search masks → Pro tier** (~5K free): keep id, displayName,
+  formattedAddress, location, primaryType, photos, googleMapsUri,
+  nextPageToken (+ add businessStatus for G3's staleness check); STRIP
+  rating, userRatingCount, priceLevel, openNow, editorialSummary.
+- **Detail mask stays rich** (Enterprise+Atmosphere, ~1K free) — detail
+  views are far rarer than searches; refresh-on-view already funnels rich
+  fields through it.
+- **Consequence:** brand-new places lose rating/price/open-now on search
+  cards until first detail view. Mitigation: `upsertPlace` must **merge**
+  metadata instead of overwriting it wholesale, so previously-detailed
+  places keep their cached rating on search cards. (Today's upsert would
+  null them back out — this merge is REQUIRED, not optional, or the mask
+  split visibly degrades existing cards.)
+- **City picker stays cheap:** autocomplete with session tokens + a
+  location-only follow-up sits in the ~10K-free tiers; a locality text
+  search with a lean mask is Pro. Either is fine.
+- Structural comfort: most of the location suite reads OUR database (slots,
+  city guides, saved activities) — Google is only hit on fresh Explore
+  searches, the city picker, and the G3 refresh sweep. Volume is bounded.
+- ⚠ Tier membership above is from documented pricing as of the knowledge
+  cutoff — **verify the live SKU table before relying on exact quotas**
+  (googleMapsUri/photos tier placement and the Photo-media SKU quota are
+  the ones worth double-checking).
+
+**G9 — Smaller but real:**
 - Custom location applies to eat/do (+ slots/people) and must never leak into
   watch/read. A Tokyo trip also exposes that TMDB availability is US-flatrate
   (hard rule 5) — expected, but expect "Watch looks wrong abroad" reports.
@@ -156,19 +191,29 @@ computation won't survive a city browse.
 - **Google caps**: nearby = 20/no pagination, text = 60 — don't promise deep
   browse of Google results; our own slot data has no such cap.
 
-## Phasing sketch (draft — finalize after the verdict pass)
+## Phasing (verdict pass complete — this is the shape of the build)
 
-- **Phase 0 — prerequisites (G1):** quest-slot visibility redesign; minimal
-  report/block for public content; confirm Google billing alert.
-- **Phase 1 — location layer:** PostGIS migration (profiles.home_location,
-  activities.location, new radar_slots location + adventures location);
-  autocomplete location-picker component; profile home-city setting; slot
-  location setting; Explore custom-location override for eat/do.
-- **Phase 2 — adventures as trips:** adventure location + dates + the
-  friends/members visibility toggle (idea 3); location-matched slot
-  suggestions when creating an adventure (idea 2's payoff).
-- **Phase 3 — discovery & social:** slots/people-near-a-city search RPCs;
-  match-% subsystem (G7); plus whatever survives the verdict pass (6–15).
+- **Phase 0 — prerequisites:** quest-slot visibility redesign + minimal
+  report/block (G1); **field-mask split + metadata merge (G8)** — pure cost
+  hygiene, do it first regardless of the rest; confirm Google billing alert
+  (Rory).
+- **Phase 1 — location layer:** PostGIS migration (profiles.home_location →
+  geography, activities.location → geography, NEW radar_slots location +
+  adventures location); autocomplete city-picker component (session tokens,
+  G8); profile home-city setting (city-granularity, G2); slot location
+  setting (idea 2); Explore custom-location override for eat/do with the
+  precedence rule (G9); saved places quick-toggles in the picker (idea 13,
+  UI to Rory for review).
+- **Phase 2 — adventures as trips:** adventure location + date range +
+  friends/members visibility toggle (idea 3, never public); location-matched
+  slot suggestions at adventure creation (idea 2's payoff); route-aware
+  itinerary ordering (idea 4, haversine); post-trip recap (idea 5);
+  trip-triggered friend recs (idea 9).
+- **Phase 3 — discovery & social:** geo search RPCs (SECURITY DEFINER, G5)
+  for slots/people near a city; match-% subsystem (G7); city guides (idea 6);
+  locals signal (idea 7); taste-weighted ranking (idea 8); curated city
+  slots (idea 10, needs curator account); map view (idea 12, OSM/Leaflet,
+  premium-gated before extensive testers).
 
 ## Needs-Rory checklist (things only Rory can do)
 
@@ -176,5 +221,7 @@ computation won't survive a city browse.
       project (G3) — blocking for shipping autocomplete, not for building.
 - [ ] **Create the official curator account** (unblocks idea 10 + HANDOFF
       queue #7; account creation is Rory's, stocking/flagging is ours).
-- [ ] Finish the verdict pass on ideas 13–15 (batches 1–2 done).
-- [ ] (Later, if idea 15 approved) Ticketmaster Discovery API key signup.
+- [ ] Review the saved-places / location-picker UI before it ships (idea 13
+      bloat concern).
+- [ ] (Later, if idea 15 graduates from deferred) Ticketmaster Discovery API
+      key signup.

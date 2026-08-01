@@ -35,16 +35,14 @@ direct pruning himself.
 
 ## Right now
 
-- **Location suite — analysis & decision pass IN PROGRESS** (no code yet).
-  `docs/LOCATION-ANALYSIS.md` is the working doc: core feature, 15 ideas with
-  verdicts, gotchas G1–G8, phasing draft. Rory is answering the idea list in
-  batches from mobile — **batches 1–2 (ideas 1–12) decided**: 11 denied,
-  1 deferred, rest approved (see the doc's decisions log; batch 2 also decided
-  premium-subscription-soon → HANDOFF queue, and maps = OSM/Leaflet not
-  Google). **Next move: verdicts on ideas 13–15**, then finalize phasing.
-  Key verified fact: Places
-  Autocomplete (New) + locality search work with the existing key — no new
-  Google setup needed for the core suite.
+- **Location suite — decision pass COMPLETE, no code yet.**
+  `docs/LOCATION-ANALYSIS.md` is authoritative: approved 2–10/12/13, denied
+  11/14, deferred 1/15; gotchas G1–G9; 4-phase build plan. **Next move:
+  start phase 0** (quest-slot visibility redesign, minimal report/block,
+  G8 field-mask split + metadata merge). Notable: premium subscription tier
+  decided ("soon") → HANDOFF queue; maps = OSM/Leaflet, never Google SDK;
+  Places Autocomplete + locality search verified working on the existing key
+  (no new Google setup needed).
 - Last shipped release is **v0.13 search overhaul** (`0280679`); commits since
   are tooling/docs only, no release note (CLAUDE.md skip list).
 
