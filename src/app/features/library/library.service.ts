@@ -129,16 +129,26 @@ export class LibraryService {
     query: string,
     location: { lat: number; lng: number } | null,
     kind: 'eat' | 'do' = 'eat',
-  ): Promise<ActivitySummary[]> {
-    const { data, error } = await getSupabase().functions.invoke<{ results: ActivitySummary[] }>(
-      'places-search',
-      { body: { query: query || undefined, lat: location?.lat, lng: location?.lng, kind } },
-    );
+    opts: { cuisine?: string | null; pageToken?: string | null } = {},
+  ): Promise<{ rows: ActivitySummary[]; nextPageToken: string | null }> {
+    const { data, error } = await getSupabase().functions.invoke<{
+      results: ActivitySummary[];
+      next_page_token: string | null;
+    }>('places-search', {
+      body: {
+        query: query || undefined,
+        lat: location?.lat,
+        lng: location?.lng,
+        kind,
+        cuisine: opts.cuisine || undefined,
+        page_token: opts.pageToken || undefined,
+      },
+    });
     if (error) throw error;
-    return data?.results ?? [];
+    return { rows: data?.results ?? [], nextPageToken: data?.next_page_token ?? null };
   }
 
-  /** Book search via Google Books. */
+  /** Book search via Open Library (work-level, popularity-ordered). */
   async searchBooks(query: string): Promise<ActivitySummary[]> {
     const { data, error } = await getSupabase().functions.invoke<{ results: ActivitySummary[] }>(
       'books-search',
@@ -245,9 +255,18 @@ export class LibraryService {
    * runtime + availability, Google places get hours/rating (ToS wants those
    * refreshed rather than cached anyway).
    */
-  hydrate(activity: Pick<ActivitySummary, 'external_source' | 'external_id'>): Promise<void> {
-    // Books are fully hydrated at search time — nothing to refresh.
+  hydrate(
+    activity: Pick<ActivitySummary, 'external_source' | 'external_id'> & { id?: string },
+  ): Promise<void> {
+    // Google-sourced books were fully hydrated at search time; Open Library
+    // search results carry no description — fetch it on first view.
     if (activity.external_source === 'google_books') return Promise.resolve();
+    if (activity.external_source === 'open_library' && activity.id) {
+      return getSupabase()
+        .functions.invoke('book-detail', { body: { activity_id: activity.id } })
+        .then(() => undefined)
+        .catch(() => undefined);
+    }
     if (activity.external_source === 'google_places' && activity.external_id) {
       return getSupabase()
         .functions.invoke('place-detail', { body: { placeId: activity.external_id } })

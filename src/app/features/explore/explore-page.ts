@@ -1,9 +1,26 @@
-import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  OnDestroy,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DOMAINS, Domain, DomainService, isPlaceDomain } from '../../core/domain.service';
 import { LatLng, LocationService } from '../../core/location.service';
 import { SubscriptionsService } from '../../core/subscriptions.service';
+import {
+  BOOK_GENRE_CHIPS,
+  BOOK_SUBJECT_QUERY,
+  CUISINE_CHIPS,
+  DO_THEME_CHIPS,
+  WATCH_GENRE_CHIPS,
+} from '../../core/vocab';
 import { ServiceBadges } from '../../shared/ui/service-badges';
 import { ToastService } from '../../shared/ui/toast.service';
 import { LibraryService } from '../library/library.service';
@@ -14,6 +31,7 @@ import {
   ExploreItem,
   ExploreService,
   FriendSignal,
+  ServerPerson,
   distanceMiles,
 } from './explore.service';
 
@@ -24,13 +42,21 @@ type FriendFilter = 'want_to' | 'in_progress' | 'loved' | null;
 const PAGE = 40;
 
 /**
- * Explore: a searchable, filterable browser over everything Radar knows —
- * the shared catalog + your friends' signals — topped up live from TMDB
- * (automatic) and Google Places (on demand, it's billable).
+ * Explore: a searchable, filterable browser over everything Radar knows.
+ *
+ * v0.13 — two result models:
+ *  * CATALOG mode (no query/filters): the local shared catalog, instant.
+ *  * SERVER mode (watch/read, query or API-mappable filters active): pages
+ *    straight from TMDB discover / Open Library with REAL totals and infinite
+ *    scroll; every fetched row is upserted into the catalog, and local-only
+ *    filters (hide seen, friend signals) still apply on top.
+ * Eat/Do stay explicit-button (Places calls are billable) but gain "Show 20
+ * more" pagination via Google's page tokens. Filter chips are the curated
+ * vocabularies (core/vocab.ts), not whatever tags the catalog happens to hold.
  */
 @Component({
   selector: 'pp-explore-page',
-  imports: [FormsModule, RouterLink, ServiceBadges, SlotCollage],
+  imports: [DecimalPipe, FormsModule, RouterLink, ServiceBadges, SlotCollage],
   template: `
     <div class="mx-auto max-w-md px-5 py-6">
       <div class="flex items-center justify-between">
@@ -237,7 +263,7 @@ const PAGE = 40;
         </div>
       }
 
-      <!-- genre / cuisine chips -->
+      <!-- genre / cuisine / theme chips (curated — core/vocab.ts) -->
       <div class="no-scrollbar mt-2 flex gap-2 overflow-x-auto pb-1">
         @for (g of tagChips(); track g.slug) {
           <button (click)="toggleTag(g.slug)" [class]="chip(tagSel().has(g.slug), 'gold')">
@@ -246,32 +272,60 @@ const PAGE = 40;
         }
       </div>
 
+      <!-- person pill: "christopher nolan" typed → offer the filmography -->
+      @if (isWatch() && (personSel() || personHint())) {
+        <div class="mt-2 flex gap-2">
+          @if (personSel(); as p) {
+            <button (click)="clearPerson()" [class]="chip(true, 'violet')">
+              🎬 {{ p.name }}'s films · ✕
+            </button>
+          } @else if (personHint(); as p) {
+            <button (click)="pickPerson(p)" [class]="chip(false, 'violet')">
+              🎬 See {{ p.name }}'s films →
+            </button>
+          }
+        </div>
+      }
+
       <!-- sort + count + clear -->
       <div class="mt-2.5 flex items-center gap-2">
         <div class="no-scrollbar flex flex-1 gap-2 overflow-x-auto">
-          @for (s of sortChips(); track s.value) {
-            <button (click)="sort.set(s.value)" [class]="chip(sort() === s.value)">↕ {{ s.label }}</button>
+          @if (serverSearchKind() === 'text') {
+            <span class="flex-none py-1.5 text-xs font-bold text-muted">↕ Best match</span>
+          } @else {
+            @for (s of sortChips(); track s.value) {
+              <button (click)="sort.set(s.value)" [class]="chip(sort() === s.value)">↕ {{ s.label }}</button>
+            }
           }
         </div>
-        <span class="flex-none text-xs font-bold text-muted">{{ filtered().length }}</span>
+        <span class="flex-none text-xs font-bold text-muted">
+          @if (serverMode()) {
+            {{ serverTotal() === null ? '…' : (serverTotal() | number) + ' results' }}
+            @if (serverShownNote(); as note) {
+              · {{ note }}
+            }
+          } @else {
+            {{ filtered().length }}
+          }
+        </span>
         @if (anyFilterActive()) {
           <button (click)="clearFilters()" class="flex-none text-xs font-bold text-coral">Clear</button>
         }
       </div>
 
       <!-- ============ results ============ -->
-      @if (explore.loading() && !filtered().length) {
+      @if ((explore.loading() || serverLoading()) && !visible().length) {
         <div class="mt-4 flex flex-col gap-2.5">
           @for (i of [0, 1, 2, 3, 4]; track i) {
             <div class="h-20 animate-pulse rounded-2xl border border-line bg-surface"></div>
           }
         </div>
-      } @else if (!filtered().length) {
+      } @else if (!visible().length) {
         <div class="mt-10 flex flex-col items-center gap-3 text-center">
           <div class="text-4xl">🔭</div>
           <p class="font-bold">Nothing matches</p>
           <p class="max-w-64 text-sm text-muted-2">
-            Loosen a filter{{ isEat() ? ' or pull in fresh spots below' : ' or keep typing — TMDB search kicks in automatically' }}.
+            Loosen a filter{{ isEat() ? ' or pull in fresh spots below' : '' }}.
           </p>
         </div>
       }
@@ -319,7 +373,14 @@ const PAGE = 40;
         }
       </div>
 
-      @if (filtered().length > shown()) {
+      <!-- server mode: infinite scroll sentinel (TMDB / Open Library are free) -->
+      @if (serverMode() && serverHasMore()) {
+        <div #sentinel class="mt-3 flex justify-center py-3">
+          <div class="size-6 animate-spin rounded-full border-3 border-surface-2 border-t-coral"></div>
+        </div>
+      }
+
+      @if (!serverMode() && filtered().length > shown()) {
         <button
           (click)="shown.set(shown() + pageSize)"
           class="mt-3 w-full rounded-2xl border border-line py-2.5 text-sm font-bold text-muted-2"
@@ -328,7 +389,7 @@ const PAGE = 40;
         </button>
       }
 
-      <!-- eat: explicit external pulls (Places calls are billable) -->
+      <!-- eat/do: explicit external pulls (Places calls are billable) -->
       @if (isEat()) {
         <div class="mt-4 flex gap-2">
           <button
@@ -336,7 +397,7 @@ const PAGE = 40;
             [disabled]="pulling()"
             class="flex-1 rounded-2xl border border-dashed border-line py-2.5 text-sm font-bold text-muted-2 disabled:opacity-50"
           >
-            📍 Pull nearby spots
+            📍 Pull nearby{{ selectedCuisineLabel() ? ' ' + selectedCuisineLabel() : ' spots' }}
           </button>
           @if (query().trim().length >= 2) {
             <button
@@ -348,14 +409,27 @@ const PAGE = 40;
             </button>
           }
         </div>
+        @if (placesToken()) {
+          <button
+            (click)="morePlaces()"
+            [disabled]="pulling()"
+            class="mt-2 w-full rounded-2xl border border-dashed border-gold/50 py-2.5 text-sm font-bold text-gold disabled:opacity-50"
+          >
+            {{ pulling() ? 'Fetching…' : '⤵ Show 20 more from Google' }}
+          </button>
+        }
       }
       <p class="mt-3 text-center text-[10px] text-muted">
         {{
           isEat()
             ? 'Showing every place Radar knows — pulls add fresh ones from Google.'
-            : isRead()
-              ? 'Showing the shared catalog — typing searches Google Books automatically.'
-              : 'Showing the shared catalog — typing searches TMDB automatically.'
+            : serverMode()
+              ? isRead()
+                ? 'Live from Open Library — most-wanted books first.'
+                : 'Live from TMDB — scroll for more.'
+              : isRead()
+                ? 'The shared catalog — type or tap a genre to search all of Open Library.'
+                : 'The shared catalog — type or tap a filter to search all of TMDB.'
         }}
       </p>
       }
@@ -462,6 +536,64 @@ export class ExplorePage implements OnDestroy {
   protected readonly myLoc = signal<LatLng | null>(null);
   private debounce: ReturnType<typeof setTimeout> | undefined;
 
+  // ---- server-driven results (v0.13) ----
+  protected readonly serverIds = signal<string[]>([]);
+  protected readonly serverTotal = signal<number | null>(null);
+  protected readonly serverHasMore = signal(false);
+  protected readonly serverLoading = signal(false);
+  private readonly serverPage = signal(0);
+  /** Person TMDB matched on the last text search — rendered as a pill. */
+  protected readonly personHint = signal<ServerPerson | null>(null);
+  /** Person the user tapped — discover with_people. */
+  protected readonly personSel = signal<ServerPerson | null>(null);
+  /** Google text-search continuation token (eat/do "Show 20 more"). */
+  protected readonly placesToken = signal<string | null>(null);
+  private serverSerial = 0;
+  private serverDebounce: ReturnType<typeof setTimeout> | undefined;
+
+  private readonly sentinel = viewChild<ElementRef<HTMLDivElement>>('sentinel');
+  private readonly observer = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((e) => e.isIntersecting)) void this.loadMoreServer();
+    },
+    { rootMargin: '600px' },
+  );
+
+  /** Server mode: watch/read with a query or any API-mappable filter active. */
+  protected readonly serverMode = computed(() => {
+    if (this.mode() !== 'things') return false;
+    const q = this.query().trim().length >= 2;
+    if (this.isWatch()) {
+      return (
+        q ||
+        this.personSel() !== null ||
+        this.tagSel().size > 0 ||
+        this.decade() !== null ||
+        this.minVote() !== null ||
+        this.runtimeMax() !== null ||
+        this.typeFilter() !== 'all' ||
+        this.mineOnly()
+      );
+    }
+    if (this.isRead()) return q || this.tagSel().size > 0;
+    return false;
+  });
+
+  /** 'text' = TMDB free-text (relevance order) · 'discover' · 'read' · null */
+  protected readonly serverSearchKind = computed(() => {
+    if (!this.serverMode()) return null;
+    if (this.isRead()) return 'read';
+    const filterless =
+      !this.personSel() &&
+      !this.tagSel().size &&
+      this.decade() === null &&
+      this.minVote() === null &&
+      this.runtimeMax() === null &&
+      this.typeFilter() === 'all' &&
+      !this.mineOnly();
+    return filterless ? 'text' : 'discover';
+  });
+
   protected readonly typeChips = [
     { label: 'All', value: 'all' as const },
     { label: '🎬 Movies', value: 'movie' as const },
@@ -531,36 +663,35 @@ export class ExplorePage implements OnDestroy {
     }
     if (this.isRead()) {
       return [
+        { label: 'Most wanted', value: 'popular' as WatchSort },
         { label: 'Top rated', value: 'rating' as WatchSort },
         { label: 'Newest', value: 'newest' as WatchSort },
-        { label: 'A–Z', value: 'az' as WatchSort },
+        ...(this.serverMode() ? [] : [{ label: 'A–Z', value: 'az' as WatchSort }]),
       ];
     }
     return [
       { label: 'Popular', value: 'popular' as WatchSort },
       { label: 'Top rated', value: 'rating' as WatchSort },
       { label: 'Newest', value: 'newest' as WatchSort },
-      { label: 'A–Z', value: 'az' as WatchSort },
+      ...(this.serverMode() ? [] : [{ label: 'A–Z', value: 'az' as WatchSort }]),
     ];
   });
 
-  /** Top genres/cuisines/themes present in the current catalog, by frequency. */
+  /**
+   * Curated chips per domain (core/vocab.ts) — FIXED lists, so they're
+   * consistent no matter what the last search dragged into the catalog.
+   */
   protected readonly tagChips = computed(() => {
-    const d = this.domain.domain();
-    const kind = d === 'eat' ? 'cuisine' : d === 'do' ? 'theme' : 'genre';
-    const counts = new Map<string, { label: string; n: number }>();
-    for (const item of this.explore.items().values()) {
-      for (const t of item.activity_tags ?? []) {
-        if (t.tag.kind !== kind) continue;
-        const cur = counts.get(t.tag.slug) ?? { label: t.tag.label, n: 0 };
-        cur.n++;
-        counts.set(t.tag.slug, cur);
-      }
+    switch (this.domain.domain()) {
+      case 'eat':
+        return CUISINE_CHIPS;
+      case 'do':
+        return DO_THEME_CHIPS;
+      case 'read':
+        return BOOK_GENRE_CHIPS;
+      default:
+        return WATCH_GENRE_CHIPS;
     }
-    return [...counts]
-      .sort((a, b) => b[1].n - a[1].n)
-      .slice(0, 14)
-      .map(([slug, v]) => ({ slug, label: v.label }));
   });
 
   // ---- the filter pipeline ----
@@ -624,7 +755,151 @@ export class ExplorePage implements OnDestroy {
     return out.sort(this.comparator(myLoc));
   });
 
-  protected readonly visible = computed(() => this.filtered().slice(0, this.shown()));
+  /**
+   * Server results in API order, with the LOCAL-only filters applied on top
+   * (hide seen, friend signals, per-domain bits the APIs can't express —
+   * runtime caps on TV, extra genre chips beyond the one OL searched).
+   */
+  protected readonly serverVisible = computed<ExploreItem[]>(() => {
+    const items = this.explore.items();
+    const signals = this.explore.friendSignals();
+    const mine = new Map(this.lib.entries().map((e) => [e.activity.id, e.status]));
+    const out: ExploreItem[] = [];
+    for (const id of this.serverIds()) {
+      const item = items.get(id);
+      if (!item) continue;
+      const myStatus = mine.get(item.id);
+      if (this.hideSeen() && myStatus && ['completed', 'not_interested', 'abandoned'].includes(myStatus)) continue;
+      if (this.isWatch()) {
+        const cap = this.runtimeMax();
+        if (cap && item.duration_min && item.duration_min > cap) continue;
+      }
+      if (this.isRead() && this.minRating() && (item.metadata?.rating ?? 0) < this.minRating()!) continue;
+      const ff = this.friendFilter();
+      if (ff) {
+        const list = signals.get(item.id) ?? [];
+        const hit =
+          ff === 'loved'
+            ? list.some((s) => s.status === 'completed' && (s.rating ?? 0) >= 8)
+            : list.some((s) => s.status === ff);
+        if (!hit) continue;
+      }
+      out.push(item);
+    }
+    return out;
+  });
+
+  /** "· M shown" when local filters trimmed the fetched pages. */
+  protected readonly serverShownNote = computed(() => {
+    const fetched = this.serverIds().length;
+    const shown = this.serverVisible().length;
+    return shown < fetched ? `${shown} shown` : null;
+  });
+
+  protected readonly visible = computed(() =>
+    this.serverMode() ? this.serverVisible() : this.filtered().slice(0, this.shown()),
+  );
+
+  // Refetch page 1 whenever a server-mapped input changes (debounced — typing
+  // and chip-tapping both land here). Catalog mode clears server state.
+  private readonly serverRefresh = effect(() => {
+    const on = this.serverMode();
+    // read everything that should trigger a refetch
+    const inputs = JSON.stringify({
+      d: this.domain.domain(),
+      q: this.query().trim(),
+      tags: [...this.tagSel()].sort(),
+      type: this.typeFilter(),
+      dec: this.decade(),
+      vote: this.minVote(),
+      rt: this.runtimeMax(),
+      mine: this.mineOnly(),
+      sort: this.sort(),
+      person: this.personSel()?.id ?? null,
+    });
+    void inputs;
+    clearTimeout(this.serverDebounce);
+    if (!on) {
+      this.serverIds.set([]);
+      this.serverTotal.set(null);
+      this.serverHasMore.set(false);
+      this.serverPage.set(0);
+      return;
+    }
+    this.serverDebounce = setTimeout(() => void this.fetchServer(1), 350);
+  });
+
+  // (Re)attach the infinite-scroll sentinel as it enters/leaves the DOM.
+  private readonly watchSentinel = effect(() => {
+    const el = this.sentinel()?.nativeElement;
+    this.observer.disconnect();
+    if (el) this.observer.observe(el);
+  });
+
+  private async fetchServer(page: number): Promise<void> {
+    const serial = ++this.serverSerial;
+    this.serverLoading.set(true);
+    if (page === 1) {
+      this.serverTotal.set(null);
+      this.personHint.set(null);
+    }
+    try {
+      const result = this.isRead()
+        ? await this.explore.searchRead({
+            query: this.query(),
+            subject: this.readSubject(),
+            page,
+            sort: this.sort() === 'rating' ? 'rating' : this.sort() === 'newest' ? 'new' : 'want_to_read',
+          })
+        : await this.explore.searchWatch({
+            query: this.query(),
+            page,
+            kind: this.typeFilter() === 'all' ? 'both' : this.typeFilter() === 'movie' ? 'movie' : 'tv',
+            genres: [...this.tagSel()],
+            decade: this.decade(),
+            voteGte: this.minVote(),
+            runtimeLte: this.runtimeMax(),
+            providers: this.mineOnly() ? this.subs.mySlugs() : [],
+            personId: this.personSel()?.id ?? null,
+            sort: this.sort() === 'rating' ? 'rating' : this.sort() === 'newest' ? 'newest' : 'popular',
+          });
+      if (serial !== this.serverSerial) return; // a newer query superseded this one
+      this.serverIds.update((ids) => (page === 1 ? result.ids : [...ids, ...result.ids.filter((id) => !ids.includes(id))]));
+      this.serverTotal.set(result.total);
+      this.serverHasMore.set(result.hasMore);
+      this.serverPage.set(page);
+      if (result.person) this.personHint.set(result.person);
+    } catch {
+      if (serial === this.serverSerial) this.toast.error('Search failed — try again.');
+    } finally {
+      if (serial === this.serverSerial) this.serverLoading.set(false);
+    }
+  }
+
+  private async loadMoreServer(): Promise<void> {
+    if (this.serverLoading() || !this.serverHasMore() || !this.serverMode()) return;
+    await this.fetchServer(this.serverPage() + 1);
+  }
+
+  /** First selected book chip → its Open Library subject query. */
+  private readSubject(): string | undefined {
+    const first = [...this.tagSel()][0];
+    return first ? BOOK_SUBJECT_QUERY[first] : undefined;
+  }
+
+  protected pickPerson(p: ServerPerson) {
+    this.personSel.set(p);
+    this.query.set('');
+  }
+
+  protected clearPerson() {
+    this.personSel.set(null);
+  }
+
+  protected readonly selectedCuisineLabel = computed(() => {
+    const first = [...this.tagSel()][0];
+    return this.tagChips().find((c) => c.slug === first)?.label ?? null;
+  });
 
   protected readonly anyFilterActive = computed(
     () =>
@@ -655,6 +930,8 @@ export class ExplorePage implements OnDestroy {
 
   ngOnDestroy() {
     clearTimeout(this.debounce);
+    clearTimeout(this.serverDebounce);
+    this.observer.disconnect();
   }
 
   // ---- interactions ----
@@ -667,8 +944,11 @@ export class ExplorePage implements OnDestroy {
     this.tagSel.set(new Set());
     this.friendFilter.set(null);
     this.shown.set(PAGE);
-    this.sort.set(d === 'watch' ? 'popular' : 'rating');
+    this.sort.set(d === 'watch' || d === 'read' ? 'popular' : 'rating');
     this.hideSeen.set(d === 'watch');
+    this.personSel.set(null);
+    this.personHint.set(null);
+    this.placesToken.set(null);
   }
 
   protected clearFilters() {
@@ -684,11 +964,14 @@ export class ExplorePage implements OnDestroy {
     this.openNow.set(false);
     this.maxMiles.set(null);
     this.shown.set(PAGE);
+    this.personSel.set(null);
+    this.placesToken.set(null);
   }
 
   protected onQuery(q: string) {
     this.query.set(q);
     this.shown.set(this.pageSize);
+    this.placesToken.set(null); // a new query invalidates the old Google page token
     clearTimeout(this.debounce);
     const trimmed = q.trim();
     if (this.mode() === 'people') {
@@ -698,18 +981,8 @@ export class ExplorePage implements OnDestroy {
       }, 400);
       return;
     }
-    if (this.mode() === 'slots') return; // client-side filtering only
-    // Free APIs top up automatically (TMDB / Google Books); Places is button-only.
-    if (this.isEat() || trimmed.length < 2) return;
-    this.debounce = setTimeout(async () => {
-      try {
-        this.explore.merge(
-          this.isRead() ? await this.lib.searchBooks(trimmed) : await this.lib.search(trimmed),
-        );
-      } catch {
-        /* background top-up; local results still shown */
-      }
-    }, 450);
+    // Things: watch/read are handled by the serverRefresh effect; Places is
+    // button-only (billable). Slots filter client-side.
   }
 
   protected async nearby() {
@@ -721,7 +994,11 @@ export class ExplorePage implements OnDestroy {
         this.toast.error('Location is off — allow it in your browser settings.');
         return;
       }
-      this.explore.merge(await this.lib.searchPlaces('', loc, this.placeKind()));
+      const { rows } = await this.lib.searchPlaces('', loc, this.placeKind(), {
+        cuisine: [...this.tagSel()][0] ?? null,
+      });
+      this.explore.merge(rows);
+      this.placesToken.set(null); // nearby doesn't paginate (API limit)
     } catch {
       this.toast.error('Could not pull nearby places.');
     } finally {
@@ -732,11 +1009,37 @@ export class ExplorePage implements OnDestroy {
   protected async placesSearch() {
     this.pulling.set(true);
     try {
-      this.explore.merge(
-        await this.lib.searchPlaces(this.query().trim(), await this.location.get(), this.placeKind()),
+      const { rows, nextPageToken } = await this.lib.searchPlaces(
+        this.query().trim(),
+        await this.location.get(),
+        this.placeKind(),
+        { cuisine: [...this.tagSel()][0] ?? null },
       );
+      this.explore.merge(rows);
+      this.placesToken.set(nextPageToken);
     } catch {
       this.toast.error('Google search failed — try again.');
+    } finally {
+      this.pulling.set(false);
+    }
+  }
+
+  /** Next 20 from Google via the continuation token (same query, same chip). */
+  protected async morePlaces() {
+    const token = this.placesToken();
+    if (!token) return;
+    this.pulling.set(true);
+    try {
+      const { rows, nextPageToken } = await this.lib.searchPlaces(
+        this.query().trim(),
+        await this.location.get(),
+        this.placeKind(),
+        { cuisine: [...this.tagSel()][0] ?? null, pageToken: token },
+      );
+      this.explore.merge(rows);
+      this.placesToken.set(nextPageToken);
+    } catch {
+      this.toast.error('Could not fetch more — try again.');
     } finally {
       this.pulling.set(false);
     }

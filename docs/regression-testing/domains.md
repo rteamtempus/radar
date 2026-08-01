@@ -61,9 +61,11 @@ Refreshing the detail does not turn it into a restaurant.
 
 ### RT-DOM-06 — Read detail [live data]
 
-**Steps:** Search a book and open it.
-**Expected:** Author, page count, year, rating, category tags, and a link out
-to Google Books.
+**Steps:** Search a book (Open Library since v0.13) and open it.
+**Expected:** Author, page count, year, rating, curated genre tags, and a link
+out to its Open Library page. The description fills in shortly after the page
+opens (fetched on first view — search results don't carry it). Books added
+before v0.13 (Google-sourced) still render with their original data.
 
 ### RT-DOM-07 — Location handling
 

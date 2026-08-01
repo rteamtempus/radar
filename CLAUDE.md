@@ -11,38 +11,48 @@ architecture patterns are not.
 
 Angular 20 (standalone, signals, no NgModules) · Tailwind v4 (dark, mobile-first
 390px, palette in `src/styles.css` `@theme`) · Supabase hosted (auth, Postgres,
-Realtime, Edge Functions) · Gemini `gemini-2.5-flash` · TMDB v3 · **Vercel**
-(deploy deviation: handoff §2/§9 say Cloud Run/Docker — we use Vercel, no
-Dockerfile).
+Realtime, Edge Functions) · TMDB v3 · Google Places (New) · Open Library ·
+**Vercel** (deploy deviation: handoff §2/§9 say Cloud Run/Docker — we use
+Vercel, no Dockerfile). Gemini/AI was removed in v0.11 (quests run on slots).
 
 ## Hard rules
 
-1. **Secrets never ship to the browser.** Gemini and TMDB are called ONLY from
+1. **Secrets never ship to the browser.** TMDB and Google keys live ONLY in
    edge functions. Frontend env = Supabase URL + anon key only, generated into
    `src/environments/env.generated.ts` by `scripts/generate-env.mjs` (never
    hand-edit; `NG_APP_*` vars from `.env` locally / Vercel dashboard in CI).
 2. **Own Supabase project.** Table names are generic (`profiles`, `parties`…) —
    NEVER link/push this repo to the life-assistant super-app project. See
    `docs/PLAN.md` § Open decision.
-3. **Gemini calls:** REST `generateContent`, structured output
-   (`responseMimeType` + `responseSchema`), `thinkingBudget: 0`, one call per
-   pipeline run, always log to `ai_invocations`, never let AI failure break the
-   pipeline (fallback to deterministic scores). Use `_shared/gemini.ts`.
-4. **TMDB:** everything fetched is upserted into `activities`
+3. **Search APIs** (capabilities & verified limits: docs/API-CAPABILITIES.md):
+   TMDB `search/multi` for text (+ person hint), `discover` for filters — both
+   return real totals. Books = **Open Library** (never Google Books for new
+   work; `external_source` distinguishes legacy rows), popularity sort only
+   when a query narrows, quoted `subject` for genre browses. Places text
+   search paginates by token, has NO total count, and stays behind explicit
+   billable-action buttons.
+4. **Curated vocabularies:** filter chips come from `core/vocab.ts` (client)
+   and `functions/_shared/vocab.ts` (edge) — slugs must stay in sync. Taggers
+   write ONLY curated slugs (Places `primaryType` → 1 tag; OL subjects →
+   buckets). Never mint tags from raw API strings again — migration 0015
+   cleaned that up once already.
+5. **TMDB:** everything fetched is upserted into `activities`
    (`external_id='<movie|tv>-<tmdbId>'`); posters as full w500 URLs; US
    flatrate only → `activity_availability`; keep the TMDB attribution footer.
-5. **POC scope:** movies/TV UI only — the generic activity model stays in the
-   schema but gets no UI. Non-goals list: handoff §1. Known deferrals: §12.
-6. **Quality bar:** TS strict, no `any` in feature code; edge functions check
+6. **POC scope:** the four domains (watch/eat/do/read) share one machinery;
+   non-goals list: handoff §1. Known deferrals: §12.
+7. **Quality bar:** TS strict, no `any` in feature code; edge functions check
    auth first and return `{error}` with correct status; unit tests only for
    real logic (scoring, tally, affinities); no secrets in the repo, ever.
 
 ## Layout
 
-`src/app/core` (supabase client, auth, guards, types) · `features/{auth,
-onboarding,library,party,profile}` · `shared/ui` (presentational kit) ·
-`supabase/migrations` (0001 schema, 0002 seed — reference data ships as
-migrations) + `functions/{_shared,tmdb-search,tmdb-detail,generate-candidates}`.
+`src/app/core` (supabase client, auth, guards, types, vocab) · `features/{auth,
+onboarding,explore,library,party,profile,radar,friends}` · `shared/ui`
+(presentational kit) · `supabase/migrations` (0001 schema, 0002 seed —
+reference data ships as migrations) + `functions/{_shared,tmdb-search,
+tmdb-discover,tmdb-detail,places-search,place-detail,books-search,book-detail,
+import-history}`.
 
 Migrations are plain PostgreSQL — VS Code's default T-SQL linter flags them
 falsely; ignore or set the SQL dialect to Postgres.

@@ -5,6 +5,41 @@ import type { ReleaseNote } from './release-notes';
 /** Newest first. */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    seq: 13,
+    version: "0.13",
+    date: "2026-08-01",
+    title: "Search that actually searches",
+    summary: "Explore now searches all of TMDB and a better book catalog with real result counts and endless scrolling — and the filter chips stop being random.",
+    sections: [
+      {
+        heading: "Added",
+        items: [
+          { lead: "Real result counts", text: "Searching or filtering Watch and Read now shows how many results actually exist (\"1,563 results\"), not just how many happen to be loaded." },
+          { lead: "Endless scrolling", text: "Keep scrolling and Watch and Read keep loading, page after page, until you've seen everything that matches." },
+          { lead: "Search by filmography", text: "Type a director or actor's name (\"christopher nolan\") and a pill offers their films, most popular first." },
+          { lead: "Filters that search everything", text: "Genre, decade, rating floor, runtime, movies-vs-shows and on-my-services now query all of TMDB, not just what Radar had already seen. Pick Horror + 2010s + ★7+ and you're browsing the real thing." },
+          { lead: "More from Google", text: "Eat and Do searches can fetch the next 20 results with a \"Show 20 more\" button (Google caps searches around 60)." },
+          { lead: "Cuisine-narrowed pulls", text: "Select a cuisine chip before pulling nearby spots and Google is asked for exactly that (\"Pull nearby Sushi\")." },
+        ],
+      },
+      {
+        heading: "Changed",
+        items: [
+          { lead: "Books run on a better catalog", text: "Book search switched to Open Library: one result per actual book instead of a pile of editions and box sets, ordered by how many people want to read it. The blank-titled junk and 7-page pamphlets are gone. Existing books on your radar are untouched." },
+          { lead: "\"Most wanted\" book sorting", text: "Read's sort options are now Most wanted, Top rated and Newest, and they order the whole catalog, not just the loaded page." },
+          { lead: "Consistent filter chips", text: "Genre, cuisine and theme chips are now fixed, curated lists instead of whatever categories the last search dragged in. No more \"Food Store\" or \"England\" chips." },
+          { lead: "Cleaner place categories", text: "Places are tagged by their single primary category (what Google actually considers them), so a steakhouse that also has a bar stops showing up as \"Bar · Night Club\"." },
+        ],
+      },
+      {
+        heading: "Fixed",
+        items: [
+          { lead: "Genre browsing for books finds the genre", text: "Browsing a book genre used to lean on loose matching that could surface wildly popular unrelated books; it now returns books that are actually that genre." },
+        ],
+      },
+    ],
+  },
+  {
     seq: 12,
     version: "0.12",
     date: "2026-07-31",
@@ -347,4 +382,4 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
 ];
 
 /** Highest sequence in this build — compared against profiles.last_seen_release_seq. */
-export const LATEST_RELEASE_SEQ = 12;
+export const LATEST_RELEASE_SEQ = 13;

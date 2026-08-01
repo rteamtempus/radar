@@ -8,6 +8,26 @@ See `CLAUDE.md` → *Release notes & regression testing*.
 
 ---
 
+## v0.13 — Search that actually searches (2026-08-01)
+
+**Rewritten:** `explore.md` (two result models — run the whole file).
+
+**Retest, because this release changed code they depend on:**
+
+| File | Why |
+| --- | --- |
+| `explore.md` | Server-driven search, curated chips, person pill, Places pagination — the whole file. |
+| `domains.md` | Read switched to Open Library (RT-DOM-06 rewritten); place tagging switched to primaryType. Check book detail hydration and that pre-v0.13 Google-sourced books still render. |
+| `radar-and-slots.md` | Slot pages and role slots consume the same activities/tags tables that migration 0015 cleaned and the new taggers write. Spot-check slot filters still work per domain. |
+| `titles-and-statuses.md` | `hydrate()` gained an Open Library branch. Statuses/ratings unaffected but run RT-TITLE-01/03 to confirm detail pages still hydrate for movies, places and books. |
+| `quests.md` | Quest slot decks read the same catalog rows. Smoke-run one watch quest to confirm nothing regressed (RT-QUEST-13/14). |
+
+**Also:** migration 0015 deleted junk cuisine/theme/book-genre tags (kept
+anything a slot uses). `tmdb-discover` and `book-detail` are new edge
+functions; `generate-candidates` remains deleted.
+
+---
+
 ## v0.12 — Adventures, planning-first (2026-07-31)
 
 **Retest:**

@@ -7,10 +7,11 @@
 // mirroring the TMDB availability-freshness pattern.
 import { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { ActivityRow } from './tmdb.ts';
+import { placeTag } from './vocab.ts';
 
 const PLACES_BASE = 'https://places.googleapis.com/v1';
 
-const SEARCH_FIELD_MASK = [
+const PLACE_FIELDS = [
   'places.id',
   'places.displayName',
   'places.formattedAddress',
@@ -18,12 +19,16 @@ const SEARCH_FIELD_MASK = [
   'places.rating',
   'places.userRatingCount',
   'places.priceLevel',
-  'places.types',
+  'places.primaryType',
   'places.photos',
   'places.googleMapsUri',
   'places.currentOpeningHours.openNow',
   'places.editorialSummary',
-].join(',');
+];
+// nextPageToken must be in the mask or Google omits it — but only text search
+// has it; searchNearby rejects unknown mask fields.
+const SEARCH_FIELD_MASK = [...PLACE_FIELDS, 'nextPageToken'].join(',');
+const NEARBY_FIELD_MASK = PLACE_FIELDS.join(',');
 
 const DETAIL_FIELD_MASK = [
   'id',
@@ -50,6 +55,7 @@ export interface GooglePlace {
   rating?: number;
   userRatingCount?: number;
   priceLevel?: string;
+  primaryType?: string;
   types?: string[];
   photos?: { name: string }[];
   googleMapsUri?: string;
@@ -86,19 +92,32 @@ const NEARBY_TYPES: Record<PlaceKind, string[]> = {
   ],
 };
 
+/**
+ * Text search, paginated: pass the previous call's nextPageToken to get the
+ * next 20 (Google caps text search around 60 results total). There is NO
+ * total-count field in the response — the API simply doesn't have one
+ * (docs/API-CAPABILITIES.md).
+ */
 export async function placesTextSearch(
   query: string,
   location: { lat: number; lng: number } | null,
   kind: PlaceKind,
-): Promise<GooglePlace[]> {
+  opts: { includedType?: string | null; pageToken?: string | null } = {},
+): Promise<{ places: GooglePlace[]; nextPageToken: string | null }> {
   const res = await fetch(`${PLACES_BASE}/places:searchText`, {
     method: 'POST',
     headers: headers(SEARCH_FIELD_MASK),
     body: JSON.stringify({
       textQuery: query,
-      // 'do' spans many types — let free text do the work ("mini golf", "art museum")
-      ...(kind === 'eat' ? { includedType: 'restaurant' } : {}),
-      pageSize: 12,
+      // A curated chip narrows to its Places type; otherwise 'eat' pins to
+      // restaurants and 'do' lets free text work ("mini golf", "art museum").
+      ...(opts.includedType
+        ? { includedType: opts.includedType }
+        : kind === 'eat'
+          ? { includedType: 'restaurant' }
+          : {}),
+      pageSize: 20,
+      ...(opts.pageToken ? { pageToken: opts.pageToken } : {}),
       ...(location
         ? {
             locationBias: {
@@ -112,19 +131,22 @@ export async function placesTextSearch(
     }),
   });
   if (!res.ok) throw new Error(`Places searchText ${res.status}: ${await res.text()}`);
-  return ((await res.json()).places ?? []) as GooglePlace[];
+  const data = (await res.json()) as { places?: GooglePlace[]; nextPageToken?: string };
+  return { places: data.places ?? [], nextPageToken: data.nextPageToken ?? null };
 }
 
+/** Nearby is popularity-ranked and NOT paginatable (API limit: one page of 20). */
 export async function placesNearby(
   location: { lat: number; lng: number },
   kind: PlaceKind,
+  includedType?: string | null,
 ): Promise<GooglePlace[]> {
   const res = await fetch(`${PLACES_BASE}/places:searchNearby`, {
     method: 'POST',
-    headers: headers(SEARCH_FIELD_MASK),
+    headers: headers(NEARBY_FIELD_MASK),
     body: JSON.stringify({
-      includedTypes: NEARBY_TYPES[kind],
-      maxResultCount: 12,
+      includedTypes: includedType ? [includedType] : NEARBY_TYPES[kind],
+      maxResultCount: 20,
       rankPreference: 'POPULARITY',
       locationRestriction: {
         circle: { center: { latitude: location.lat, longitude: location.lng }, radius: kind === 'eat' ? 8000 : 25000 },
@@ -167,30 +189,16 @@ const PRICE_LEVELS: Record<string, number> = {
   PRICE_LEVEL_VERY_EXPENSIVE: 4,
 };
 
-// Types too generic to be useful as cuisine tags.
-const GENERIC_TYPES = new Set([
-  'restaurant',
-  'food',
-  'point_of_interest',
-  'establishment',
-  'store',
-  'food_store',
-  'meal_takeaway',
-  'meal_delivery',
-]);
-
-function categoryTags(place: GooglePlace): { slug: string; label: string }[] {
-  return (place.types ?? [])
-    .filter((t) => !GENERIC_TYPES.has(t))
-    .map((t) => {
-      const slug = t.replace(/_restaurant$/, '').replace(/_/g, '-');
-      const label = slug
-        .split('-')
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ');
-      return { slug, label };
-    })
-    .slice(0, 4);
+/**
+ * v0.13: ONE tag per place, from `primaryType` through the curated vocab.
+ * The old approach minted a tag for every entry in the `types` array, which
+ * is where the random filter chips came from (bar, night_club, food_store…).
+ * A primaryType outside the curated list gets no tag — the place still shows
+ * up everywhere, it just doesn't light a chip.
+ */
+function categoryTags(place: GooglePlace, kind: PlaceKind): { slug: string; label: string }[] {
+  const tag = placeTag(place.primaryType, kind);
+  return tag ? [tag] : [];
 }
 
 /** Upsert one Google place into activities (+ cuisine/theme tags). */
@@ -234,7 +242,7 @@ export async function upsertPlace(
   if (error) throw new Error(`place upsert failed: ${error.message}`);
 
   const tagKind = kind === 'eat' ? 'cuisine' : 'theme';
-  const tags = categoryTags(place);
+  const tags = categoryTags(place, kind);
   if (tags.length) {
     const rows = tags.map((t) => ({ kind: tagKind, slug: t.slug, label: t.label }));
     await service.from('tags').upsert(rows, { onConflict: 'kind,slug', ignoreDuplicates: true });

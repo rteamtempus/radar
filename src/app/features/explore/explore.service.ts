@@ -57,6 +57,21 @@ export interface DiscoveryPerson {
   settings: { featured?: boolean } | null;
 }
 
+/** TMDB person hint for the "Films by X" pill. */
+export interface ServerPerson {
+  id: number;
+  name: string;
+  department: string | null;
+}
+
+/** One page of server-driven results: ordered ids + real totals. */
+export interface ServerPage {
+  ids: string[];
+  total: number;
+  hasMore: boolean;
+  person: ServerPerson | null;
+}
+
 /**
  * The Explore catalog: everything Radar collectively knows (the shared
  * activities table), enriched with friends' engagement signals. External
@@ -109,6 +124,106 @@ export class ExploreService {
       }
       return next;
     });
+  }
+
+  // ---- server-driven search (v0.13): real totals + pagination --------------
+  // Watch = tmdb-search (free text) / tmdb-discover (filters, person);
+  // Read = books-search (Open Library). Rows are upserted server-side and
+  // merged into the catalog; the caller keeps the ordered id list.
+
+  async searchWatch(params: {
+    query?: string;
+    page: number;
+    kind: 'movie' | 'tv' | 'both';
+    genres: string[];
+    decade: number | null;
+    voteGte: number | null;
+    runtimeLte: number | null;
+    providers: string[];
+    personId: number | null;
+    sort: 'popular' | 'rating' | 'newest';
+  }): Promise<ServerPage> {
+    const q = params.query?.trim() ?? '';
+    const filterless =
+      !params.genres.length &&
+      !params.decade &&
+      !params.voteGte &&
+      !params.runtimeLte &&
+      !params.providers.length &&
+      !params.personId;
+
+    // Plain text with no filters → title search (with the person hint);
+    // anything with filters → discover (text can't combine with it on TMDB).
+    if (q && filterless) {
+      const { data, error } = await getSupabase().functions.invoke<{
+        results: ActivitySummary[];
+        total: number;
+        has_more: boolean;
+        person: ServerPerson | null;
+      }>('tmdb-search', { body: { query: q, page: params.page } });
+      if (error) throw error;
+      this.merge(data?.results ?? []);
+      return {
+        ids: (data?.results ?? []).map((r) => r.id),
+        total: data?.total ?? 0,
+        hasMore: data?.has_more ?? false,
+        person: data?.person ?? null,
+      };
+    }
+
+    const { data, error } = await getSupabase().functions.invoke<{
+      results: ActivitySummary[];
+      total: number;
+      has_more: boolean;
+    }>('tmdb-discover', {
+      body: {
+        kind: params.kind,
+        page: params.page,
+        genres: params.genres,
+        decade: params.decade ?? undefined,
+        vote_gte: params.voteGte ?? undefined,
+        runtime_lte: params.runtimeLte ?? undefined,
+        providers: params.providers,
+        person_id: params.personId ?? undefined,
+        sort: params.sort,
+      },
+    });
+    if (error) throw error;
+    this.merge(data?.results ?? []);
+    return {
+      ids: (data?.results ?? []).map((r) => r.id),
+      total: data?.total ?? 0,
+      hasMore: data?.has_more ?? false,
+      person: null,
+    };
+  }
+
+  async searchRead(params: {
+    query?: string;
+    subject?: string;
+    page: number;
+    sort: 'want_to_read' | 'rating' | 'new';
+  }): Promise<ServerPage> {
+    const { data, error } = await getSupabase().functions.invoke<{
+      results: ActivitySummary[];
+      total: number;
+      has_more: boolean;
+    }>('books-search', {
+      body: {
+        query: params.query?.trim() || undefined,
+        subject: params.subject || undefined,
+        page: params.page,
+        sort: params.sort,
+      },
+    });
+    if (error) throw error;
+    this.merge(data?.results ?? []);
+    return {
+      ids: (data?.results ?? []).map((r) => r.id),
+      total: data?.total ?? 0,
+      hasMore: data?.has_more ?? false,
+      person: null,
+    };
   }
 
   /**
