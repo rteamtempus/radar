@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { AuthService } from '../../core/auth.service';
 import { Domain } from '../../core/domain.service';
 import { getSupabase } from '../../core/supabase.client';
+import { Json } from '../../core/types/database.types';
 import { ToastService } from '../../shared/ui/toast.service';
 
 export type SlotOnComplete = 'remove' | 'loop' | 'keep';
@@ -38,6 +39,15 @@ export interface SlotItem {
 
 export type SlotVisibility = 'public' | 'friends' | 'private';
 
+/** City-granularity location picked from autocomplete (LOCATION-ANALYSIS G4):
+ * explicit, optional, owner-set — never derived from items. */
+export interface SlotLocation {
+  name: string;
+  place_id: string;
+  lat: number;
+  lng: number;
+}
+
 export interface RadarSlot {
   id: string;
   name: string;
@@ -46,6 +56,7 @@ export interface RadarSlot {
   on_complete: SlotOnComplete;
   visibility: SlotVisibility;
   description: string | null;
+  location: SlotLocation | null;
   config: {
     role?: SlotRole;
     domain?: Domain;
@@ -70,7 +81,7 @@ export interface SubscribedSlot extends RadarSlot {
 }
 
 const SLOT_SELECT =
-  'id, name, emoji, position, on_complete, visibility, description, config, ' +
+  'id, name, emoji, position, on_complete, visibility, description, location, config, ' +
   'items:radar_slot_items(activity_id, position, note, added_at, ' +
   'activity:activities(id, title, image_url, type, duration_min, metadata, location, ' +
   'activity_tags(tag:tags(slug, label, kind)), ' +
@@ -342,6 +353,14 @@ export class SlotsService {
 
   async setVisibility(slotId: string, visibility: SlotVisibility): Promise<void> {
     await getSupabase().from('radar_slots').update({ visibility }).eq('id', slotId);
+    await this.load();
+  }
+
+  async setLocation(slotId: string, location: SlotLocation | null): Promise<void> {
+    await getSupabase()
+      .from('radar_slots')
+      .update({ location: location as unknown as Json })
+      .eq('id', slotId);
     await this.load();
   }
 

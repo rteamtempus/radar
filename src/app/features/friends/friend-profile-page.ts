@@ -1,8 +1,11 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { SafetyService } from '../../core/safety.service';
 import { getSupabase } from '../../core/supabase.client';
 import { StarRating } from '../../shared/ui/star-rating';
+import { ToastService } from '../../shared/ui/toast.service';
 import { FriendsService } from './friends.service';
 
 interface FriendActivityRef {
@@ -40,7 +43,7 @@ interface SharedParty {
  */
 @Component({
   selector: 'pp-friend-profile-page',
-  imports: [RouterLink, StarRating],
+  imports: [FormsModule, RouterLink, StarRating],
   template: `
     <div class="mx-auto flex max-w-md flex-col gap-6 px-5 py-6">
       <div class="flex items-center gap-4">
@@ -52,6 +55,9 @@ interface SharedParty {
           <h1 class="truncate font-display text-2xl font-semibold">{{ name() || '…' }}</h1>
           <p class="text-xs text-muted-2">
             {{ isFriend() ? 'Friend' : 'Radar profile' }}
+            @if (homeCity(); as city) {
+              · 📍 {{ city }}
+            }
             @if (tasteMatch() !== null) {
               · <span class="font-bold text-gold">{{ tasteMatch() }}% taste match</span>
             }
@@ -163,17 +169,55 @@ interface SharedParty {
         </div>
       </div>
       }
+
+      <!-- safety: report / block (0016) — understated by design -->
+      @if (!isMe()) {
+        <div class="flex items-center justify-center gap-5 pb-2">
+          @if (reportOpen()) {
+            <div class="w-full rounded-2xl border border-line bg-surface p-3.5">
+              <textarea
+                rows="2"
+                maxlength="500"
+                placeholder="What's wrong with this profile? (optional)"
+                [(ngModel)]="reportReason"
+                class="w-full resize-none rounded-xl border border-line bg-bg-warm px-3 py-2.5 text-sm text-cream placeholder:text-muted focus:border-coral focus:outline-none"
+              ></textarea>
+              <div class="mt-2 flex gap-2">
+                <button (click)="sendReport()" class="rounded-xl bg-coral px-3.5 py-2 text-xs font-bold text-ink">
+                  Send report
+                </button>
+                <button (click)="reportOpen.set(false)" class="rounded-xl border border-line px-3.5 py-2 text-xs font-bold text-muted-2">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          } @else {
+            <button (click)="reportOpen.set(true)" class="text-xs font-bold text-muted">⚑ Report</button>
+            @if (safety.blockedIds().has(id())) {
+              <button (click)="unblockUser()" class="text-xs font-bold text-muted">✓ Blocked — unblock</button>
+            } @else {
+              <button (click)="blockUser()" class="text-xs font-bold text-muted">🚫 Block</button>
+            }
+          }
+        </div>
+      }
     </div>
   `,
 })
 export class FriendProfilePage {
   protected readonly friendsService = inject(FriendsService);
+  protected readonly safety = inject(SafetyService);
   private readonly auth = inject(AuthService);
+  private readonly toast = inject(ToastService);
 
   /** Route param: the profile id (friend or stranger — RLS scopes content). */
   readonly id = input.required<string>();
 
   protected readonly name = signal('');
+  /** Their home city — shown only when THEY opted into geo discovery (G2). */
+  protected readonly homeCity = signal<string | null>(null);
+  protected readonly reportOpen = signal(false);
+  protected reportReason = '';
   protected readonly visibility = signal<'public' | 'friends' | 'private'>('friends');
   protected readonly tasteMatch = signal<number | null>(null);
   protected readonly slots = signal<FriendSlot[]>([]);
@@ -191,6 +235,7 @@ export class FriendProfilePage {
 
   constructor() {
     this.friendsService.load();
+    this.safety.load();
     queueMicrotask(() => this.load());
   }
 
@@ -207,7 +252,11 @@ export class FriendProfilePage {
     const supabase = getSupabase();
     this.friendsService.tasteMatch(friendId).then((m) => this.tasteMatch.set(m));
     const [profile, slots, watches, memberships] = await Promise.all([
-      supabase.from('profiles').select('display_name, visibility').eq('id', friendId).maybeSingle(),
+      supabase
+        .from('profiles')
+        .select('display_name, visibility, home_location, geo_discoverable')
+        .eq('id', friendId)
+        .maybeSingle(),
       supabase
         .from('radar_slots')
         .select(
@@ -232,6 +281,11 @@ export class FriendProfilePage {
     ]);
 
     this.name.set((profile.data?.display_name as string | undefined) ?? '');
+    const row = profile.data as {
+      home_location?: { name?: string } | null;
+      geo_discoverable?: boolean;
+    } | null;
+    this.homeCity.set(row?.geo_discoverable ? (row?.home_location?.name ?? null) : null);
     this.visibility.set(
       ((profile.data as { visibility?: 'public' | 'friends' | 'private' } | null)?.visibility) ??
         'friends',
@@ -246,6 +300,23 @@ export class FriendProfilePage {
     this.parties.set(
       ((memberships.data ?? []) as unknown as { party: SharedParty }[]).map((m) => m.party),
     );
+  }
+
+  protected async sendReport() {
+    const ok = await this.safety.report('profile', this.id(), this.reportReason);
+    this.reportOpen.set(false);
+    this.reportReason = '';
+    if (ok) this.toast.success('Reported — thanks for flagging it.');
+    else this.toast.error('Could not send the report — try again.');
+  }
+
+  protected async blockUser() {
+    const ok = await this.safety.block(this.id());
+    if (ok) this.toast.success(`${this.name() || 'They'} won't appear in your discovery anymore.`);
+  }
+
+  protected async unblockUser() {
+    await this.safety.unblock(this.id());
   }
 
   protected initial(name: string): string {

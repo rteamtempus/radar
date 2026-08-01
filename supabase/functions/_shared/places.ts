@@ -11,25 +11,29 @@ import { placeTag } from './vocab.ts';
 
 const PLACES_BASE = 'https://places.googleapis.com/v1';
 
+// ── Field masks set the BILLING TIER (docs/LOCATION-ANALYSIS.md G8) ─────────
+// Google prices each request by its most expensive requested field:
+// Essentials (~10K free/mo) < Pro (~5K) < Enterprise (~1K) < Ent+Atmosphere
+// (~1K). Search masks therefore stay PRO-TIER ONLY — rating/price/hours/
+// editorialSummary are Enterprise(+Atmosphere) and moved to the detail call,
+// which is per-view and far rarer. upsertPlace MERGES metadata so a place
+// that has been detailed once keeps its cached rating on search cards.
 const PLACE_FIELDS = [
   'places.id',
   'places.displayName',
   'places.formattedAddress',
   'places.location',
-  'places.rating',
-  'places.userRatingCount',
-  'places.priceLevel',
   'places.primaryType',
   'places.photos',
   'places.googleMapsUri',
-  'places.currentOpeningHours.openNow',
-  'places.editorialSummary',
+  'places.businessStatus',
 ];
 // nextPageToken must be in the mask or Google omits it — but only text search
 // has it; searchNearby rejects unknown mask fields.
 const SEARCH_FIELD_MASK = [...PLACE_FIELDS, 'nextPageToken'].join(',');
 const NEARBY_FIELD_MASK = PLACE_FIELDS.join(',');
 
+// Detail is the rich (Enterprise+Atmosphere) call — the refresh-on-view path.
 const DETAIL_FIELD_MASK = [
   'id',
   'displayName',
@@ -41,6 +45,7 @@ const DETAIL_FIELD_MASK = [
   'types',
   'photos',
   'googleMapsUri',
+  'businessStatus',
   'currentOpeningHours',
   'editorialSummary',
   'nationalPhoneNumber',
@@ -59,6 +64,7 @@ export interface GooglePlace {
   types?: string[];
   photos?: { name: string }[];
   googleMapsUri?: string;
+  businessStatus?: string; // OPERATIONAL | CLOSED_TEMPORARILY | CLOSED_PERMANENTLY
   currentOpeningHours?: { openNow?: boolean; weekdayDescriptions?: string[] };
   editorialSummary?: { text?: string };
   nationalPhoneNumber?: string;
@@ -201,7 +207,15 @@ function categoryTags(place: GooglePlace, kind: PlaceKind): { slug: string; labe
   return tag ? [tag] : [];
 }
 
-/** Upsert one Google place into activities (+ cuisine/theme tags). */
+/**
+ * Upsert one Google place into activities (+ cuisine/theme tags).
+ *
+ * Metadata is MERGED, never replaced: search responses are lean (Pro-tier
+ * mask — no rating/price/hours), so a search hit on an already-detailed place
+ * must not null out the rich fields the last detail call cached. Only keys
+ * actually present in this response overwrite; same for description (detail
+ * only) and cost_level.
+ */
 export async function upsertPlace(
   service: SupabaseClient,
   place: GooglePlace,
@@ -211,29 +225,47 @@ export async function upsertPlace(
   const lat = place.location?.latitude ?? null;
   const lng = place.location?.longitude ?? null;
 
+  const { data: existing } = await service
+    .from('activities')
+    .select('id, description, cost_level, metadata')
+    .eq('external_source', 'google_places')
+    .eq('external_id', place.id)
+    .maybeSingle();
+  const prior = (existing?.metadata ?? {}) as Record<string, unknown>;
+
+  // Only fields this response actually carried; undefined = keep prior value.
+  const incoming: Record<string, unknown> = {
+    rating: place.rating,
+    rating_count: place.userRatingCount,
+    price_level: place.priceLevel != null ? PRICE_LEVELS[place.priceLevel] : undefined,
+    address: place.formattedAddress,
+    maps_url: place.googleMapsUri,
+    business_status: place.businessStatus,
+    open_now: place.currentOpeningHours?.openNow,
+    hours: place.currentOpeningHours?.weekdayDescriptions,
+    phone: place.nationalPhoneNumber,
+    website: place.websiteUri,
+    coords_refreshed_at: new Date().toISOString(), // ToS: 30-day coord cache (G3)
+  };
+  const metadata = { ...prior };
+  for (const [k, v] of Object.entries(incoming)) if (v !== undefined) metadata[k] = v;
+
   const { data: activity, error } = await service
     .from('activities')
     .upsert(
       {
         type: kind === 'eat' ? 'restaurant' : 'outing',
         title: place.displayName?.text ?? 'Unknown place',
-        description: place.editorialSummary?.text ?? null,
+        description: place.editorialSummary?.text ?? existing?.description ?? null,
         ...(photoUri ? { image_url: photoUri } : {}),
-        cost_level: PRICE_LEVELS[place.priceLevel ?? ''] ?? null,
+        cost_level:
+          place.priceLevel != null
+            ? (PRICE_LEVELS[place.priceLevel] ?? null)
+            : (existing?.cost_level ?? null),
         external_source: 'google_places',
         external_id: place.id,
         location: lat != null && lng != null ? { lat, lng } : null,
-        metadata: {
-          rating: place.rating ?? null,
-          rating_count: place.userRatingCount ?? null,
-          price_level: PRICE_LEVELS[place.priceLevel ?? ''] ?? null,
-          address: place.formattedAddress ?? null,
-          maps_url: place.googleMapsUri ?? null,
-          open_now: place.currentOpeningHours?.openNow ?? null,
-          hours: place.currentOpeningHours?.weekdayDescriptions ?? null,
-          phone: place.nationalPhoneNumber ?? null,
-          website: place.websiteUri ?? null,
-        },
+        metadata,
       },
       { onConflict: 'external_source,external_id' },
     )

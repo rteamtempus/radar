@@ -20,9 +20,12 @@ subscriber numbers, that's a bug.
 
 ### RT-SOC-01 — Three tiers per slot
 
-**Steps:** On a slot page you own, set visibility to Public, Friends, then
-Private.
-**Expected:** The control shows the current tier and saves instantly.
+**Steps:** On a slot page you own, set visibility to Public, Friends & quests,
+then Private.
+**Expected:** The control shows the current tier, saves instantly, and a hint
+line under the buttons explains the selected tier (v0.14: the middle tier is
+labeled "Friends & quests" — friends can browse it AND quest co-members can
+pick it; Private promises "never offered in quests").
 
 ### RT-SOC-02 — The tiers actually gate [2 users]
 
@@ -133,10 +136,14 @@ anywhere in the app or the API response.
 
 ### RT-SOC-16 — Explore → Slots
 
-**Steps:** Open Explore → Slots on each domain.
-**Expected:** Public and friends' custom slots as cards with a 2×2 poster
-collage, the owner's name, like count and tags. Sorting by popular and newest
-both work. Your own slots and everyone's role slots are excluded.
+**Steps:** Open Explore → Slots on each domain, once as a friend of a slot
+owner and once as a stranger.
+**Expected:** **Public custom slots only** (v0.14 — friends-only slots never
+appear in search, even to friends; they live on the friend's profile and in
+quests). Cards show a 2×2 poster collage, owner's name, like count and tags.
+Sorting by popular and newest both work. Your own slots and everyone's role
+slots are excluded. The 📍 city chip switches to geo results — covered in
+`location-and-safety.md` RT-LOC-07.
 
 ### RT-SOC-17 — Slot search
 
@@ -154,6 +161,8 @@ influence a public ordering — that would leak owner-private data.
 **Steps:** Open Explore → People and search a name.
 **Expected:** Public profiles only. A **Featured** rail appears for curator
 accounts. Private and friends-only profiles are not listed to strangers.
+Blocked users never appear (RT-SAFE-02); the 📍 city chip switches to
+opt-in city discovery — `location-and-safety.md` RT-LOC-08.
 
 ### RT-SOC-20 — A stranger's view [2 users]
 

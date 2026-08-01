@@ -4,8 +4,11 @@ An itinerary of quests with one roster and one code — movie marathons, date
 nights, weekend trips.
 
 **Shipped in:** v0.11 · v0.12 (planning-first creation, thumbnails, Whenever)
+· v0.14 (trip details: destination, dates, friends/members visibility)
 
-Quests themselves are in `quests.md`. The rules:
+Quests themselves are in `quests.md`. Trip details, friends' upcoming trips,
+the trip nudge and slot suggestions are in `location-and-safety.md`
+(RT-LOC-12…15). The rules:
 
 - An adventure is a **planning tool**: it's created standalone from the Quests
   tab, empty, with its own join code. Quests are added to it afterwards.

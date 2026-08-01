@@ -5,6 +5,35 @@ import type { ReleaseNote } from './release-notes';
 /** Newest first. */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    seq: 14,
+    version: "0.14",
+    date: "2026-08-01",
+    title: "Radar learns where things are",
+    summary: "Pick any city and explore it — pinned slots, local favorites, city guides and maps — plus home cities, trips with dates, and simple report & block tools.",
+    sections: [
+      {
+        heading: "Added",
+        items: [
+          { lead: "Pick a city, explore it", text: "Eat and Do get a 📍 location chip. Tap it, type any city (or reuse a recent one), and searches, distances and nearby pulls all anchor there instead of where you're standing. \"Near me\" brings you home." },
+          { lead: "City guides", text: "With a city picked, Eat and Do show the places people save most there on Radar — with a map. Maps also work on any food-or-outing slot (\"Map these 12 spots\")." },
+          { lead: "Slots can live somewhere", text: "Pin any slot to a city (\"Tokyo eats\", \"Austin date nights\"). Public pinned slots show up when anyone explores that city — with a \"local's list\" badge when the owner actually lives there." },
+          { lead: "Home city", text: "Set yours in You → Location (city-level only, never your exact position). It powers the locals badge and quick picks." },
+          { lead: "Find people by city", text: "Explore → People with a city picked shows people who chose to be discoverable there, best taste match first. This is strictly opt-in: You → Location → \"Discoverable by city\", off by default." },
+          { lead: "Trips", text: "An adventure can now have a destination, dates, and a privacy toggle: \"Members only\" (nobody else knows it exists — surprises stay surprises) or \"Friends can see\" (it appears in your friends' Quests tab). Friends with saved places near your destination get a nudge — \"you have 12 places in Austin, share your favorites?\"" },
+          { lead: "Your slots, your trip", text: "Planning an adventure with a destination? Slots you've pinned near it are offered as one-tap quests." },
+          { lead: "Report & block", text: "Every profile and slot page has a quiet report link, and profiles can be blocked. Blocked people vanish from your discovery; manage the list in You → Location." },
+        ],
+      },
+      {
+        heading: "Changed",
+        items: [
+          { lead: "Slot privacy, said honestly", text: "The middle visibility tier is now called \"Friends & quests\": friends can browse it, and quest members can pick it when you're in a quest together. That's how it already worked — now the label says so, and each tier explains itself under the buttons." },
+          { lead: "Slot search is public-only", text: "Explore's Slots and People tabs only ever show public things now. Friends-only slots stay between you, your friends, and your quests." },
+        ],
+      },
+    ],
+  },
+  {
     seq: 13,
     version: "0.13",
     date: "2026-08-01",
@@ -382,4 +411,4 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
 ];
 
 /** Highest sequence in this build — compared against profiles.last_seen_release_seq. */
-export const LATEST_RELEASE_SEQ = 13;
+export const LATEST_RELEASE_SEQ = 14;

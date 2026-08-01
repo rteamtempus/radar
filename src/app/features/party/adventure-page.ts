@@ -1,11 +1,15 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, OnDestroy, effect, inject, input, signal } from '@angular/core';
+import { Component, OnDestroy, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { DOMAINS, Domain } from '../../core/domain.service';
+import { CityPick } from '../../core/location.service';
 import { PlatformService } from '../../core/platform/platform.service';
-import { AdventureQuest, AdventureService } from './adventure.service';
+import { CityPicker } from '../../shared/ui/city-picker';
+import { distanceMiles } from '../explore/explore.service';
+import { RadarSlot, SlotsService } from '../radar/slots.service';
+import { AdventureQuest, AdventureService, AdventureSummary } from './adventure.service';
 import { PartyStatus } from './party.service';
 
 const STATUS_LABELS: Record<PartyStatus, string> = {
@@ -24,7 +28,7 @@ const STATUS_LABELS: Record<PartyStatus, string> = {
  */
 @Component({
   selector: 'pp-adventure-page',
-  imports: [FormsModule, RouterLink, NgTemplateOutlet],
+  imports: [CityPicker, FormsModule, RouterLink, NgTemplateOutlet],
   template: `
     @if (adv.adventure(); as a) {
       <div class="mx-auto flex min-h-dvh max-w-md flex-col px-6 py-8">
@@ -41,6 +45,16 @@ const STATUS_LABELS: Record<PartyStatus, string> = {
                 · <span class="font-bold text-gold">{{ a.status }}</span>
               }
             </p>
+            @if (a.location || a.starts_on) {
+              <p class="mt-0.5 text-xs font-bold text-gold">
+                @if (a.location) {
+                  📍 {{ a.location.name }}
+                }
+                @if (dateRange(a)) {
+                  · {{ dateRange(a) }}
+                }
+              </p>
+            }
           </div>
         </div>
 
@@ -57,6 +71,100 @@ const STATUS_LABELS: Record<PartyStatus, string> = {
               {{ copied() ? '✓ Link copied' : 'One code covers every quest — tap to share' }}
             </span>
           </button>
+        }
+
+        <!-- ============ trip settings (v0.14) — owner only ============ -->
+        @if (a.status === 'planning' && isOwner()) {
+          <div class="mt-4 rounded-2xl border border-line bg-surface p-4">
+            <p class="text-xs font-bold tracking-wide text-muted uppercase">Trip details</p>
+            <div class="mt-2.5 flex items-center gap-2">
+              <button
+                (click)="tripPickerOpen.set(true)"
+                class="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line bg-bg-warm px-3 py-2.5 text-left text-sm font-bold"
+                [class.text-muted]="!a.location"
+              >
+                📍 {{ a.location?.name ?? 'Where to?' }}
+              </button>
+              @if (a.location) {
+                <button
+                  (click)="adv.setTrip(id(), { location: null })"
+                  class="flex-none rounded-xl border border-line px-3 py-2.5 text-sm font-bold text-muted-2"
+                  aria-label="Clear trip location"
+                >
+                  ✕
+                </button>
+              }
+            </div>
+            <div class="mt-2 flex items-center gap-2">
+              <input
+                type="date"
+                [value]="a.starts_on ?? ''"
+                (change)="setDates(a, 'starts_on', $event)"
+                aria-label="Trip start date"
+                class="min-w-0 flex-1 rounded-xl border border-line bg-bg-warm px-3 py-2.5 text-xs text-cream focus:border-gold focus:outline-none"
+              />
+              <span class="flex-none text-xs text-muted">→</span>
+              <input
+                type="date"
+                [value]="a.ends_on ?? ''"
+                (change)="setDates(a, 'ends_on', $event)"
+                aria-label="Trip end date"
+                class="min-w-0 flex-1 rounded-xl border border-line bg-bg-warm px-3 py-2.5 text-xs text-cream focus:border-gold focus:outline-none"
+              />
+            </div>
+            <div class="mt-2.5 flex gap-2">
+              <button
+                (click)="adv.setTrip(id(), { visibility: 'members' })"
+                class="flex-1 rounded-xl border py-2 text-xs font-bold"
+                [class]="a.visibility === 'members' ? 'border-coral bg-coral/15 text-coral' : 'border-line text-muted-2'"
+              >
+                🤫 Members only
+              </button>
+              <button
+                (click)="adv.setTrip(id(), { visibility: 'friends' })"
+                class="flex-1 rounded-xl border py-2 text-xs font-bold"
+                [class]="a.visibility === 'friends' ? 'border-coral bg-coral/15 text-coral' : 'border-line text-muted-2'"
+              >
+                👥 Friends can see
+              </button>
+            </div>
+            <p class="mt-1.5 text-[11px] text-muted">
+              {{
+                a.visibility === 'friends'
+                  ? 'Your friends see this upcoming trip (name, place, dates) — joining still takes the code.'
+                  : 'Nobody outside the roster knows this exists. Perfect for surprises.'
+              }}
+            </p>
+          </div>
+
+          <!-- location-matched slot suggestions (idea 2's payoff) -->
+          @if (a.location && suggestedSlots().length) {
+            <div class="mt-3 rounded-2xl border border-gold/30 bg-gold/5 p-3.5">
+              <p class="text-[11px] font-bold tracking-wide text-gold uppercase">
+                Your slots near {{ a.location.name }} — turn one into a quest
+              </p>
+              <div class="mt-2 flex flex-wrap gap-1.5">
+                @for (s of suggestedSlots(); track s.id) {
+                  <button
+                    (click)="questFromSlot(s)"
+                    [disabled]="busy()"
+                    class="rounded-full border border-gold/50 px-3 py-1.5 text-xs font-bold text-gold disabled:opacity-50"
+                  >
+                    {{ s.emoji }} {{ s.name }} ({{ s.items.length }})
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        }
+
+        @if (tripPickerOpen()) {
+          <pp-city-picker
+            title="Trip destination"
+            [allowNearMe]="false"
+            (picked)="setTripLocation($event)"
+            (close)="tripPickerOpen.set(false)"
+          />
         }
 
         <!-- ============ the recap, once it's done ============ -->
@@ -323,8 +431,51 @@ export class AdventurePage implements OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly platform = inject(PlatformService);
   private readonly router = inject(Router);
+  private readonly slots = inject(SlotsService);
 
   readonly id = input.required<string>();
+
+  // ---- trip settings (v0.14) ----
+  protected readonly tripPickerOpen = signal(false);
+
+  /** My slots (any domain) pinned within ~60 miles of the trip city. */
+  protected readonly suggestedSlots = computed<RadarSlot[]>(() => {
+    const loc = this.adv.adventure()?.location;
+    if (!loc) return [];
+    return this.slots
+      .slots()
+      .filter((s) => {
+        if (!s.location || !s.items.length) return false;
+        const mi = distanceMiles({ lat: loc.lat, lng: loc.lng }, s.location);
+        return mi !== null && mi <= 60;
+      })
+      .slice(0, 6);
+  });
+
+  protected setTripLocation(pick: CityPick) {
+    void this.adv.setTrip(this.id(), { location: pick });
+  }
+
+  protected setDates(a: AdventureSummary, field: 'starts_on' | 'ends_on', event: Event) {
+    const value = (event.target as HTMLInputElement).value || null;
+    void this.adv.setTrip(this.id(), { [field]: value });
+  }
+
+  /** Turn a location-matched slot into a quest in its own domain. */
+  protected async questFromSlot(s: RadarSlot) {
+    this.busy.set(true);
+    await this.adv.addQuest(this.id(), s.config?.domain ?? 'watch', s.name);
+    this.busy.set(false);
+  }
+
+  protected dateRange(a: AdventureSummary): string | null {
+    if (!a.starts_on) return null;
+    const fmt = (d: string) =>
+      new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return a.ends_on && a.ends_on !== a.starts_on
+      ? `${fmt(a.starts_on)}–${fmt(a.ends_on)}`
+      : fmt(a.starts_on);
+  }
 
   protected readonly domains = DOMAINS;
   protected readonly adding = signal(false);
@@ -340,6 +491,10 @@ export class AdventurePage implements OnDestroy {
   private readonly openOnIdChange = effect(() => {
     void this.adv.open(this.id());
   });
+
+  constructor() {
+    this.slots.load(); // for the location-matched quest suggestions
+  }
 
   ngOnDestroy() {
     this.adv.close();

@@ -11,9 +11,12 @@ The discovery browser. Since v0.13 it has **two result models**:
   "Show 20 more" pagination.
 
 **Shipped in:** v0.7 (Things browser) · v0.9 (Slots and People modes) ·
-v0.13 (server-driven search, curated chips, Open Library)
+v0.13 (server-driven search, curated chips, Open Library) · v0.14 (📍 custom
+location for Eat/Do, city guides)
 
-Slots and People modes are covered in `social-slots.md`.
+Slots and People modes are covered in `social-slots.md`. The 📍 location
+chip, precedence rule, city guides and maps are covered in
+`location-and-safety.md` (RT-LOC-01…04, 09).
 
 ---
 

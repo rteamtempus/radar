@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 /* PartyPick palette — from docs/PartyPick-Wireframes.dc.html
    cozy-dark, coral primary, gold highlight, green positive, violet super-like */

@@ -1,6 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { Session } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured } from './supabase.client';
+import { Json } from './types/database.types';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -62,16 +63,32 @@ export class AuthService {
     const supabase = getSupabase();
     const { data } = await supabase
       .from('profiles')
-      .select('id, display_name, settings, visibility')
+      .select('id, display_name, settings, visibility, home_location, geo_discoverable')
       .eq('id', user.id)
       .maybeSingle();
-    if (data) return data as ProfileRow;
+    if (data) return data as unknown as ProfileRow;
     const { data: created } = await supabase
       .from('profiles')
       .insert({ id: user.id, display_name: this.defaultDisplayName() })
-      .select('id, display_name, settings, visibility')
+      .select('id, display_name, settings, visibility, home_location, geo_discoverable')
       .single();
-    return created as ProfileRow | null;
+    return created as unknown as ProfileRow | null;
+  }
+
+  /** Home city, city-granularity only — a CityPick from autocomplete (G2). */
+  async setHomeLocation(home: HomeLocation | null): Promise<void> {
+    const user = this.user();
+    if (!user) return;
+    await getSupabase()
+      .from('profiles')
+      .update({ home_location: home as unknown as Json })
+      .eq('id', user.id);
+  }
+
+  async setGeoDiscoverable(on: boolean): Promise<void> {
+    const user = this.user();
+    if (!user) return;
+    await getSupabase().from('profiles').update({ geo_discoverable: on }).eq('id', user.id);
   }
 
   async setProfileVisibility(visibility: 'public' | 'friends' | 'private'): Promise<void> {
@@ -104,9 +121,18 @@ export class AuthService {
   }
 }
 
+export interface HomeLocation {
+  name: string;
+  place_id: string;
+  lat: number;
+  lng: number;
+}
+
 export interface ProfileRow {
   id: string;
   display_name: string;
   settings: { onboarded?: boolean } & Record<string, unknown>;
   visibility: 'public' | 'friends' | 'private';
+  home_location: HomeLocation | null;
+  geo_discoverable: boolean;
 }

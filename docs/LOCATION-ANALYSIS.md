@@ -91,21 +91,20 @@ the location layer is the substrate several of them were waiting on.
 
 ## Gotchas (the ass-bite list, ranked)
 
-**G1 — This suite IS stranger-facing discovery; two prerequisites are already
-flagged as blocking that.** CLAUDE.md § Quests 2's interim visibility rule
-leaks friends-only slot contents to code-joiners ("revisit before
-stranger-facing discovery grows"), and HANDOFF lists report/block as needed
-before real stranger discovery. "Popular slots in an area" and "find people in
-a city" are exactly that. **The quest-slot visibility redesign and a minimal
-report/block are prerequisites (phase 0), not parallel work.**
+**G1 — This suite IS stranger-facing discovery — RESOLVED (Rory, 2026-08-01):**
+The interim quest rule becomes *intentional*: quests/adventures deliberately
+offer friends-only slots to all members, and the UI copy renames the tier to
+**"Friends & quests"** so owners know exactly who can see it. All
+search/discovery surfaces (Explore slot search, geo search, city guides,
+people search) show **public slots only** — friends-only slots never appear in
+any search. Minimal report/block remains a phase-0 build item.
 
-**G2 — Geo-searchable people is a stalking surface.** City search + home
-location + "their favorite places" composes into "where does this person hang
-out". Day-one design rules: profile home location is stored **city-granularity
-only** (snap to locality centroid at save; never store a raw GPS fix on a
-profile); geo-discoverability is **opt-in, default off**; visibility gates
-geo-search everywhere (a friends-only slot must never surface in a stranger's
-city browse).
+**G2 — Geo-searchable people is a stalking surface — CONFIRMED (Rory,
+2026-08-01).** Profile home location is stored **city-granularity only**
+(autocomplete-picked locality; never a raw GPS fix); geo-discoverability is
+**opt-in, default off**; visibility gates geo-search everywhere (public only,
+per G1). Rory: this feature is **test-and-see — be ready to remove it** if
+testers are uncomfortable; keep it isolated enough to delete cleanly.
 
 **G3 — Google ToS: coordinates are cacheable for 30 days; place_id forever.**
 `upsertPlace` writes lat/lng into `activities.location` permanently — was
@@ -193,10 +192,42 @@ text/nearby search bills at the ~1K-free tier today.
 
 ## Phasing (verdict pass complete — this is the shape of the build)
 
-- **Phase 0 — prerequisites:** quest-slot visibility redesign + minimal
-  report/block (G1); **field-mask split + metadata merge (G8)** — pure cost
+- **Phase 0 — prerequisites:** visibility resolution per G1 (rename tier to
+  "Friends & quests" in UI copy; Explore slot search → public only) + minimal
+  report/block; **field-mask split + metadata merge (G8)** — pure cost
   hygiene, do it first regardless of the rest; confirm Google billing alert
   (Rory).
+- **Execution note (2026-08-01):** Rory approved autonomous execution of all
+  phases in order, with Playwright verification standing in for his usual
+  UI reviews (screenshots = the review artifact; he can veto after landing).
+
+## BUILT (2026-08-01, v0.14) — status & deviations
+
+All four phases shipped in one session (migrations 0016–0019, edge fn
+`places-autocomplete`, release note 0014, regression file
+`location-and-safety.md`). Deviations from this doc's plan, all deliberate:
+
+1. **No PostGIS** — jsonb lat/lng + a `haversine_km()` SQL function. Plenty at
+   POC scale, keeps generated types clean; 0001's TODO stands as the upgrade
+   path when row counts demand GiST.
+2. **Saved places (idea 13) shipped lean** — home city + 4 recents as picker
+   quick-picks, not named home/work/parents entries. Rory reviews the UI and
+   can ask for the named version.
+3. **Match % already existed** (0011 `taste_match`) — G7 became "add the
+   confidence floor" (done: <5 shared tags → null → "new-ish"/"not enough
+   data" in UI).
+4. **Trip recap** — the existing v0.11 adventure recap stands; no separate
+   location-stamped recap was added (idea 5's fuller version stays open).
+5. **Blocking is discovery-hiding** — server-side in the geo RPCs (both
+   directions), client-side filtering on the plain Explore lists. It does NOT
+   revoke access to public content via direct link. Honest POC scope.
+6. **⚠ Known gap:** `profiles.home_location` (city-level) is readable by any
+   signed-in user via PostgREST regardless of `geo_discoverable` — the UI
+   honors the toggle, the API technically doesn't hide the column. Move it to
+   an owner-only table + RPC before real stranger scale.
+7. **Curated city starter slots (idea 10)** — blocked on the curator account
+   (needs-Rory list). City guides (idea 6) shipped and cover part of the
+   cold-start story.
 - **Phase 1 — location layer:** PostGIS migration (profiles.home_location →
   geography, activities.location → geography, NEW radar_slots location +
   adventures location); autocomplete city-picker component (session tokens,

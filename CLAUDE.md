@@ -33,7 +33,12 @@ Vercel, no Dockerfile). Gemini/AI was removed in v0.11 (quests run on slots).
    work; `external_source` distinguishes legacy rows), popularity sort only
    when a query narrows, quoted `subject` for genre browses. Places text
    search paginates by token, has NO total count, and stays behind explicit
-   billable-action buttons.
+   billable-action buttons. **Field masks set the Places billing tier**
+   (Essentials ~10K free/mo > Pro ~5K > Enterprise ~1K): search masks stay
+   PRO-TIER (no rating/price/hours/editorialSummary — those come from
+   place-detail, and `upsertPlace` MERGES metadata so search hits never null
+   out detail-cached fields). City autocomplete = `places-autocomplete`
+   (session-tokened; locations are always picked, never geocoded).
 4. **Curated vocabularies:** filter chips come from `core/vocab.ts` (client)
    and `functions/_shared/vocab.ts` (edge) — slugs must stay in sync. Taggers
    write ONLY curated slugs (Places `primaryType` → 1 tag; OL subjects →
@@ -54,8 +59,8 @@ Vercel, no Dockerfile). Gemini/AI was removed in v0.11 (quests run on slots).
 onboarding,explore,library,party,profile,radar,friends}` · `shared/ui`
 (presentational kit) · `supabase/migrations` (0001 schema, 0002 seed —
 reference data ships as migrations) + `functions/{_shared,tmdb-search,
-tmdb-discover,tmdb-detail,places-search,place-detail,books-search,book-detail,
-import-history}`.
+tmdb-discover,tmdb-detail,places-search,places-autocomplete,place-detail,
+books-search,book-detail,import-history}`.
 
 Migrations are plain PostgreSQL — VS Code's default T-SQL linter flags them
 falsely; ignore or set the SQL dialect to Postgres.
@@ -141,13 +146,13 @@ scoring or a shortlist without asking.
    Explore's `searchSlots()` relies on `radar_slots` RLS alone, so widening
    that policy would leak friends-only slots into public discovery. If you need
    a new cross-member slot read, add it to the SECURITY DEFINER RPC.
-2. **⚠ INTERIM VISIBILITY RULE (owed a redesign).** Rory approved "anyone can
-   pick any member's slots" and explicitly deferred the visibility system. The
-   rule shipped is: **slots marked `private` are never offered to anyone,
-   including their owner, inside a quest**; public and friends-only slots, and
-   slots a member saved from a third party, are offered to every member — which
-   does mean a stranger who joined by code can see a friends-only slot's
-   contents. Revisit before stranger-facing discovery grows.
+2. **VISIBILITY RULE (resolved 2026-08-01, was interim).** Rory made the quest
+   behavior intentional: the middle slot tier is **"Friends & quests"** in UI
+   copy — friends can browse it AND it can be offered inside any quest its
+   owner (or a subscriber) is a member of, including to code-joined strangers.
+   `private` slots are never offered to anyone, including their owner.
+   **Search/discovery is public-only everywhere** (Explore slots/people, geo
+   RPCs, city guides) — friends-only content must never surface in any search.
 3. **Server-side re-checks.** `quest_pick_slot` re-validates domain,
    visibility, membership and the 3-slot cap — never trust the picker's list.
 4. **`party_slots` is denormalised** (slot name/emoji/owner/count) so the lobby
@@ -161,6 +166,30 @@ scoring or a shortlist without asking.
    code lands people in the whole itinerary, never just one quest.
    (`adventure_create_from_party` still exists in the schema but the app no
    longer calls it.)
+
+## Location suite (v0.14 — design log: docs/LOCATION-ANALYSIS.md)
+
+1. **Locations are always PICKED, never geocoded.** Every stored location is
+   an autocomplete `CityPick {name, place_id, lat, lng}` at city granularity
+   — profiles/slots/adventures never hold a raw GPS fix. This is what keeps
+   the suite inside the already-enabled Places API (no Geocoding API).
+2. **Explore precedence: custom pick > GPS > home** (`location.effective()`),
+   and the active source is always visible on the 📍 chip. Location never
+   applies to watch/read.
+3. **Geo search = SECURITY DEFINER RPCs** (`slots_near`, `people_in_city`,
+   `city_guide`, `friend_trips`) — public content only, `user_blocks`
+   filtered both directions. Never widen RLS for a geo feature.
+4. **People discovery is opt-in** (`profiles.geo_discoverable`, default
+   false, + profile must be public). Rory's stance: test-and-see — keep it
+   deletable. Home city renders only when the owner is discoverable.
+5. **Adventures are NEVER public** — visibility is `members` (default) or
+   `friends`. Friends see trip summaries via `friend_trips()`, not the
+   adventure itself.
+6. **Maps are Leaflet + OSM** (`shared/ui/map-view.ts`, lazy-loaded, circle
+   markers). Never the Google Maps SDK — that's a new billable product.
+   Map view is earmarked premium-gated before extensive-tester rollout.
+7. No PostGIS yet — jsonb lat/lng + `haversine_km()` SQL. Fine at POC scale;
+   0001's TODO stands if row counts demand spatial indexes.
 
 ## Notifications
 

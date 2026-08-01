@@ -10,10 +10,13 @@ import {
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { DOMAINS, Domain, DomainService, isPlaceDomain } from '../../core/domain.service';
-import { LatLng, LocationService } from '../../core/location.service';
+import { CityPick, LatLng, LocationService } from '../../core/location.service';
+import { SafetyService } from '../../core/safety.service';
 import { SubscriptionsService } from '../../core/subscriptions.service';
+import { CityPicker } from '../../shared/ui/city-picker';
+import { MapMarker, MapView } from '../../shared/ui/map-view';
 import {
   BOOK_GENRE_CHIPS,
   BOOK_SUBJECT_QUERY,
@@ -26,11 +29,14 @@ import { ToastService } from '../../shared/ui/toast.service';
 import { LibraryService } from '../library/library.service';
 import { SlotCollage } from '../../shared/ui/slot-collage';
 import {
+  CityGuideEntry,
   DiscoveryPerson,
   DiscoverySlot,
   ExploreItem,
   ExploreService,
   FriendSignal,
+  NearPerson,
+  NearSlot,
   ServerPerson,
   distanceMiles,
 } from './explore.service';
@@ -56,7 +62,7 @@ const PAGE = 40;
  */
 @Component({
   selector: 'pp-explore-page',
-  imports: [DecimalPipe, FormsModule, RouterLink, ServiceBadges, SlotCollage],
+  imports: [CityPicker, DecimalPipe, FormsModule, MapView, RouterLink, ServiceBadges, SlotCollage],
   template: `
     <div class="mx-auto max-w-md px-5 py-6">
       <div class="flex items-center justify-between">
@@ -101,43 +107,130 @@ const PAGE = 40;
       @if (mode() === 'slots') {
         <!-- ============ slot discovery ============ -->
         <div class="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
+          <button (click)="pickerOpen.set(true)" [class]="chip(!!location.custom(), 'green')">
+            📍 {{ location.custom()?.name ?? 'Any city' }}
+          </button>
           <button (click)="slotSort.set('popular')" [class]="chip(slotSort() === 'popular')">👍 Popular</button>
           <button (click)="slotSort.set('new')" [class]="chip(slotSort() === 'new')">✨ New</button>
           @for (t of slotTagChips(); track t.slug) {
             <button (click)="toggleTag(t.slug)" [class]="chip(tagSel().has(t.slug), 'gold')">{{ t.label }}</button>
           }
         </div>
-        @if (!filteredSlots().length) {
-          <div class="mt-10 flex flex-col items-center gap-3 text-center">
-            <div class="text-4xl">📡</div>
-            <p class="font-bold">No slots found</p>
-            <p class="max-w-64 text-sm text-muted-2">
-              Public and friends' slots show up here — get your people making lists.
-            </p>
+        @if (location.custom(); as city) {
+          <!-- geo mode: public slots pinned near the picked city (slots_near) -->
+          @if (geoLoading()) {
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              @for (i of [0, 1, 2, 3]; track i) {
+                <div class="aspect-square animate-pulse rounded-2xl border border-line bg-surface"></div>
+              }
+            </div>
+          } @else if (!nearSlots().length) {
+            <div class="mt-10 flex flex-col items-center gap-3 text-center">
+              <div class="text-4xl">🗺️</div>
+              <p class="font-bold">No slots pinned near {{ city.name }} yet</p>
+              <p class="max-w-64 text-sm text-muted-2">
+                Make yours the first — pin a public slot to a city from its page.
+              </p>
+            </div>
+          }
+          <div class="mt-3 grid grid-cols-2 gap-3">
+            @for (s of nearSlots(); track s.id) {
+              <a [routerLink]="['/radar/slot', s.id]" class="rounded-2xl border border-line bg-surface p-3">
+                <pp-slot-collage class="aspect-square w-full" [images]="s.images ?? []" [emoji]="s.emoji" />
+                <p class="mt-2 truncate text-sm font-bold">{{ s.emoji }} {{ s.name }}</p>
+                <p class="truncate text-[11px] text-muted">
+                  {{ s.owner_name }} · {{ s.item_count }} items
+                  @if (s.like_count) {
+                    · 👍 {{ s.like_count }}
+                  }
+                </p>
+                <p class="mt-1 truncate text-[10px] text-muted-2">
+                  📍 {{ s.loc_name }}
+                  @if (s.is_local) {
+                    · <span class="font-bold text-green">local's list</span>
+                  }
+                </p>
+              </a>
+            }
+          </div>
+        } @else {
+          @if (!filteredSlots().length) {
+            <div class="mt-10 flex flex-col items-center gap-3 text-center">
+              <div class="text-4xl">📡</div>
+              <p class="font-bold">No slots found</p>
+              <p class="max-w-64 text-sm text-muted-2">
+                Public slots show up here — get your people publishing lists.
+              </p>
+            </div>
+          }
+          <div class="mt-3 grid grid-cols-2 gap-3">
+            @for (s of filteredSlots(); track s.id) {
+              <a [routerLink]="['/radar/slot', s.id]" class="rounded-2xl border border-line bg-surface p-3">
+                <pp-slot-collage class="aspect-square w-full" [images]="collageOf(s)" [emoji]="s.emoji" />
+                <p class="mt-2 truncate text-sm font-bold">{{ s.emoji }} {{ s.name }}</p>
+                <p class="truncate text-[11px] text-muted">
+                  {{ s.owner?.display_name ?? 'someone' }} · {{ s.items.length }} items
+                  @if (likesOf(s)) {
+                    · 👍 {{ likesOf(s) }}
+                  }
+                </p>
+                @if (s.slot_tags.length) {
+                  <p class="mt-1 truncate text-[10px] text-muted-2">
+                    {{ tagLabels(s) }}
+                  </p>
+                }
+              </a>
+            }
           </div>
         }
-        <div class="mt-3 grid grid-cols-2 gap-3">
-          @for (s of filteredSlots(); track s.id) {
-            <a [routerLink]="['/radar/slot', s.id]" class="rounded-2xl border border-line bg-surface p-3">
-              <pp-slot-collage class="aspect-square w-full" [images]="collageOf(s)" [emoji]="s.emoji" />
-              <p class="mt-2 truncate text-sm font-bold">{{ s.emoji }} {{ s.name }}</p>
-              <p class="truncate text-[11px] text-muted">
-                {{ s.owner?.display_name ?? 'someone' }} · {{ s.items.length }} items
-                @if (likesOf(s)) {
-                  · 👍 {{ likesOf(s) }}
-                }
-              </p>
-              @if (s.slot_tags.length) {
-                <p class="mt-1 truncate text-[10px] text-muted-2">
-                  {{ tagLabels(s) }}
-                </p>
-              }
-            </a>
-          }
-        </div>
       } @else if (mode() === 'people') {
         <!-- ============ people discovery ============ -->
-        @if (query().trim().length < 2) {
+        <div class="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
+          <button (click)="pickerOpen.set(true)" [class]="chip(!!location.custom(), 'green')">
+            📍 {{ location.custom()?.name ?? 'Any city' }}
+          </button>
+        </div>
+        @if (location.custom() && query().trim().length < 2) {
+          <!-- geo mode: opted-in public profiles in the city, best match first -->
+          @if (geoLoading()) {
+            <div class="mt-3 flex flex-col gap-2">
+              @for (i of [0, 1, 2]; track i) {
+                <div class="h-16 animate-pulse rounded-2xl bg-surface"></div>
+              }
+            </div>
+          } @else if (!nearPeople().length) {
+            <div class="mt-8 flex flex-col items-center gap-3 text-center">
+              <div class="text-4xl">🫥</div>
+              <p class="font-bold">Nobody discoverable here yet</p>
+              <p class="max-w-64 text-sm text-muted-2">
+                People choose to be findable by city in You → Location.
+              </p>
+            </div>
+          }
+          <div class="mt-3 flex flex-col gap-2">
+            @for (p of nearPeople(); track p.id) {
+              <a [routerLink]="['/friends', p.id]" class="flex items-center gap-3 rounded-2xl bg-surface px-4 py-3">
+                <span class="flex size-10 flex-none items-center justify-center rounded-full bg-gradient-to-br from-coral to-gold font-extrabold text-ink">
+                  {{ p.display_name.charAt(0).toUpperCase() }}
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate font-bold">{{ p.display_name }}</span>
+                  <span class="block truncate text-[11px] text-muted">
+                    📍 {{ p.home_name ?? 'nearby' }} · {{ p.public_slot_count }} public slot{{ p.public_slot_count === 1 ? '' : 's' }}
+                  </span>
+                </span>
+                @if (p.match !== null) {
+                  <span class="flex-none rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold">
+                    {{ p.match }}% match
+                  </span>
+                } @else {
+                  <span class="flex-none text-[10px] font-bold text-muted-2">new-ish</span>
+                }
+                <span class="text-muted">›</span>
+              </a>
+            }
+          </div>
+        } @else if (query().trim().length < 2) {
           @if (featured().length) {
             <h2 class="mt-4 mb-2 text-xs font-bold tracking-wide text-muted uppercase">⭐ Featured curators</h2>
           } @else {
@@ -233,6 +326,9 @@ const PAGE = 40;
         </div>
       } @else {
         <div class="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
+          <button (click)="pickerOpen.set(true)" [class]="chip(!!location.custom(), 'green')">
+            📍 {{ location.custom()?.name ?? 'Near me' }}
+          </button>
           <button (click)="openNow.set(!openNow())" [class]="chip(openNow(), 'green')">● Open now</button>
           @for (m of distanceChips; track m.value) {
             <button
@@ -312,6 +408,38 @@ const PAGE = 40;
           <button (click)="clearFilters()" class="flex-none text-xs font-bold text-coral">Clear</button>
         }
       </div>
+
+      <!-- city guide: most-saved places near the picked city (public slots) -->
+      @if (isEat() && location.custom() && cityGuide().length) {
+        <div class="mt-4 rounded-2xl border border-gold/30 bg-gold/5 p-3.5">
+          <div class="flex items-center justify-between">
+            <p class="text-xs font-bold tracking-wide text-gold uppercase">
+              🏆 {{ location.custom()?.name }} — most saved on Radar
+            </p>
+            <button (click)="mapOpen.set(!mapOpen())" class="flex-none text-xs font-bold text-gold">
+              {{ mapOpen() ? 'List' : '🗺 Map' }}
+            </button>
+          </div>
+          @if (mapOpen()) {
+            <pp-map-view class="mt-2.5 block" [markers]="guideMarkers()" (markerTapped)="openMarker($event)" />
+          }
+          <div class="no-scrollbar mt-2.5 flex gap-2.5 overflow-x-auto">
+            @for (g of cityGuide(); track g.id) {
+              <a [routerLink]="['/library', g.id]" class="w-28 flex-none">
+                @if (g.image_url) {
+                  <img [src]="g.image_url" alt="" class="h-20 w-28 rounded-lg object-cover" />
+                } @else {
+                  <div class="h-20 w-28 rounded-lg bg-surface-2"></div>
+                }
+                <p class="mt-1 truncate text-xs font-bold">{{ g.title }}</p>
+                <p class="truncate text-[10px] text-muted">
+                  💾 {{ g.saves }} · {{ g.rating ? '★ ' + g.rating : (g.distance_km + ' km') }}
+                </p>
+              </a>
+            }
+          </div>
+        </div>
+      }
 
       <!-- ============ results ============ -->
       @if ((explore.loading() || serverLoading()) && !visible().length) {
@@ -433,6 +561,16 @@ const PAGE = 40;
         }}
       </p>
       }
+
+      @if (pickerOpen()) {
+        <pp-city-picker
+          [title]="mode() === 'things' ? 'Explore location' : mode() === 'slots' ? 'Slots near…' : 'People in…'"
+          [clearLabel]="mode() === 'things' ? '📍 Near me' : '🌍 Any city'"
+          (picked)="onCityPicked($event)"
+          (cleared)="onCityCleared()"
+          (close)="pickerOpen.set(false)"
+        />
+      }
     </div>
   `,
 })
@@ -440,8 +578,10 @@ export class ExplorePage implements OnDestroy {
   protected readonly explore = inject(ExploreService);
   protected readonly domain = inject(DomainService);
   protected readonly subs = inject(SubscriptionsService);
+  protected readonly location = inject(LocationService);
   private readonly lib = inject(LibraryService);
-  private readonly location = inject(LocationService);
+  private readonly router = inject(Router);
+  private readonly safety = inject(SafetyService);
   private readonly toast = inject(ToastService);
 
   protected readonly domains = DOMAINS;
@@ -459,6 +599,75 @@ export class ExplorePage implements OnDestroy {
   protected readonly featured = signal<DiscoveryPerson[]>([]);
   protected readonly people = signal<DiscoveryPerson[]>([]);
 
+  // ---- geo discovery (v0.14): custom city → RPC-backed lists ----
+  protected readonly pickerOpen = signal(false);
+  protected readonly geoLoading = signal(false);
+  protected readonly nearSlots = signal<NearSlot[]>([]);
+  protected readonly nearPeople = signal<NearPerson[]>([]);
+  protected readonly cityGuide = signal<CityGuideEntry[]>([]);
+  private geoSerial = 0;
+
+  protected readonly mapOpen = signal(false);
+
+  protected readonly guideMarkers = computed<MapMarker[]>(() =>
+    this.cityGuide().map((g) => ({
+      lat: g.lat,
+      lng: g.lng,
+      label: `${g.title} · 💾 ${g.saves}`,
+      link: ['/library', g.id],
+    })),
+  );
+
+  protected openMarker(m: MapMarker) {
+    if (m.link) void this.router.navigate(m.link);
+  }
+
+  protected onCityPicked(pick: CityPick) {
+    this.location.setCustom(pick);
+  }
+
+  protected onCityCleared() {
+    this.location.setCustom(null);
+  }
+
+  /** Reload geo lists whenever the mode, domain, or picked city changes. */
+  private readonly geoRefresh = effect(() => {
+    const custom = this.location.custom();
+    const mode = this.mode();
+    const d = this.domain.domain();
+    void this.loadGeo(custom, mode, d);
+  });
+
+  private async loadGeo(custom: CityPick | null, mode: string, d: Domain): Promise<void> {
+    const serial = ++this.geoSerial;
+    if (!custom) {
+      this.nearSlots.set([]);
+      this.nearPeople.set([]);
+      this.cityGuide.set([]);
+      if (isPlaceDomain(d)) this.location.get().then((loc) => serial === this.geoSerial && this.myLoc.set(loc));
+      return;
+    }
+    // distances & Places bias now anchor on the picked city
+    this.myLoc.set({ lat: custom.lat, lng: custom.lng });
+    this.geoLoading.set(true);
+    try {
+      if (mode === 'slots') {
+        const rows = await this.explore.slotsNear(custom, d);
+        if (serial === this.geoSerial) this.nearSlots.set(rows);
+      } else if (mode === 'people') {
+        const rows = await this.explore.peopleInCity(custom);
+        if (serial === this.geoSerial) this.nearPeople.set(rows);
+      } else if (isPlaceDomain(d)) {
+        const rows = await this.explore.cityGuide(custom, d === 'do' ? 'do' : 'eat');
+        if (serial === this.geoSerial) this.cityGuide.set(rows.slice(0, 10));
+      }
+    } catch {
+      if (serial === this.geoSerial) this.toast.error('Could not load nearby results.');
+    } finally {
+      if (serial === this.geoSerial) this.geoLoading.set(false);
+    }
+  }
+
   protected switchMode(m: 'things' | 'slots' | 'people') {
     this.mode.set(m);
     this.query.set('');
@@ -467,7 +676,9 @@ export class ExplorePage implements OnDestroy {
       this.explore.searchSlots().then((s) => this.allSlots.set(s));
     }
     if (m === 'people' && !this.featured().length) {
-      this.explore.featuredPeople().then((p) => this.featured.set(p));
+      this.explore
+        .featuredPeople()
+        .then((p) => this.featured.set(p.filter((x) => !this.safety.blockedIds().has(x.id))));
     }
   }
 
@@ -475,7 +686,9 @@ export class ExplorePage implements OnDestroy {
     const q = this.query().trim().toLowerCase();
     const d = this.domain.domain();
     const sel = this.tagSel();
+    const blocked = this.safety.blockedIds();
     const list = this.allSlots().filter((s) => {
+      if (blocked.has(s.owner?.id ?? '')) return false;
       if ((s.config?.domain ?? 'watch') !== d) return false;
       if (
         q &&
@@ -920,12 +1133,15 @@ export class ExplorePage implements OnDestroy {
     const d = this.domain.domain();
     this.resetForDomain(d);
     this.explore.load(d);
-    if (d === 'eat') this.location.get().then((loc) => this.myLoc.set(loc));
+    if (isPlaceDomain(d)) {
+      this.location.effective().then((loc) => this.myLoc.set(loc));
+    }
   });
 
   constructor() {
     this.lib.load();
     this.subs.load();
+    this.safety.load();
   }
 
   ngOnDestroy() {
@@ -977,7 +1193,8 @@ export class ExplorePage implements OnDestroy {
     if (this.mode() === 'people') {
       if (trimmed.length < 2) return;
       this.debounce = setTimeout(async () => {
-        this.people.set(await this.explore.searchPeople(trimmed));
+        const found = await this.explore.searchPeople(trimmed);
+        this.people.set(found.filter((x) => !this.safety.blockedIds().has(x.id)));
       }, 400);
       return;
     }
@@ -988,10 +1205,10 @@ export class ExplorePage implements OnDestroy {
   protected async nearby() {
     this.pulling.set(true);
     try {
-      const loc = await this.location.get();
+      const loc = await this.location.effective();
       this.myLoc.set(loc);
       if (!loc) {
-        this.toast.error('Location is off — allow it in your browser settings.');
+        this.toast.error('Pick a city (📍) or allow location in your browser settings.');
         return;
       }
       const { rows } = await this.lib.searchPlaces('', loc, this.placeKind(), {
@@ -1011,7 +1228,7 @@ export class ExplorePage implements OnDestroy {
     try {
       const { rows, nextPageToken } = await this.lib.searchPlaces(
         this.query().trim(),
-        await this.location.get(),
+        await this.location.effective(),
         this.placeKind(),
         { cuisine: [...this.tagSel()][0] ?? null },
       );
@@ -1032,7 +1249,7 @@ export class ExplorePage implements OnDestroy {
     try {
       const { rows, nextPageToken } = await this.lib.searchPlaces(
         this.query().trim(),
-        await this.location.get(),
+        await this.location.effective(),
         this.placeKind(),
         { cuisine: [...this.tagSel()][0] ?? null, pageToken: token },
       );

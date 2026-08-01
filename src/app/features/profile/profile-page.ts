@@ -1,8 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { AuthService } from '../../core/auth.service';
+import { AuthService, HomeLocation } from '../../core/auth.service';
+import { LocationService } from '../../core/location.service';
 import { NotificationsService } from '../../core/notifications.service';
+import { SafetyService } from '../../core/safety.service';
+import { CityPicker } from '../../shared/ui/city-picker';
 import { ReleaseNote, ReleaseNotesService } from '../../core/release-notes';
 import { SubscriptionsService } from '../../core/subscriptions.service';
 import { LibraryEntry, LibraryService } from '../library/library.service';
@@ -19,6 +22,7 @@ import { TasteService } from './taste.service';
 @Component({
   selector: 'pp-profile-page',
   imports: [
+    CityPicker,
     FormsModule,
     RouterLink,
     NotificationBadge,
@@ -102,6 +106,76 @@ import { TasteService } from './taste.service';
           Public: anyone can view your page & public slots · Friends: friends only · Private: just you.
         </p>
       </div>
+
+      <div class="rounded-2xl border border-line bg-surface p-5">
+        <p class="text-xs font-bold tracking-wide text-muted uppercase">Location</p>
+        <div class="mt-2 flex items-center gap-2">
+          <button
+            (click)="pickerOpen.set(true)"
+            class="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line bg-bg-warm px-3 py-2.5 text-left text-sm font-bold"
+          >
+            <span>🏠</span>
+            <span class="min-w-0 truncate" [class.text-muted]="!homeCity()">
+              {{ homeCity()?.name ?? 'Set your home city' }}
+            </span>
+          </button>
+          @if (homeCity()) {
+            <button
+              (click)="clearHome()"
+              class="flex-none rounded-xl border border-line px-3 py-2.5 text-sm font-bold text-muted-2"
+              aria-label="Clear home city"
+            >
+              ✕
+            </button>
+          }
+        </div>
+        <p class="mt-1.5 text-[11px] text-muted">
+          City-level only — used for "near home" defaults and the locals signal. Never your exact position.
+        </p>
+
+        <button
+          (click)="toggleDiscoverable()"
+          class="mt-3 flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left"
+          [class]="geoDiscoverable() ? 'border-green bg-green/10' : 'border-line'"
+        >
+          <span class="text-lg">{{ geoDiscoverable() ? '📡' : '🫥' }}</span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-sm font-bold">Discoverable by city</span>
+            <span class="block text-xs text-muted-2">
+              Let people searching your home city find your public profile & slots. Off by default.
+            </span>
+          </span>
+          <span class="flex-none text-xs font-bold" [class]="geoDiscoverable() ? 'text-green' : 'text-muted-2'">
+            {{ geoDiscoverable() ? 'On' : 'Off' }}
+          </span>
+        </button>
+        @if (geoDiscoverable() && profileVisibility() !== 'public') {
+          <p class="mt-1.5 text-[11px] font-bold text-gold">
+            Heads up: only public profiles appear in city search — yours is {{ profileVisibility() }}.
+          </p>
+        }
+
+        @if (blocked().length) {
+          <p class="mt-4 text-xs font-bold tracking-wide text-muted uppercase">Blocked</p>
+          <div class="mt-2 flex flex-col gap-2">
+            @for (b of blocked(); track b.id) {
+              <div class="flex items-center gap-2 text-sm">
+                <span class="min-w-0 flex-1 truncate font-bold">{{ b.display_name }}</span>
+                <button (click)="unblock(b.id)" class="flex-none text-xs font-bold text-coral">Unblock</button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      @if (pickerOpen()) {
+        <pp-city-picker
+          title="Home city"
+          [allowNearMe]="false"
+          (picked)="setHome($event)"
+          (close)="pickerOpen.set(false)"
+        />
+      }
 
       <div class="rounded-2xl border border-line bg-surface p-5">
         <p class="text-xs font-bold tracking-wide text-muted uppercase">My streaming services</p>
@@ -277,6 +351,8 @@ export class ProfilePage {
   protected readonly importer = inject(ImportService);
   protected readonly taste = inject(TasteService);
   private readonly lib = inject(LibraryService);
+  private readonly location = inject(LocationService);
+  private readonly safety = inject(SafetyService);
   private toast = inject(ToastService);
   private router = inject(Router);
 
@@ -332,6 +408,36 @@ export class ProfilePage {
     await this.auth.setProfileVisibility(v);
   }
 
+  // ---- location & safety (v0.14) ----
+  protected readonly pickerOpen = signal(false);
+  protected readonly homeCity = signal<HomeLocation | null>(null);
+  protected readonly geoDiscoverable = signal(false);
+  protected readonly blocked = signal<{ id: string; display_name: string }[]>([]);
+
+  protected async setHome(pick: HomeLocation) {
+    this.homeCity.set(pick);
+    this.location.setHome(pick);
+    await this.auth.setHomeLocation(pick);
+    this.toast.success(`Home city set to ${pick.name} ✓`);
+  }
+
+  protected async clearHome() {
+    this.homeCity.set(null);
+    this.location.setHome(null);
+    await this.auth.setHomeLocation(null);
+  }
+
+  protected async toggleDiscoverable() {
+    const next = !this.geoDiscoverable();
+    this.geoDiscoverable.set(next);
+    await this.auth.setGeoDiscoverable(next);
+  }
+
+  protected async unblock(userId: string) {
+    await this.safety.unblock(userId);
+    this.blocked.set(this.blocked().filter((b) => b.id !== userId));
+  }
+
   protected readonly pendingItems = signal<HistoryItem[] | null>(null);
   protected readonly droppedCount = signal(0);
   protected readonly lastSummary = signal('');
@@ -382,7 +488,11 @@ export class ProfilePage {
     this.auth.getOrCreateProfile().then((p) => {
       if (p && !this.name) this.name = p.display_name;
       if (p?.visibility) this.profileVisibility.set(p.visibility);
+      this.homeCity.set(p?.home_location ?? null);
+      this.geoDiscoverable.set(p?.geo_discoverable ?? false);
+      if (p?.home_location) this.location.setHome(p.home_location);
     });
+    this.safety.blockedProfiles().then((b) => this.blocked.set(b));
   }
 
   protected async saveName() {

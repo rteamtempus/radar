@@ -64,6 +64,52 @@ export interface ServerPerson {
   department: string | null;
 }
 
+// ---- geo discovery shapes (RPCs from migration 0017) -----------------------
+
+/** A public slot near a searched city (slots_near). */
+export interface NearSlot {
+  id: string;
+  name: string;
+  emoji: string | null;
+  description: string | null;
+  owner_id: string;
+  owner_name: string;
+  loc_name: string;
+  distance_km: number;
+  domain: Domain;
+  item_count: number;
+  like_count: number;
+  is_local: boolean;
+  images: (string | null)[] | null;
+}
+
+/** An opted-in public profile in a searched city (people_in_city). */
+export interface NearPerson {
+  id: string;
+  display_name: string;
+  home_name: string | null;
+  distance_km: number;
+  match: number | null;
+  public_slot_count: number;
+}
+
+/** A most-saved place in a city (city_guide). */
+export interface CityGuideEntry {
+  id: string;
+  title: string;
+  image_url: string | null;
+  type: string;
+  rating: number | null;
+  rating_count: number | null;
+  price_level: number | null;
+  address: string | null;
+  lat: number;
+  lng: number;
+  distance_km: number;
+  saves: number;
+  slot_names: string[] | null;
+}
+
 /** One page of server-driven results: ordered ids + real totals. */
 export interface ServerPage {
   ids: string[];
@@ -227,8 +273,9 @@ export class ExploreService {
   }
 
   /**
-   * Discoverable slots: everything RLS lets me see (public + friends'),
-   * minus my own and minus role slots (personal queues aren't curated lists).
+   * Discoverable slots: PUBLIC only (G1 resolution, 2026-08-01 — search never
+   * surfaces friends-only slots; those live on friend profiles and in quests).
+   * Minus my own and minus role slots (personal queues aren't curated lists).
    * Popularity = like count (subscriber counts are owner-private by design).
    */
   async searchSlots(): Promise<DiscoverySlot[]> {
@@ -242,9 +289,44 @@ export class ExploreService {
           'slot_tags(tag:tags(slug, label)), ' +
           'likes:slot_likes(count)',
       )
+      .eq('visibility', 'public')
       .neq('owner_id', me ?? '')
       .limit(200);
     return ((data ?? []) as unknown as DiscoverySlot[]).filter((s) => !s.config?.role);
+  }
+
+  // ---- geo discovery (v0.14 — SECURITY DEFINER RPCs, public content only) --
+
+  async slotsNear(loc: LatLng, domain: Domain, radiusKm = 50): Promise<NearSlot[]> {
+    const { data, error } = await getSupabase().rpc('slots_near', {
+      p_lat: loc.lat,
+      p_lng: loc.lng,
+      p_radius_km: radiusKm,
+      p_domain: domain,
+    });
+    if (error) throw error;
+    return (data ?? []) as unknown as NearSlot[];
+  }
+
+  async peopleInCity(loc: LatLng, radiusKm = 50): Promise<NearPerson[]> {
+    const { data, error } = await getSupabase().rpc('people_in_city', {
+      p_lat: loc.lat,
+      p_lng: loc.lng,
+      p_radius_km: radiusKm,
+    });
+    if (error) throw error;
+    return (data ?? []) as unknown as NearPerson[];
+  }
+
+  async cityGuide(loc: LatLng, domain: 'eat' | 'do', radiusKm = 50): Promise<CityGuideEntry[]> {
+    const { data, error } = await getSupabase().rpc('city_guide', {
+      p_lat: loc.lat,
+      p_lng: loc.lng,
+      p_radius_km: radiusKm,
+      p_domain: domain,
+    });
+    if (error) throw error;
+    return (data ?? []) as unknown as CityGuideEntry[];
   }
 
   /** Featured curators (idea #15): public profiles flagged in settings. */

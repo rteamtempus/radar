@@ -187,6 +187,18 @@ function describe(r: NotificationRow): Pick<NotificationView, 'icon' | 'title' |
         body: 'Take a look at what is on their radar.',
         imageUrl: null,
       };
+    case 'friend_trip': {
+      const city = str(p, 'city') ?? 'somewhere';
+      const count = typeof p['nearby_count'] === 'number' ? (p['nearby_count'] as number) : 0;
+      return {
+        icon: '🧳',
+        title: `${who} is planning ${str(p, 'adventure_name') ?? 'a trip'} — ${city}`,
+        body: count
+          ? `You have ${count} saved ${count === 1 ? 'place' : 'places'} near ${city}. Share your favorites?`
+          : 'Take a look at their trip.',
+        imageUrl: null,
+      };
+    }
     default:
       return { icon: '🔔', title: who, body: 'Tap to take a look.', imageUrl: image };
   }

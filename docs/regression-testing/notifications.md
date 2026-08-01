@@ -102,6 +102,13 @@ Done.
 notification — one for the slot, not one per title. Marking a further title
 Done does not produce a second copy.
 
+### RT-NOTIF-13 — Trip nudge (`friend_trip`, v0.14)
+
+**Steps:** Covered as `location-and-safety.md` RT-LOC-14 — run it from here
+when doing a notifications pass.
+**Expected:** 🧳 "<friend> is planning <name> — <city>" with the
+saved-places count; re-firing updates in place (group_key), never stacks.
+
 ---
 
 ## What's new

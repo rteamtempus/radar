@@ -8,6 +8,35 @@ See `CLAUDE.md` → *Release notes & regression testing*.
 
 ---
 
+## v0.14 — Radar learns where things are (2026-08-01)
+
+**New:** `location-and-safety.md` — the whole file is this release's core
+(city picker, precedence, geo discovery, city guides, maps, trips,
+report/block).
+
+**Retest, because this release changed code they depend on:**
+
+| File | Why |
+| --- | --- |
+| `location-and-safety.md` | Everything new — run the whole file. |
+| `social-slots.md` | RT-SOC-01 rewritten ("Friends & quests" labels + hints); RT-SOC-16 rewritten (slot discovery is now PUBLIC-ONLY — friends-only slots must vanish from search); RT-SOC-19 gains block/city notes. Run the Visibility and Discovery sections. |
+| `explore.md` | Eat/Do gained the 📍 chip; `location.effective()` now feeds distances and Places calls (custom > GPS > home). Run RT-EXPL-11…13 to confirm pulls/filters still work with NO city picked (GPS path unchanged). |
+| `adventures.md` | Adventure select strings gained location/dates/visibility columns; trip card sits on the planning screen. Run RT-ADV-01/02 + smoke the itinerary. |
+| `notifications.md` | New `friend_trip` verb (RT-NOTIF-13); describe() fallback must still handle unknown verbs. |
+| `radar-and-slots.md` | Slot SELECT gained `location`; slot pages gained location row + map. Smoke-load slots in all four domains. |
+| `friends-and-recommendations.md` | Profile pages gained home-city line, report and block; taste match now returns null under 5 shared tags ("not enough data" path). Run the profile-page tests. |
+
+**Also:** migrations 0016–0019 (report/block + taste-match floor · location
+layer + geo RPCs + trip trigger · trigger actor_name repair · city_guide enum
+cast). New edge function `places-autocomplete`; `places-search`/`place-detail`
+redeployed with **Pro-tier search field masks** (G8 cost fix) — verify a fresh
+Places pull still upserts and that a previously-detailed place keeps its
+rating on search cards (metadata merge). `pp-test-1/2/3` untouched;
+`radar-auto` gained an "ATX eats" public slot, Austin home city,
+public+discoverable profile, and an "Austin Weekend" adventure (test data).
+
+---
+
 ## v0.13 — Search that actually searches (2026-08-01)
 
 **Rewritten:** `explore.md` (two result models — run the whole file).

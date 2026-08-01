@@ -35,14 +35,24 @@ direct pruning himself.
 
 ## Right now
 
-- **Location suite — decision pass COMPLETE, no code yet.**
-  `docs/LOCATION-ANALYSIS.md` is authoritative: approved 2–10/12/13, denied
-  11/14, deferred 1/15; gotchas G1–G9; 4-phase build plan. **Next move:
-  start phase 0** (quest-slot visibility redesign, minimal report/block,
-  G8 field-mask split + metadata merge). Notable: premium subscription tier
-  decided ("soon") → HANDOFF queue; maps = OSM/Leaflet, never Google SDK;
-  Places Autocomplete + locality search verified working on the existing key
-  (no new Google setup needed).
+- **Location suite v0.14 SHIPPED (2026-08-01, autonomous flight session).**
+  All four phases from `docs/LOCATION-ANALYSIS.md` (see its BUILT section for
+  the 7 deviations/gaps — notably: no PostGIS, lean saved-places, and the
+  ⚠ home_location column-readability gap). Rory has NOT yet reviewed the UI —
+  screenshots in `__screenshots__/` (profile, explore-eat-austin-guide/-map,
+  slot-detail-location, adventure-trip-card) are the review artifacts he
+  approved in lieu of live review; **first thing on his return: review those
+  + the saved-places picker (idea 13 bloat concern) and veto anything.**
+- Playwright-verified end-to-end: city picker (autocomplete→resolve→recents),
+  Explore eat w/ Tokyo/Austin (distances re-anchor, city guide + OSM map),
+  slot location + "Friends & quests" labels, adventure trip card +
+  friends-toggle + slot-suggestion→quest. RPC-verified as pp-test-1:
+  slots_near (is_local=true), people_in_city (opt-in + match floor),
+  city_guide, friend_trips.
+- **Test data created under radar-auto** (fixtures untouched): public "ATX
+  eats" slot pinned to Austin (3 items), home=Austin, profile now
+  public+geo_discoverable, adventure "Austin Weekend" (📍 Austin,
+  friends-visible, one quest). pp-test-1 was only read from.
 - Last shipped release is **v0.13 search overhaul** (`0280679`); commits since
   are tooling/docs only, no release note (CLAUDE.md skip list).
 
@@ -95,37 +105,40 @@ direct pruning himself.
 *Newest first. Each entry: what changed and what the next session needs to know.
 Keep 5.*
 
+### Location suite v0.14 (2026-08-01) — this push
+Migrations 0016–0019 (report/block + taste-match confidence floor · location
+layer + geo RPCs + friend-trip trigger · trigger actor_name repair ·
+city_guide enum cast — the two repairs exist because 0017 shipped bugs
+verification caught). Edge: `places-autocomplete` NEW; `places-search`/
+`place-detail` redeployed with Pro-tier masks + metadata-merge upsert. New
+CLAUDE.md § Location suite carries the invariants. Leaflet added (npm) for
+`shared/ui/map-view.ts`.
+
+### `b9321b6`…`c5b0b47` — Location analysis & decision pass (2026-08-01)
+`docs/LOCATION-ANALYSIS.md` written, all 15 ideas decided, gotchas G1–G9,
+Gemini deliberately retained (HANDOFF decisions log).
+
 ### `25b9304` + `01dd31c` — Session continuity & visual testing (2026-08-01)
 STATE.md introduced, Playwright + `scripts/shot.mjs` added, Playwright MCP
-configured. Tooling only, no app code — no release note by design.
+configured (now verified working, incl. interactive click-through).
 
 ### `0280679` — Search overhaul (v0.13, 2026-08-01)
 Server-driven Explore, Open Library books, curated chips. Established the
-search rules now recorded in CLAUDE.md § Hard rules 3–4 (TMDB `search/multi`
-vs `discover`, Open Library over Google Books, curated slugs only).
-
-### `98d5142` — API capabilities investigation (2026-07-31)
-Wrote `docs/API-CAPABILITIES.md` — verified limits for Places/Books/TMDB.
-Consult it before assuming any provider can filter, sort, or count.
-
-### `e2057d1` — Adventures planning-first (2026-07-31)
-Adventures are created standalone from the Quests tab and own the join code;
-the join box tries adventures before quests. `adventure_create_from_party`
-still exists in the schema but is no longer called.
+search rules now recorded in CLAUDE.md § Hard rules 3–4.
 
 ## Next steps
 
-Nothing committed to. Candidates, in rough priority order:
-
-1. **Quest slot visibility redesign** — the interim rule (CLAUDE.md § Quests 2)
-   leaks friends-only slot contents to anyone who joins by code. Needs a real
-   model before stranger-facing discovery grows. Design debt, Rory's call.
-2. **New-episode tracking** — TMDB `next_episode_to_air` + scheduled edge
-   function + "Coming up" UI. Flagged high value in HANDOFF.md.
-3. **Blend slots (#2)** and **slot-context recommendations (#14)** — approved
-   social ideas, unbuilt. See `docs/SOCIAL-SLOTS-ANALYSIS.md`.
-4. **Native port** resume — blocked on the Mac milestone-1 test
-   (`docs/NATIVE-PORT-STATUS.md`).
+1. **Rory reviews v0.14** (screenshots + live app) — especially the picker /
+   saved-places UI he flagged, the "Friends & quests" copy, and whether
+   geo-discoverability feels OK (his test-and-see stance).
+2. **Needs-Rory checklist** (LOCATION-ANALYSIS): confirm GCP billing alert;
+   create the curator account (unblocks curated city slots, idea 10).
+3. **home_location readability gap** (LOCATION-ANALYSIS BUILT §6) — move to
+   owner-only table + RPC before real stranger scale.
+4. **Premium subscription tier** (HANDOFF queue) — map view is earmarked to
+   gate behind it before extensive testers.
+5. Older candidates: new-episode tracking · blend slots (#2) ·
+   slot-context recs (#14) · native port resume.
 
 ## Open gotchas
 

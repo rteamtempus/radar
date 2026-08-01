@@ -1,11 +1,14 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
-import { LatLng, LocationService } from '../../core/location.service';
+import { CityPick, LatLng, LocationService } from '../../core/location.service';
 import { PlatformService } from '../../core/platform/platform.service';
+import { SafetyService } from '../../core/safety.service';
 import { getSupabase } from '../../core/supabase.client';
 import { SubscriptionsService } from '../../core/subscriptions.service';
+import { CityPicker } from '../../shared/ui/city-picker';
+import { MapMarker, MapView } from '../../shared/ui/map-view';
 import { ServiceBadges } from '../../shared/ui/service-badges';
 import { ToastService } from '../../shared/ui/toast.service';
 import { distanceMiles } from '../explore/explore.service';
@@ -27,7 +30,7 @@ interface TagOption {
  */
 @Component({
   selector: 'pp-slot-detail-page',
-  imports: [FormsModule, RouterLink, ServiceBadges],
+  imports: [CityPicker, FormsModule, MapView, RouterLink, ServiceBadges],
   template: `
     @if (view(); as s) {
       <div class="mx-auto max-w-md px-5 py-6">
@@ -43,6 +46,9 @@ interface TagOption {
                 ·
               }
               {{ s.items.length }} in the queue
+              @if (s.location; as loc) {
+                · 📍 {{ loc.name }}
+              }
               @if (s.on_complete === 'loop') {
                 · <span class="font-bold text-violet">loops</span>
               }
@@ -106,10 +112,31 @@ interface TagOption {
             @for (v of visibilities; track v.key) {
               <button
                 (click)="setVisibility(s, v.key)"
-                class="flex-1 rounded-2xl border py-2 text-xs font-bold"
+                class="flex-1 rounded-2xl border py-2 text-[11px] font-bold"
                 [class]="s.visibility === v.key ? 'border-coral bg-coral/15 text-coral' : 'border-line text-muted-2'"
               >
                 {{ v.label }}
+              </button>
+            }
+          </div>
+          <p class="mt-1.5 text-[11px] text-muted">{{ visibilityHint(s.visibility) }}</p>
+
+          <!-- slot location (v0.14): owner-set, city-granularity, optional -->
+          <div class="mt-2 flex items-center gap-2">
+            <button
+              (click)="locPickerOpen.set(true)"
+              class="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-line py-2 pl-3 text-left text-xs font-bold"
+              [class.text-muted-2]="!s.location"
+            >
+              📍 {{ s.location?.name ?? 'Set a location (for city discovery & trips)' }}
+            </button>
+            @if (s.location) {
+              <button
+                (click)="clearLocation(s)"
+                class="flex-none rounded-2xl border border-line px-3 py-2 text-xs font-bold text-muted-2"
+                aria-label="Clear slot location"
+              >
+                ✕
               </button>
             }
           </div>
@@ -181,6 +208,15 @@ interface TagOption {
           }
         </div>
 
+        @if (isPlaceSlot() && itemMarkers().length) {
+          <button (click)="mapOpen.set(!mapOpen())" class="mt-3 w-full rounded-2xl border border-line py-2 text-xs font-bold text-muted-2">
+            {{ mapOpen() ? 'Hide map' : '🗺 Map these ' + itemMarkers().length + ' spots' }}
+          </button>
+          @if (mapOpen()) {
+            <pp-map-view class="mt-2 block" [markers]="itemMarkers()" (markerTapped)="openMarker($event)" />
+          }
+        }
+
         @if (!filtered().length) {
           <div class="mt-10 flex flex-col items-center gap-3 text-center">
             <div class="text-4xl">🫥</div>
@@ -225,6 +261,22 @@ interface TagOption {
             </div>
           }
         </div>
+
+        @if (!isOwner()) {
+          <!-- safety (0016): understated report -->
+          <div class="mt-5 flex justify-center pb-2">
+            <button (click)="reportSlot(s)" class="text-xs font-bold text-muted">⚑ Report this slot</button>
+          </div>
+        }
+
+        @if (locPickerOpen()) {
+          <pp-city-picker
+            title="Slot location"
+            [allowNearMe]="false"
+            (picked)="setLocation(s, $event)"
+            (close)="locPickerOpen.set(false)"
+          />
+        }
       </div>
     } @else if (notFound()) {
       <div class="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
@@ -246,7 +298,34 @@ export class SlotDetailPage {
   private readonly lib = inject(LibraryService);
   private readonly location = inject(LocationService);
   private readonly platform = inject(PlatformService);
+  private readonly safety = inject(SafetyService);
   private readonly toast = inject(ToastService);
+
+  protected readonly locPickerOpen = signal(false);
+  protected readonly mapOpen = signal(false);
+  private readonly router = inject(Router);
+
+  /** Items with coordinates — the place-slot map (idea 12). */
+  protected readonly itemMarkers = computed<MapMarker[]>(() => {
+    const s = this.view();
+    if (!s) return [];
+    const out: MapMarker[] = [];
+    for (const item of s.items) {
+      const loc = item.activity.location;
+      if (loc?.lat == null || loc?.lng == null) continue;
+      out.push({
+        lat: loc.lat,
+        lng: loc.lng,
+        label: item.activity.title,
+        link: ['/library', item.activity.id],
+      });
+    }
+    return out;
+  });
+
+  protected openMarker(m: MapMarker) {
+    if (m.link) void this.router.navigate(m.link);
+  }
 
   /** Route param. */
   readonly id = input.required<string>();
@@ -266,10 +345,17 @@ export class SlotDetailPage {
   protected readonly sort = signal<SlotSort>('queue');
   protected readonly myLoc = signal<LatLng | null>(null);
 
-  protected readonly visibilities: { key: SlotVisibility; label: string }[] = [
-    { key: 'public', label: '🌐 Public' },
-    { key: 'friends', label: '👥 Friends' },
-    { key: 'private', label: '🔒 Private' },
+  // "Friends & quests": friends can browse it, AND it can be offered inside
+  // any quest/adventure this user is a member of (LOCATION-ANALYSIS G1 —
+  // Rory made the interim quest rule intentional, with honest labeling).
+  protected readonly visibilities: { key: SlotVisibility; label: string; hint: string }[] = [
+    { key: 'public', label: '🌐 Public', hint: 'Anyone can find this slot in Explore.' },
+    {
+      key: 'friends',
+      label: '👥 Friends & quests',
+      hint: 'Visible to your friends — and to members of any quest you bring it to.',
+    },
+    { key: 'private', label: '🔒 Private', hint: 'Only you. Never offered in quests.' },
   ];
   protected readonly runtimeChips = [
     { label: '⏱ <90m', value: 90 },
@@ -416,6 +502,27 @@ export class SlotDetailPage {
   protected async setVisibility(s: SlotView, v: SlotVisibility) {
     await this.slots.setVisibility(s.id, v);
     this.view.set({ ...s, visibility: v });
+  }
+
+  protected visibilityHint(v: string): string {
+    return this.visibilities.find((o) => o.key === v)?.hint ?? '';
+  }
+
+  protected async setLocation(s: SlotView, pick: CityPick) {
+    await this.slots.setLocation(s.id, pick);
+    this.view.set({ ...s, location: pick });
+    this.toast.success(`Slot pinned to ${pick.name} ✓`);
+  }
+
+  protected async clearLocation(s: SlotView) {
+    await this.slots.setLocation(s.id, null);
+    this.view.set({ ...s, location: null });
+  }
+
+  protected async reportSlot(s: SlotView) {
+    const ok = await this.safety.report('slot', s.id, '');
+    if (ok) this.toast.success('Reported — thanks for flagging it.');
+    else this.toast.error('Could not send the report — try again.');
   }
 
   protected async saveDescription(s: SlotView) {

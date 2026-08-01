@@ -11,6 +11,14 @@ import { PartyStatus } from './party.service';
 
 export type AdventureStatus = 'planning' | 'completed' | 'cancelled';
 
+/** Trip location — a CityPick from autocomplete (city granularity). */
+export interface TripLocation {
+  name: string;
+  place_id: string;
+  lat: number;
+  lng: number;
+}
+
 export interface AdventureSummary {
   id: string;
   name: string;
@@ -19,6 +27,25 @@ export interface AdventureSummary {
   join_code: string | null;
   owner_id: string;
   finished_at: string | null;
+  location: TripLocation | null;
+  starts_on: string | null; // date, not timestamp — no tz math
+  ends_on: string | null;
+  /** 'members' = only participants know it exists; 'friends' = the owner's
+   * friends see it in their upcoming-trips list. NEVER public. */
+  visibility: 'members' | 'friends';
+}
+
+/** A friend's upcoming trip (friend_trips RPC) — summary only. */
+export interface FriendTrip {
+  id: string;
+  name: string;
+  emoji: string | null;
+  loc_name: string | null;
+  starts_on: string | null;
+  ends_on: string | null;
+  owner_id: string;
+  owner_name: string;
+  member_count: number;
 }
 
 export interface AdventureQuest {
@@ -90,7 +117,7 @@ export class AdventureService {
   async myAdventures(): Promise<AdventureSummary[]> {
     const { data } = await getSupabase()
       .from('adventures')
-      .select('id, name, emoji, status, join_code, owner_id, finished_at')
+      .select('id, name, emoji, status, join_code, owner_id, finished_at, location, starts_on, ends_on, visibility')
       .eq('status', 'planning')
       .order('created_at', { ascending: false });
     return (data ?? []) as AdventureSummary[];
@@ -145,6 +172,36 @@ export class AdventureService {
       return null;
     }
     return data as unknown as string;
+  }
+
+  /**
+   * Trip settings (v0.14): location, dates, and the friends/members
+   * visibility toggle. Owner-only via the adventures update RLS; a plain
+   * column update, no RPC needed. Setting a location on a friends-visible
+   * adventure fires the friend-trip nudge trigger (0017).
+   */
+  async setTrip(
+    adventureId: string,
+    patch: Partial<{
+      location: TripLocation | null;
+      starts_on: string | null;
+      ends_on: string | null;
+      visibility: 'members' | 'friends';
+    }>,
+  ): Promise<void> {
+    const { error } = await getSupabase()
+      .from('adventures')
+      .update(patch as Record<string, never>)
+      .eq('id', adventureId);
+    if (error) this.toast.error('Could not save trip details.');
+    await this.loadAdventure(adventureId);
+  }
+
+  /** Friends' upcoming trips (friend_trips RPC — friends-visible only). */
+  async friendTrips(): Promise<FriendTrip[]> {
+    const { data, error } = await getSupabase().rpc('friend_trips');
+    if (error) return [];
+    return (data ?? []) as unknown as FriendTrip[];
   }
 
   async joinByCode(code: string): Promise<string> {
@@ -241,7 +298,7 @@ export class AdventureService {
   private async loadAdventure(adventureId: string) {
     const { data } = await getSupabase()
       .from('adventures')
-      .select('id, name, emoji, status, join_code, owner_id, finished_at')
+      .select('id, name, emoji, status, join_code, owner_id, finished_at, location, starts_on, ends_on, visibility')
       .eq('id', adventureId)
       .maybeSingle();
     if (data) this.adventure.set(data as AdventureSummary);

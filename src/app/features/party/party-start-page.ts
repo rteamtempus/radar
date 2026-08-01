@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { DOMAINS, Domain, DomainService } from '../../core/domain.service';
-import { AdventureSummary, AdventureService } from './adventure.service';
+import { AdventureSummary, AdventureService, FriendTrip } from './adventure.service';
 import { ActivePartySummary, PartyService, PartyStatus } from './party.service';
 
 const STATUS_LABELS: Record<PartyStatus, string> = {
@@ -40,6 +40,36 @@ const STATUS_LABELS: Record<PartyStatus, string> = {
               <span class="text-lg">{{ a.emoji ?? '🗺️' }}</span>
               <span class="min-w-0 flex-1 truncate text-sm font-bold">{{ a.name }}</span>
               <span class="flex-none text-sm font-bold text-violet">Open →</span>
+            </a>
+          }
+        </div>
+      }
+
+      @if (friendTrips().length) {
+        <h2 class="mt-7 mb-2.5 text-xs font-bold tracking-wide text-muted uppercase">
+          Friends' upcoming trips
+        </h2>
+        <div class="flex flex-col gap-2">
+          @for (t of friendTrips(); track t.id) {
+            <a
+              [routerLink]="['/friends', t.owner_id]"
+              class="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3"
+            >
+              <span class="text-lg">{{ t.emoji ?? '🧳' }}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-bold">{{ t.name }}</span>
+                <span class="block truncate text-[11px] text-muted">
+                  {{ t.owner_name }}
+                  @if (t.loc_name) {
+                    · 📍 {{ t.loc_name }}
+                  }
+                  @if (t.starts_on) {
+                    · {{ tripDates(t) }}
+                  }
+                  · {{ t.member_count }} going
+                </span>
+              </span>
+              <span class="text-muted">›</span>
             </a>
           }
         </div>
@@ -173,6 +203,7 @@ export class PartyStartPage {
   protected readonly error = signal('');
   protected readonly activeParties = signal<ActivePartySummary[]>([]);
   protected readonly adventures = signal<AdventureSummary[]>([]);
+  protected readonly friendTrips = signal<FriendTrip[]>([]);
 
   /** Quests inside an adventure are listed on the adventure, not here. */
   protected readonly looseParties = () => this.activeParties().filter((p) => !p.adventure_id);
@@ -180,6 +211,16 @@ export class PartyStartPage {
   constructor() {
     this.partyService.myActiveParties().then((p) => this.activeParties.set(p));
     this.adventureService.myAdventures().then((a) => this.adventures.set(a));
+    this.adventureService.friendTrips().then((t) => this.friendTrips.set(t));
+  }
+
+  protected tripDates(t: FriendTrip): string {
+    const fmt = (d: string) =>
+      new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    if (!t.starts_on) return '';
+    return t.ends_on && t.ends_on !== t.starts_on
+      ? `${fmt(t.starts_on)}–${fmt(t.ends_on)}`
+      : fmt(t.starts_on);
   }
 
   protected statusLabel(status: PartyStatus): string {
