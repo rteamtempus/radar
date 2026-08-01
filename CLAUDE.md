@@ -4,6 +4,9 @@ Group decision app POC: personal media libraries + parties that swipe/vote on
 AI-reranked suggestions. **Spec:** `docs/partypick-poc-handoff.md` (authoritative),
 plan/progress: `docs/PLAN.md`, look: `docs/PartyPick-Wireframes.dc.html`.
 
+**Starting a session? Read `STATE.md` first** — it is where the previous session
+left off (§ Session state below is binding, including the cleanup pass).
+
 Status: proof of concept — build for learning speed. Schema is disposable, the
 architecture patterns are not.
 
@@ -96,6 +99,37 @@ hand-edit it**.
 - Test IDs (`RT-NOTIF-03`) are stable forever. Delete a dead test; never
   renumber around it.
 
+## Session state — `STATE.md` (NOT optional)
+
+Chat history gets cleared regularly, so **`STATE.md` is the handover to the next
+session.** It is worthless if it is stale and worthless if it is bloated — both
+failure modes are on you to prevent.
+
+1. **Every commit that gets pushed updates `STATE.md`, in that same commit.**
+   Same discipline as release notes, but with a wider trigger: release notes
+   cover user-visible change, STATE.md covers *anything the next session would
+   need* — refactors, investigations, abandoned approaches, half-finished work,
+   a gotcha that cost an hour. If a fresh session would waste time rediscovering
+   it, it goes in.
+2. **Write for a session that has no memory of this one.** Name files and
+   symbols, not "the thing we discussed". State what is DONE vs IN PROGRESS vs
+   DECIDED-BUT-UNBUILT, and if work is half-finished, say exactly where it
+   stops and what the next move is.
+3. **Reading `STATE.md` obliges you to clean it.** Every read runs the cleanup
+   pass in that file's header: drop pushes older than the last 5, drop done or
+   abandoned next-steps, drop fixed gotchas, drop anything the code now
+   contradicts. Target under ~150 lines. Report what you removed — silent
+   deletion of something Rory still wanted is worse than a long file.
+4. **Don't duplicate.** `CLAUDE.md` = rules, `docs/HANDOFF.md` = stable
+   world-model and roadmap queue, `STATE.md` = now. When an entry hardens into
+   a rule or a roadmap item, MOVE it to the right file and delete it here.
+   STATE.md is the only doc that shrinks.
+5. **Verify before trusting.** Entries describe the repo as it was at that
+   push. If one names a file, function, migration or flag, confirm it still
+   exists before acting on it — and fix the entry when it doesn't.
+6. `/state` gives Rory a numbered breakdown with prune candidates so he can
+   direct the cleanup himself. It never deletes without his say-so.
+
 ## Quests & adventures
 
 A quest's deck is **the union of the slots people pick** — no AI, no external
@@ -173,6 +207,24 @@ The app ships as web (Vercel) AND native shells (Capacitor 7, `ios/` +
 Commands: `npm run native:sync` (build + copy into shells),
 `native:run:android`, `native:ios` (opens Xcode — Mac only). iOS building
 requires the Mac; the ios/ project itself is generated and committed here.
+
+## Visual checks & test accounts
+
+1. **See the app** — `node scripts/shot.mjs /explore` screenshots an iPhone 13
+   viewport (390px, the mobile-first target) into `__screenshots__/`, logging
+   in automatically. `--anon` for signed-out, `--full` for full-page,
+   `--device "Pixel 7"`. Session cached in `.auth/state.json`; delete it if
+   auth behaves oddly. Both dirs are gitignored. The Playwright MCP in
+   `.mcp.json` covers interactive click-through work.
+2. **Automation writes go to `radar-auto@partypick.test`** — credentials in
+   gitignored `.env.test`. Onboarded, neutral taste (0 engagements), friend
+   code `7B95DA`, subscribed to Prime/Apple TV+/Disney+.
+3. **`pp-test-1/2/3` are Rory's manual regression fixtures** (u1 owns "High
+   movies"; parties TESTP2/3, QUEST1). Read them, never mutate them — an
+   automated run that edits those breaks `docs/regression-testing/`.
+4. **The Management API bypasses RLS.** `POST /v1/projects/<ref>/database/query`
+   runs as `postgres`, so it can never tell you whether a policy works. Verify
+   any RLS claim over REST as a signed-in user (anon key + password grant).
 
 ## Commands
 
