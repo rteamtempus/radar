@@ -35,10 +35,16 @@ direct pruning himself.
 
 ## Right now
 
-- **No feature work in flight.** Last shipped release is **v0.13 search
-  overhaul** (`0280679`). The commit after it is machine/tooling setup only —
-  no app code changed, so no release note (CLAUDE.md skip list).
-- Next task is undecided — pick from *Next steps* below or HANDOFF.md's queue.
+- **Location suite — analysis & decision pass IN PROGRESS** (no code yet).
+  `docs/LOCATION-ANALYSIS.md` is the working doc: core feature, 15 ideas with
+  verdicts, gotchas G1–G8, phasing draft. Rory is answering the idea list in
+  batches from mobile — **batch 1 (ideas 1–3) decided** (1 deferred, 2–3
+  approved w/ constraints; see the doc's decisions log). **Next move: get
+  verdicts on ideas 4–15**, then finalize phasing. Key verified fact: Places
+  Autocomplete (New) + locality search work with the existing key — no new
+  Google setup needed for the core suite.
+- Last shipped release is **v0.13 search overhaul** (`0280679`); commits since
+  are tooling/docs only, no release note (CLAUDE.md skip list).
 
 ## Tooling verified on this machine (2026-08-01)
 

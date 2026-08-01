@@ -1,0 +1,170 @@
+# Location Suite — Analysis & Decision Pass
+
+*2026-08-01 · Rory's vision: location becomes a first-class concept — profiles
+and slots get location settings; Explore gets a custom-location picker for
+slots, people, and eat/do activities; adventures double as trips ("things to
+do/eat on the trip"); discovery like "most popular slots in this city" and
+"high-taste-match locals and their favorite places". This doc holds the
+analysis, the idea list with verdicts, and the gotchas. **Decision pass in
+progress** — Rory is answering the idea list in batches from mobile; verdicts
+land here as they arrive.*
+
+## The core feature (approved direction)
+
+1. **Profile location** — home city on `profiles` (schema has `home_location`
+   jsonb since 0001, never written by the app).
+2. **Slot location** — optional location setting on any slot, always available
+   (no trip or adventure required — see idea 2's verdict).
+3. **Explore custom location** — override the GPS/home default with a picked
+   city, applying to eat/do activities, slot search, and people search.
+4. Discovery on top: popular slots in an area; people in a city ranked by
+   taste match, and their favorite places. (Gated by G1 prerequisites.)
+
+## API findings — verified 2026-08-01, live against our key
+
+**No new Google setup is required for the core suite.**
+
+- **Places Autocomplete (New)** works with the existing API-restricted key
+  [verified: `"Tokyo"` + `includedPrimaryTypes:["locality"]` → clean city
+  predictions with placeId]. It is part of Places API (New), already enabled.
+- **Locality text search** works [verified: `"Kyoto"` +
+  `includedType:"locality"` → one locality row with lat/lng].
+- **Design rule that keeps it zero-setup:** locations are always *picked from
+  autocomplete*, never free-typed or reverse-geocoded. We store
+  `{name, place_id, lat, lng}` at pick time — so the separate Geocoding API
+  (forward AND reverse) is never needed.
+
+Would need GCP/setup work later, none blocking now:
+
+| Need | API | When |
+|---|---|---|
+| Reverse geocoding (label a raw GPS fix) | Geocoding API | Only if we auto-label GPS; avoidable by design |
+| Real routing / walk times | Routes API | Post-POC; haversine + neighborhood clustering suffices |
+| Events vertical (idea 15) | Ticketmaster Discovery (non-Google, free key) | If approved |
+| PostGIS | — (Supabase migration only; 0001's TODOs anticipate it) | Phase 1 |
+
+## Idea list & verdicts
+
+Verdicts: ✅ approved · 🚫 denied · ⏸ deferred · ⏳ awaiting Rory.
+
+| # | Idea | Verdict |
+|---|---|---|
+| 1 | **Trip mode** — set "Tokyo, Mar 3–10" once; Explore re-anchors for the window, auto-reverts | ⏸ **Deferred** (2026-08-01): scheduled location anchors not wanted now; revisit later |
+| 2 | **Location on slots, always** — any slot can carry a location ("Tokyo someday"); location-matched slots get offered when an adventure in that city is created | ✅ **Approved** (2026-08-01): matches Rory's own intent. Slots have location settings unconditionally — no trip/adventure prerequisite |
+| 3 | **Friends see upcoming trips/adventures** | ✅ **Approved with constraints** (2026-08-01): adventures get a visibility toggle — **friends-visible** vs **members-only** (for surprise/secret trips). **Adventures are NEVER public** — no stranger discovery of adventures, ever |
+| 4 | **Route-aware itinerary ordering** — order an adventure's quests geographically (neighborhood clusters, rough walking order); haversine, no new API | ⏳ |
+| 5 | **Post-trip recap** — location-stamped engagements → "your Tokyo trip: 9 places, 3 five-stars" shareable summary | ⏳ |
+| 6 | **City guides from slot aggregation** — a city page assembling the most-saved public slot items there; completes HANDOFF queue #15 second half | ⏳ |
+| 7 | **Locals vs visitors signal** — rank city results by whether the slot owner's home is that city; "popular with locals" | ⏳ |
+| 8 | **Taste-weighted city ranking** — "popular in Tokyo *among people like you*"; rides on the match-% subsystem the locals search needs anyway | ⏳ |
+| 9 | **Location-triggered friend recs** — "Dave has a trip to Austin — you have 12 Austin places saved"; extends approved #14 slot-context recs | ⏳ |
+| 10 | **Curated city starter slots** — official curator account (#7, mechanism live) stocked per city; doubles as the cold-start fallback (G6) | ⏳ |
+| 11 | **"On your radar nearby"** — passive: open the app, a want-to place from your slots is 400m away; own data + haversine (geofenced push = native-era upgrade, not now) | ⏳ |
+| 12 | **Map view** — pins for slot items / Explore results / itineraries; start lightweight/static, Google map SDK is a separate billable product (G8) | ⏳ |
+| 13 | **Saved places** — "home / work / parents'" quick-toggle locations in Explore; gives `home_location` a UX | ⏳ |
+| 14 | **Seasonal × location slots** — queue #11 seasonal slots + place: "cherry blossom Kyoto" surfaces in-season and in-place | ⏳ |
+| 15 | **Events vertical** — Ticketmaster Discovery is location-first; "artist in town during your trip"; merges queue #10 with the location layer | ⏳ |
+
+Note: ideas 6, 9, 10, 14, 15 complete existing approved HANDOFF queue items —
+the location layer is the substrate several of them were waiting on.
+
+## Decisions log
+
+- **2026-08-01 (batch 1, ideas 1–3):**
+  - No trip mode / scheduled location anchors for now (idea 1 deferred).
+  - Slot location is unconditional — a first-class optional setting on every
+    slot, usable with or without any adventure (idea 2).
+  - Trips ARE adventures — no separate trip entity. Adventures gain an
+    optional location and are shareable to friends via a per-adventure
+    visibility toggle: `friends` (friends can see the upcoming
+    trip/adventure) vs `members` (only participants know it exists — the
+    surprise-party case). There is deliberately NO `public` tier for
+    adventures.
+
+## Gotchas (the ass-bite list, ranked)
+
+**G1 — This suite IS stranger-facing discovery; two prerequisites are already
+flagged as blocking that.** CLAUDE.md § Quests 2's interim visibility rule
+leaks friends-only slot contents to code-joiners ("revisit before
+stranger-facing discovery grows"), and HANDOFF lists report/block as needed
+before real stranger discovery. "Popular slots in an area" and "find people in
+a city" are exactly that. **The quest-slot visibility redesign and a minimal
+report/block are prerequisites (phase 0), not parallel work.**
+
+**G2 — Geo-searchable people is a stalking surface.** City search + home
+location + "their favorite places" composes into "where does this person hang
+out". Day-one design rules: profile home location is stored **city-granularity
+only** (snap to locality centroid at save; never store a raw GPS fix on a
+profile); geo-discoverability is **opt-in, default off**; visibility gates
+geo-search everywhere (a friends-only slot must never surface in a stranger's
+city browse).
+
+**G3 — Google ToS: coordinates are cacheable for 30 days; place_id forever.**
+`upsertPlace` writes lat/lng into `activities.location` permanently — was
+incidental, but distance search *depends* on stored coords, entrenching it.
+Plan of record: **(b) a ~30-day refresh sweep** re-fetching coords by place_id
+for geo-queried activities (legal, cheap); accept POC risk (a) until built.
+Also: autocomplete must use **session tokens + debounce** (per-keystroke
+billing), no live map-pan search, and **confirm the Google billing alert
+exists** (HANDOFF: "advised, unknown if done") before shipping.
+
+**G4 — Slot location semantics: decide before the migration.** Owner-set can
+go stale; item-derived means a slot "moves" and multi-city slots get a
+meaningless centroid. **Decision: explicit, optional, city-granularity slot
+location** (autocomplete-picked `{name, place_id, lat, lng}`) as the search
+field; item-derived geography for map display only; never auto-assigned.
+
+**G5 — Distance search must be RPC-shaped; PostGIS touches real things.**
+Cross-member slot reads go through SECURITY DEFINER RPCs, never widened RLS
+(CLAUDE.md § Quests 1) — "slots near X" is a new cross-member read and belongs
+in that pattern. jsonb→geography migration changes generated types, needs GiST
+indexes, and any policy change triggers the RLS-widening audit
+(memory: rls-widening-audit-lesson).
+
+**G6 — Cold start: geo-social looks dead in cities with no users.** Fallback
+tiers: local slots → curated city slots (idea 10) → plain Google results.
+Never render an empty state that advertises how small the network is.
+
+**G7 — Match % doesn't exist yet and is easy to build wrong.** Needs a
+definition (cosine over shared-tag affinity subspace) **plus a confidence
+floor** — 3 shared sparse tags can cosine to "97% match". Show "not enough
+data" below threshold. Cache results (table or on-demand RPC); N×M live
+computation won't survive a city browse.
+
+**G8 — Smaller but real:**
+- Custom location applies to eat/do (+ slots/people) and must never leak into
+  watch/read. A Tokyo trip also exposes that TMDB availability is US-flatrate
+  (hard rule 5) — expected, but expect "Watch looks wrong abroad" reports.
+- **Location precedence needs one explicit rule**: custom pick > GPS > home,
+  visibly indicated. (Trip mode would have slotted between custom and GPS —
+  deferred with idea 1.)
+- **Native**: iOS WKWebView geolocation needs Info.plist purpose strings and
+  possibly `@capacitor/geolocation` — plugin change ⇒ version bump + store
+  release (CLAUDE.md § Native 3). Web-first unaffected.
+- **Stale places**: city aggregation amplifies closed restaurants — include
+  `business_status` in refresh-on-view (pairs with the G3 sweep).
+- **Trip dates are `date`s, not timestamps** — no timezone math.
+- **Units**: km vs miles by locale (`home_region` exists, defaults `'US'`).
+- **Google caps**: nearby = 20/no pagination, text = 60 — don't promise deep
+  browse of Google results; our own slot data has no such cap.
+
+## Phasing sketch (draft — finalize after the verdict pass)
+
+- **Phase 0 — prerequisites (G1):** quest-slot visibility redesign; minimal
+  report/block for public content; confirm Google billing alert.
+- **Phase 1 — location layer:** PostGIS migration (profiles.home_location,
+  activities.location, new radar_slots location + adventures location);
+  autocomplete location-picker component; profile home-city setting; slot
+  location setting; Explore custom-location override for eat/do.
+- **Phase 2 — adventures as trips:** adventure location + dates + the
+  friends/members visibility toggle (idea 3); location-matched slot
+  suggestions when creating an adventure (idea 2's payoff).
+- **Phase 3 — discovery & social:** slots/people-near-a-city search RPCs;
+  match-% subsystem (G7); plus whatever survives the verdict pass (6–15).
+
+## Needs-Rory checklist (things only Rory can do)
+
+- [ ] Confirm a Google Cloud **billing alert** exists on the Places key's
+      project (G3) — blocking for shipping autocomplete, not for building.
+- [ ] Finish the verdict pass on ideas 4–15 (in progress).
+- [ ] (Later, if idea 15 approved) Ticketmaster Discovery API key signup.
