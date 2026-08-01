@@ -127,7 +127,11 @@ domains, social slots phases 1–4 are **live in production**.
     v0.11 replaced the media-only pipeline with slot-driven decks.)
 11. **Themes** (90s/modern/luxury) — palette is all `@theme` tokens; also the
     icon's purple/pink vs app's coral/gold mismatch noted.
-12. **Smaller/parked**: PWA push notifications; OG share-card images (needs
+12. **Premium subscription tier** (decided 2026-08-01, "add soon") — billable
+    premium features behind a subscription. First earmarked feature: map view
+    (LOCATION-ANALYSIS idea 12) gates behind it before extensive-tester
+    rollout. Payment rails, tier design, entitlement checks all TBD.
+13. **Smaller/parked**: PWA push notifications; OG share-card images (needs
     SSR/edge render — share is link-only today); report/block for public
     content (needed before real stranger discovery); books junk filter;
     Google billing alert (advised, unknown if done); Explore "For you" sort

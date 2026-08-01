@@ -38,9 +38,11 @@ direct pruning himself.
 - **Location suite — analysis & decision pass IN PROGRESS** (no code yet).
   `docs/LOCATION-ANALYSIS.md` is the working doc: core feature, 15 ideas with
   verdicts, gotchas G1–G8, phasing draft. Rory is answering the idea list in
-  batches from mobile — **batch 1 (ideas 1–3) decided** (1 deferred, 2–3
-  approved w/ constraints; see the doc's decisions log). **Next move: get
-  verdicts on ideas 4–15**, then finalize phasing. Key verified fact: Places
+  batches from mobile — **batches 1–2 (ideas 1–12) decided**: 11 denied,
+  1 deferred, rest approved (see the doc's decisions log; batch 2 also decided
+  premium-subscription-soon → HANDOFF queue, and maps = OSM/Leaflet not
+  Google). **Next move: verdicts on ideas 13–15**, then finalize phasing.
+  Key verified fact: Places
   Autocomplete (New) + locality search work with the existing key — no new
   Google setup needed for the core suite.
 - Last shipped release is **v0.13 search overhaul** (`0280679`); commits since

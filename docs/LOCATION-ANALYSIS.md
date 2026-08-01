@@ -52,15 +52,15 @@ Verdicts: ✅ approved · 🚫 denied · ⏸ deferred · ⏳ awaiting Rory.
 | 1 | **Trip mode** — set "Tokyo, Mar 3–10" once; Explore re-anchors for the window, auto-reverts | ⏸ **Deferred** (2026-08-01): scheduled location anchors not wanted now; revisit later |
 | 2 | **Location on slots, always** — any slot can carry a location ("Tokyo someday"); location-matched slots get offered when an adventure in that city is created | ✅ **Approved** (2026-08-01): matches Rory's own intent. Slots have location settings unconditionally — no trip/adventure prerequisite |
 | 3 | **Friends see upcoming trips/adventures** | ✅ **Approved with constraints** (2026-08-01): adventures get a visibility toggle — **friends-visible** vs **members-only** (for surprise/secret trips). **Adventures are NEVER public** — no stranger discovery of adventures, ever |
-| 4 | **Route-aware itinerary ordering** — order an adventure's quests geographically (neighborhood clusters, rough walking order); haversine, no new API | ⏳ |
-| 5 | **Post-trip recap** — location-stamped engagements → "your Tokyo trip: 9 places, 3 five-stars" shareable summary | ⏳ |
-| 6 | **City guides from slot aggregation** — a city page assembling the most-saved public slot items there; completes HANDOFF queue #15 second half | ⏳ |
-| 7 | **Locals vs visitors signal** — rank city results by whether the slot owner's home is that city; "popular with locals" | ⏳ |
-| 8 | **Taste-weighted city ranking** — "popular in Tokyo *among people like you*"; rides on the match-% subsystem the locals search needs anyway | ⏳ |
-| 9 | **Location-triggered friend recs** — "Dave has a trip to Austin — you have 12 Austin places saved"; extends approved #14 slot-context recs | ⏳ |
-| 10 | **Curated city starter slots** — official curator account (#7, mechanism live) stocked per city; doubles as the cold-start fallback (G6) | ⏳ |
-| 11 | **"On your radar nearby"** — passive: open the app, a want-to place from your slots is 400m away; own data + haversine (geofenced push = native-era upgrade, not now) | ⏳ |
-| 12 | **Map view** — pins for slot items / Explore results / itineraries; start lightweight/static, Google map SDK is a separate billable product (G8) | ⏳ |
+| 4 | **Route-aware itinerary ordering** — order an adventure's quests geographically (neighborhood clusters, rough walking order); haversine, no new API | ✅ **Approved** (2026-08-01) |
+| 5 | **Post-trip recap** — location-stamped engagements → "your Tokyo trip: 9 places, 3 five-stars" shareable summary | ✅ **Approved** (2026-08-01) |
+| 6 | **City guides from slot aggregation** — a city page assembling the most-saved public slot items there; completes HANDOFF queue #15 second half | ✅ **Approved** (2026-08-01, "really love") |
+| 7 | **Locals vs visitors signal** — rank city results by whether the slot owner's home is that city; "popular with locals" | ✅ **Approved** (2026-08-01 — Rory had the same idea independently) |
+| 8 | **Taste-weighted city ranking** — "popular in Tokyo *among people like you*"; rides on the match-% subsystem the locals search needs anyway | ✅ **Approved** (2026-08-01) — with the caveat that the matching algorithm itself needs real work first (G7); ship on the v1 matcher, improves as matching improves |
+| 9 | **Location-triggered friend recs** — "Dave has a trip to Austin — you have 12 Austin places saved"; extends approved #14 slot-context recs | ✅ **Approved** (2026-08-01) |
+| 10 | **Curated city starter slots** — official curator account (#7, mechanism live) stocked per city; doubles as the cold-start fallback (G6) | ✅ **Approved** (2026-08-01) — requires the curator account to actually be created (needs-Rory list; it unblocks this + future curation features) |
+| 11 | **"On your radar nearby"** — passive: open the app, a want-to place from your slots is 400m away; own data + haversine (geofenced push = native-era upgrade, not now) | 🚫 **Denied** (2026-08-01, "not sure — skip it") |
+| 12 | **Map view** — pins for slot items / Explore results / itineraries | ✅ **Approved on the free path** (2026-08-01): build with **Leaflet/MapLibre + OpenStreetMap tiles** — genuinely $0, no key, no Google billing exposure (Google Maps JS SDK has a monthly free quota but means enabling a new API; avoid). Cost concern stands: **gate map view behind the premium subscription before extensive-tester rollout** |
 | 13 | **Saved places** — "home / work / parents'" quick-toggle locations in Explore; gives `home_location` a UX | ⏳ |
 | 14 | **Seasonal × location slots** — queue #11 seasonal slots + place: "cherry blossom Kyoto" surfaces in-season and in-place | ⏳ |
 | 15 | **Events vertical** — Ticketmaster Discovery is location-first; "artist in town during your trip"; merges queue #10 with the location layer | ⏳ |
@@ -80,6 +80,14 @@ the location layer is the substrate several of them were waiting on.
     trip/adventure) vs `members` (only participants know it exists — the
     surprise-party case). There is deliberately NO `public` tier for
     adventures.
+- **2026-08-01 (batch 2, ideas 4–12):** 4–10 and 12 approved, 11 denied —
+  details in the table. Two decisions with reach beyond this suite:
+  - **Premium subscription tier is coming** ("should add soon") — billable
+    premium features behind a subscription. Map view (12) is the first
+    feature earmarked to sit behind it before extensive-tester rollout.
+    Recorded in HANDOFF's queue as its own item.
+  - **Maps are OSM-based, not Google** — Leaflet/MapLibre + OSM tiles, $0,
+    keeping Google spend confined to Places search.
 
 ## Gotchas (the ass-bite list, ranked)
 
@@ -166,5 +174,7 @@ computation won't survive a city browse.
 
 - [ ] Confirm a Google Cloud **billing alert** exists on the Places key's
       project (G3) — blocking for shipping autocomplete, not for building.
-- [ ] Finish the verdict pass on ideas 4–15 (in progress).
+- [ ] **Create the official curator account** (unblocks idea 10 + HANDOFF
+      queue #7; account creation is Rory's, stocking/flagging is ours).
+- [ ] Finish the verdict pass on ideas 13–15 (batches 1–2 done).
 - [ ] (Later, if idea 15 approved) Ticketmaster Discovery API key signup.
