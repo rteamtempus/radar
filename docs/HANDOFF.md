@@ -9,18 +9,20 @@ discussed but NOT yet implemented. Companion docs are indexed at the bottom.*
 **Radar** (working name; formerly PartyPick) — a PWA "command center for food
 & entertainment": personal queues (**slots**) across four domains (🎬 Watch ·
 🍜 Eat · 🎯 Do · 📚 Read), group decision **parties/quests** (swipe → vote →
-reveal with one Gemini rerank), **friends + social slots** (Spotify-playlist
+reveal; deck = the union of the slots members pick), **friends + social slots** (Spotify-playlist
 model), Netflix history import, and a discovery browser. All milestones from
 the original handoff plus the ideas-doc phases A–B, the friends system, four
 domains, social slots phases 1–4 are **live in production**.
 
-- Repo: `c:\Workspace-2\radar` → github.com/rteamtempus/radar (`main`; every
+- Repo: `c:\Workspace2\radar` → github.com/rteamtempus/radar (`main`; every
   task ends with commit + push; Vercel auto-deploys; PWA update pill notifies)
 - Supabase project: `domneconesznimnzxdsx` — Radar's OWN project. **Never**
   link the life-assistant project (generic table names would collide).
 - Stack: Angular 20 (standalone/signals), Tailwind 4 theme tokens, Supabase
-  (Postgres+RLS, Realtime, Edge Functions Deno), Gemini 2.5-flash, TMDB,
-  Google Places (New), Google Books. Capacitor 7 shells committed (paused).
+  (Postgres+RLS, Realtime, Edge Functions Deno), TMDB, Google Places (New),
+  Open Library. Capacitor 7 shells committed (paused). **No AI in the app** —
+  Gemini was removed from the quest pipeline in v0.11 when quests moved to
+  slots; Google Books is legacy-rows-only (CLAUDE.md § Hard rules 3).
 
 ## How to work here (conventions that matter)
 
@@ -30,8 +32,9 @@ domains, social slots phases 1–4 are **live in production**.
    `GOOGLE_PLACES_API_KEY` (one GCP key: Places API (New) + Books API enabled,
    key API-restricted to those two). Parse `.env` into `$env:` per PowerShell
    call (state doesn't persist across calls; **cd to radar first — the shell
-   resets to c:\Workspace-2 between turns**).
-2. **DB changes** = numbered migration in `supabase/migrations` (next: 0013)
+   resets to c:\Workspace2 between turns**).
+2. **DB changes** = numbered migration in `supabase/migrations` (0015 is the
+   latest; next: 0016)
    → `npx -y supabase db push` → regenerate types:
    `npx -y supabase gen types typescript --linked > src/app/core/types/database.types.ts`
    (write BOM-safely via `[IO.File]::WriteAllLines`, prepend the GENERATED
@@ -39,8 +42,9 @@ domains, social slots phases 1–4 are **live in production**.
    `POST https://api.supabase.com/v1/projects/domneconesznimnzxdsx/database/query`
    with the access token. **Never `supabase db reset`.**
 3. **Edge functions**: `npx -y supabase functions deploy <names>` (Docker not
-   needed). Live: tmdb-search, tmdb-detail, generate-candidates,
-   import-history, places-search, place-detail, books-search.
+   needed). Live: tmdb-search, tmdb-discover, tmdb-detail, import-history,
+   places-search, place-detail, books-search, book-detail.
+   (`generate-candidates` was deleted in v0.11 — do not redeploy it.)
 4. **Testing habits**: pure logic gets tsx tests
    (`npx -y tsx <file>.test.ts` — scoring, party-logic, netflix-csv). Feature
    verification via REST as test users: `pp-test-1/2/3@partypick.test`,
@@ -72,6 +76,10 @@ domains, social slots phases 1–4 are **live in production**.
 - **App name undecided**; display name "Radar" everywhere. Bundle ID
   `com.rteamtempus.radar` is provisional — FREEZES at first store upload.
 - **Capacitor 7** (Node 20 machine; v8 needs Node 22). Rory has a Mac for iOS.
+- **Gemini stays wired for future use** (2026-08-01). No app code path calls it
+  since v0.11, but `functions/_shared/gemini.ts` and `GEMINI_API_KEY` are kept
+  on purpose for AI features Rory may add later (AI-filled slots, #9 in the
+  queue below, is the obvious first one). Don't prune either as dead weight.
 - **Not-social-media guardrails**: no feed/comments/DMs; subscriber counts
   owner-only; likes public. Statuses drive role slots; My-Radar toggles drive
   custom slots (deliberately separate).
@@ -80,8 +88,10 @@ domains, social slots phases 1–4 are **live in production**.
   junk tail (filter offer stands, unasked).
 - Taste model: affinities −1..1 per tag; explicit (You-page chips, ±1) vs
   learned (`recompute_affinities`: (rating−5.5)/4.5; not_interested=2,
-  unrated completed=6.5). Party score 0.5·taste+0.2·mood+0.15·quality+0.15·novelty,
-  least-misery 0.6·min+0.4·avg. Gemini rerank can never hard-fail (fallback).
+  unrated completed=6.5). ⚠ The old party-score formula
+  (0.5·taste+0.2·mood+0.15·quality+0.15·novelty, least-misery 0.6·min+0.4·avg)
+  and the Gemini rerank were **removed in v0.11** — kept here as history only.
+  Quest decks are unranked; ties are a random draw (`tallyWinner`).
 
 ## ⚠ NOT implemented yet (the queue)
 

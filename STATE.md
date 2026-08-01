@@ -39,8 +39,6 @@ direct pruning himself.
   overhaul** (`0280679`). The commit after it is machine/tooling setup only —
   no app code changed, so no release note (CLAUDE.md skip list).
 - Next task is undecided — pick from *Next steps* below or HANDOFF.md's queue.
-- **First thing worth doing:** confirm the Playwright MCP actually connects
-  (`/mcp`), since it shipped untested.
 
 ## Tooling verified on this machine (2026-08-01)
 
@@ -55,11 +53,11 @@ direct pruning himself.
   it needs a running dev server and the gitignored `.env.test`, so it will not
   work from a Claude Code *web* session (cloud sandbox). Remote Control
   sessions run on this machine and are fine.
-- **Playwright MCP configured** in `.mcp.json` (chromium, iPhone 13,
-  `--isolated`) and pre-approved via `.claude/settings.json`
-  (`enabledMcpjsonServers`), so it activates with no prompt. **Still untested**
-  — first use will `npx`-download `@playwright/mcp`. If it misbehaves on
-  Windows, the likely culprit is `"command": "npx"` needing to be `npx.cmd`.
+- **Playwright MCP connects** (verified 2026-08-01): `.mcp.json` (chromium,
+  iPhone 13, `--isolated`) + `enabledMcpjsonServers` in `.claude/settings.json`
+  means the server starts and its tools are available with no prompt. Plain
+  `"command": "npx"` works on Windows — no `npx.cmd` needed. Not yet driven
+  through a full click-through.
 - **Automation account created**: `radar-auto@partypick.test` (`.env.test`,
   gitignored). Driven through onboarding via the UI, so its state is what a
   real user has. `pp-test-1/2/3` verified working and left untouched.
@@ -67,8 +65,7 @@ direct pruning himself.
 ## Environment
 
 - Work moved to a **dedicated always-on desktop** (2026-08-01). Repo lives at
-  `c:\Workspace2\radar` — note HANDOFF.md still says `c:\Workspace-2\radar`
-  (hyphen); that path is stale, fix it next time that file is touched.
+  `c:\Workspace2\radar` (no hyphen).
 - Rory drives this from **remote Claude Code**, so anything a session needs must
   be committed to the repo, not left on a local disk.
 - **Open `c:\Workspace2\radar` as the editor folder, not the parent
@@ -92,6 +89,10 @@ direct pruning himself.
 *Newest first. Each entry: what changed and what the next session needs to know.
 Keep 5.*
 
+### `25b9304` + `01dd31c` — Session continuity & visual testing (2026-08-01)
+STATE.md introduced, Playwright + `scripts/shot.mjs` added, Playwright MCP
+configured. Tooling only, no app code — no release note by design.
+
 ### `0280679` — Search overhaul (v0.13, 2026-08-01)
 Server-driven Explore, Open Library books, curated chips. Established the
 search rules now recorded in CLAUDE.md § Hard rules 3–4 (TMDB `search/multi`
@@ -105,14 +106,6 @@ Consult it before assuming any provider can filter, sort, or count.
 Adventures are created standalone from the Quests tab and own the join code;
 the join box tries adventures before quests. `adventure_create_from_party`
 still exists in the schema but is no longer called.
-
-### `b21605d` — Quests rebuilt on slots (2026-07-31)
-Migration 0013 replaced the AI candidate pipeline; `generate-candidates` is
-deleted, not dormant. Deck = union of picked slots. Don't reintroduce scoring.
-
-### `9a63707` — Notifications inbox + release-notes system (2026-07-31)
-Migration 0012. Clients never insert notifications; producers are SECURITY
-DEFINER triggers/RPCs calling `notify_user()`.
 
 ## Next steps
 
@@ -133,6 +126,11 @@ Nothing committed to. Candidates, in rough priority order:
 - **npm audit**: 4 vulnerabilities (3 moderate, 1 high) on this install.
   Deliberately not fixed — `audit fix --force` would bump Angular. Revisit
   only as a standalone task.
+- **`supabase/functions/_shared/gemini.ts` is unused but deliberately kept**
+  (Rory, 2026-08-01) — nothing has imported it since migration 0013 removed the
+  AI pipeline, but it stays as the starting point for future AI features.
+  **Don't delete it**, and don't read its presence as evidence the app calls
+  Gemini today — it doesn't.
 - **Line endings**: `scripts/build-release-notes.mjs` writes LF, so
   `release-notes.generated.ts` can show as modified in `git status` on Windows
   with an empty `git diff`. Harmless; don't "fix" it by hand-editing the
