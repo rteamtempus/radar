@@ -111,10 +111,12 @@ scoring or a shortlist without asking.
    `radar_slots` row. Keep it that way.
 5. **Ties are a random draw** (`tallyWinner` in `party-logic.ts`), injectable
    for tests. There is no `final_score` any more.
-6. Adventures own the roster and the join code; quests inside them inherit
-   both. The join box tries **adventures first** — an adventure reuses its
-   founding quest's code, so trying quests first would drop people into day one
-   only.
+6. Adventures are **planning-first**: created standalone (`adventure_create`,
+   from the Quests tab) with their own join code; quests are added to them and
+   inherit the roster. The join box tries **adventures first**, so an adventure
+   code lands people in the whole itinerary, never just one quest.
+   (`adventure_create_from_party` still exists in the schema but the app no
+   longer calls it.)
 
 ## Notifications
 

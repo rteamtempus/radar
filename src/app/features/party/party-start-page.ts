@@ -108,6 +108,46 @@ const STATUS_LABELS: Record<PartyStatus, string> = {
         >
           {{ busy() ? 'Setting up…' : 'Start the quest →' }}
         </button>
+
+        <!-- planning-first: build the itinerary, then add quests to it -->
+        @if (planningAdventure()) {
+          <div class="mt-3 rounded-2xl border border-violet/40 bg-violet/10 p-4">
+            <p class="text-xs font-bold tracking-wide text-muted uppercase">Name your adventure</p>
+            <input
+              type="text"
+              maxlength="40"
+              [(ngModel)]="adventureName"
+              placeholder="“Portland weekend” · “Halloween marathon”"
+              class="mt-2 w-full rounded-xl border border-line bg-bg-warm px-3 py-2.5 text-sm text-cream placeholder:text-muted focus:border-violet focus:outline-none"
+            />
+            <div class="mt-2.5 flex gap-2">
+              <button
+                (click)="createAdventure()"
+                [disabled]="busy()"
+                class="flex-1 rounded-xl bg-violet py-2.5 text-sm font-bold text-ink disabled:opacity-50"
+              >
+                Create it →
+              </button>
+              <button
+                (click)="planningAdventure.set(false)"
+                class="rounded-xl border border-line px-4 py-2.5 text-sm font-bold text-muted-2"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        } @else {
+          <button
+            (click)="planningAdventure.set(true)"
+            class="font-display mt-3 w-full rounded-2xl border-2 border-violet py-3.5 text-center text-lg font-semibold text-violet"
+          >
+            🗺️ Make it an adventure!
+          </button>
+          <p class="mt-1.5 text-center text-[11px] text-muted">
+            A whole itinerary — marathons, date nights, weekend trips. Add quests to it as you plan.
+          </p>
+        }
+
         <a routerLink="/party/join" class="mt-4 block text-center text-sm font-bold text-muted-2">
           Have a code? <span class="text-coral">Join a quest or adventure</span>
         </a>
@@ -127,6 +167,8 @@ export class PartyStartPage {
   protected readonly domains = DOMAINS;
   protected readonly domain = signal<Domain>(this.domains_.domain());
   protected title = '';
+  protected readonly planningAdventure = signal(false);
+  protected adventureName = '';
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly activeParties = signal<ActivePartySummary[]>([]);
@@ -146,6 +188,14 @@ export class PartyStartPage {
 
   protected emojiFor(domain: Domain): string {
     return DOMAINS.find((d) => d.id === domain)?.emoji ?? '🎬';
+  }
+
+  protected async createAdventure() {
+    this.busy.set(true);
+    this.error.set('');
+    const id = await this.adventureService.create(this.adventureName);
+    this.busy.set(false);
+    if (id) await this.router.navigate(['/adventure', id]);
   }
 
   protected async start() {

@@ -5,6 +5,24 @@ import type { ReleaseNote } from './release-notes';
 /** Newest first. */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    seq: 12,
+    version: "0.12",
+    date: "2026-07-31",
+    title: "Adventures, planning-first",
+    summary: "Start an adventure before any quests exist, see what each decided quest picked at a glance, and scheduling that says what it is.",
+    sections: [
+      {
+        heading: "Changed",
+        items: [
+          { lead: "Adventures start on the Quests tab", text: "\"Make it an adventure!\" now lives on the start-a-quest screen: name it, get the empty itinerary, and add quests as you plan. It no longer appears after a quest finishes — an adventure is something you set up first, not a promotion of a night that already happened." },
+          { lead: "Decided quests show their pick", text: "On the adventure itinerary, any quest that's been decided now carries a poster thumbnail of what won, so you can read the plan at a glance." },
+          { lead: "\"Whenever\" quests", text: "Quests without a date now sit under a 🤷 Whenever heading with honest copy: they happen when they happen, and giving one a date moves it onto the schedule." },
+          { lead: "Scheduling says what it is", text: "The bare (and confusing) blank date field is gone. An unscheduled quest shows a \"📅 Pick a date & time\" button; a scheduled one shows its day and time with a \"change\" affordance and a \"→ Whenever\" button to unschedule it. The picker itself only appears when you ask for it." },
+        ],
+      },
+    ],
+  },
+  {
     seq: 11,
     version: "0.11",
     date: "2026-07-31",
@@ -329,4 +347,4 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
 ];
 
 /** Highest sequence in this build — compared against profiles.last_seen_release_seq. */
-export const LATEST_RELEASE_SEQ = 11;
+export const LATEST_RELEASE_SEQ = 12;

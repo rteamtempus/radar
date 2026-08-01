@@ -118,10 +118,10 @@ const STATUS_LABELS: Record<PartyStatus, string> = {
 
         @if (adv.unscheduled().length) {
           <h2 class="mt-7 mb-1 text-xs font-bold tracking-wide text-muted uppercase">
-            Maybe · no time set
+            🤷 Whenever
           </h2>
           <p class="mb-2.5 text-[11px] text-muted">
-            Give one a time and it moves up into the days above.
+            These happen when they happen. Give one a date and it joins the schedule above.
           </p>
           <div class="flex flex-col gap-2.5">
             @for (q of adv.unscheduled(); track q.id; let i = $index) {
@@ -236,7 +236,16 @@ const STATUS_LABELS: Record<PartyStatus, string> = {
       <ng-template #questCard let-q let-scheduled="scheduled" let-index="index">
         <div class="rounded-2xl border border-line bg-surface p-4">
           <div class="flex items-start gap-3">
-            <span class="text-2xl">{{ emojiFor(q.domain) }}</span>
+            <!-- decided quests show what won; undecided show the domain -->
+            @if (q.activity?.image_url) {
+              <img
+                [src]="q.activity.image_url"
+                [alt]="q.activity.title"
+                class="h-16 w-11 flex-none rounded-lg object-cover shadow"
+              />
+            } @else {
+              <span class="text-2xl">{{ emojiFor(q.domain) }}</span>
+            }
             <a [routerLink]="['/party', q.id]" class="min-w-0 flex-1">
               <p class="truncate text-sm font-bold">{{ q.title ?? domainLabel(q.domain) + ' quest' }}</p>
               <p class="truncate text-[11px] text-muted">
@@ -262,15 +271,37 @@ const STATUS_LABELS: Record<PartyStatus, string> = {
 
           @if (adv.adventure()?.status === 'planning') {
             <div class="mt-3 flex items-center gap-2">
-              <input
-                type="datetime-local"
-                [value]="localValue(q.scheduled_at)"
-                (change)="setTime(q, $event)"
-                class="min-w-0 flex-1 rounded-xl border border-line bg-bg-warm px-2.5 py-2 text-xs text-cream focus:border-coral focus:outline-none"
-              />
-              @if (q.scheduled_at) {
-                <button (click)="adv.schedule(id(), q.id, null, null)" class="flex-none rounded-xl border border-line px-2.5 py-2 text-xs font-bold text-muted-2">
-                  Unset
+              @if (editingTime() === q.id) {
+                <!-- the actual picker, revealed on demand -->
+                <input
+                  type="datetime-local"
+                  [value]="localValue(q.scheduled_at)"
+                  (change)="setTime(q, $event)"
+                  class="min-w-0 flex-1 rounded-xl border border-gold/50 bg-bg-warm px-2.5 py-2 text-xs text-cream focus:border-gold focus:outline-none"
+                />
+                <button (click)="editingTime.set(null)" class="flex-none rounded-xl border border-line px-2.5 py-2 text-xs font-bold text-muted-2">
+                  Done
+                </button>
+              } @else if (q.scheduled_at) {
+                <button
+                  (click)="editingTime.set(q.id)"
+                  class="flex min-w-0 flex-1 items-center gap-1.5 rounded-xl border border-line px-2.5 py-2 text-left text-xs font-bold text-cream"
+                >
+                  🕑 <span class="truncate">{{ when(q.scheduled_at) }} · {{ time(q.scheduled_at) }}</span>
+                  <span class="ml-auto flex-none font-normal text-muted-2">change</span>
+                </button>
+                <button
+                  (click)="adv.schedule(id(), q.id, null, null)"
+                  class="flex-none rounded-xl border border-line px-2.5 py-2 text-xs font-bold text-muted-2"
+                >
+                  → Whenever
+                </button>
+              } @else {
+                <button
+                  (click)="editingTime.set(q.id)"
+                  class="flex-1 rounded-xl border border-dashed border-gold/50 px-2.5 py-2 text-xs font-bold text-gold"
+                >
+                  📅 Pick a date & time
                 </button>
               }
               <button (click)="remove(q)" aria-label="Remove quest" class="flex-none rounded-xl border border-line px-2.5 py-2 text-xs font-bold text-muted-2">
@@ -303,6 +334,8 @@ export class AdventurePage implements OnDestroy {
   protected readonly copied = signal(false);
   protected readonly confirmCancel = signal(false);
   protected readonly pooped = signal(false);
+  /** Quest id whose datetime picker is open (one at a time keeps it calm). */
+  protected readonly editingTime = signal<string | null>(null);
 
   private readonly openOnIdChange = effect(() => {
     void this.adv.open(this.id());
@@ -352,6 +385,7 @@ export class AdventurePage implements OnDestroy {
 
   protected setTime(q: AdventureQuest, event: Event) {
     const value = (event.target as HTMLInputElement).value;
+    this.editingTime.set(null); // picking a value closes the picker
     void this.adv.schedule(this.id(), q.id, value ? new Date(value).toISOString() : null, null);
   }
 

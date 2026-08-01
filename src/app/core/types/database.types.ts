@@ -1546,6 +1546,7 @@ export type Database = {
         Args: { p_adventure_id: string; p_domain: string; p_title: string }
         Returns: string
       }
+      adventure_create: { Args: { p_name: string }; Returns: string }
       adventure_create_from_party: {
         Args: { p_name: string; p_party_id: string }
         Returns: string

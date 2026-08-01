@@ -3,15 +3,15 @@
 An itinerary of quests with one roster and one code — movie marathons, date
 nights, weekend trips.
 
-**Shipped in:** v0.11
+**Shipped in:** v0.11 · v0.12 (planning-first creation, thumbnails, Whenever)
 
 Quests themselves are in `quests.md`. The rules:
 
-- An adventure is created **from** a quest and adopts that quest's members and
-  its join code.
-- Every quest added later inherits the whole adventure roster automatically.
-- A quest with a date and time sits under a day heading; one without sits in
-  the **Maybe** bucket, where it can be reordered.
+- An adventure is a **planning tool**: it's created standalone from the Quests
+  tab, empty, with its own join code. Quests are added to it afterwards.
+- Every quest added inherits the whole adventure roster automatically.
+- A quest with a date and time sits under a day heading; one without is a
+  **Whenever** quest, reorderable in its own bucket.
 - Only the adventure's owner can complete or cancel it. Any member can add,
   schedule, reorder and remove quests.
 
@@ -19,19 +19,20 @@ Quests themselves are in `quests.md`. The rules:
 
 ## Creating and joining
 
-### RT-ADV-01 — Make it an adventure
+### RT-ADV-01 — Make it an adventure (planning-first)
 
-**Steps:** Run a quest through to its reveal. As host, tap **Make it an
-adventure!**.
-**Expected:** You land on a new adventure page carrying the quest's name, with
-that quest already in it and the same join code as before.
+**Steps:** On the Quests tab, tap **Make it an adventure!**, name it, create.
+**Expected:** A name field appears in place before anything is created;
+creating lands you on an empty adventure page with that name, a join code, and
+an "Add a quest" control. No quest has to exist first.
 
-### RT-ADV-02 — The button only appears where it should
+### RT-ADV-02 — The button is only on the Quests tab
 
-**Steps:** Look for the button on a quest that's already in an adventure, and
-as a non-host.
-**Expected:** Absent in both cases. A quest already in an adventure shows
-"← Back to the adventure" instead.
+**Steps:** Finish a quest through to its reveal and look for a make-it-an-
+adventure button there.
+**Expected:** There isn't one — the decided screen offers start-over and
+watch-on only (this moved in v0.12). A quest that belongs to an adventure shows
+"← Back to the adventure".
 
 ### RT-ADV-03 — One code, every quest [2 users]
 
@@ -57,12 +58,13 @@ just its first quest.
 
 ## The itinerary
 
-### RT-ADV-06 — Maybe bucket
+### RT-ADV-06 — Whenever bucket
 
 **Steps:** Add a quest without giving it a time.
-**Expected:** It appears under **Maybe · no time set**, with up/down arrows.
+**Expected:** It appears under **🤷 Whenever**, with up/down arrows and a
+dashed **📅 Pick a date & time** button — never a bare blank input field.
 
-### RT-ADV-07 — Reordering the Maybe list
+### RT-ADV-07 — Reordering the Whenever list
 
 **Steps:** Use the arrows on an unscheduled quest.
 **Expected:** It moves immediately, the ends are disabled at top and bottom,
@@ -70,9 +72,11 @@ and the order survives a reload and shows the same for everyone.
 
 ### RT-ADV-08 — Scheduling promotes it
 
-**Steps:** Give a Maybe quest a date and time.
-**Expected:** It leaves the Maybe list and appears under a day heading in time
-order. Set a time on a quest for a different day and a second heading appears.
+**Steps:** Tap **📅 Pick a date & time** on a Whenever quest, choose a time.
+**Expected:** The picker appears only after the tap, closes once you've picked,
+and the quest leaves Whenever for its day heading in time order. A second day
+gets its own heading. A scheduled quest shows "🕑 day · time" with a *change*
+affordance — tapping it reopens the picker.
 
 ### RT-ADV-09 — Day grouping and ordering
 
@@ -80,10 +84,10 @@ order. Set a time on a quest for a different day and a second heading appears.
 **Expected:** Headings read like "Saturday 15 Aug", days run earliest first,
 and quests within a day run in time order.
 
-### RT-ADV-10 — Unsetting a time
+### RT-ADV-10 — Back to Whenever
 
-**Steps:** Tap **Unset** on a scheduled quest.
-**Expected:** It drops back into the Maybe bucket. Nothing else about it
+**Steps:** Tap **→ Whenever** on a scheduled quest.
+**Expected:** It drops back into the Whenever bucket. Nothing else about it
 changes — the same quest, same members, same picks.
 
 ### RT-ADV-11 — Timezones don't drift
@@ -105,11 +109,12 @@ your Quests list).
 and reorder quests.
 **Expected:** The other screen follows without a refresh.
 
-### RT-ADV-14 — Quest status shows through
+### RT-ADV-14 — Quest status and the winning poster show through
 
 **Steps:** Take one quest in the adventure through to a decision.
-**Expected:** Its row on the adventure shows the status ("picking slots",
-"swiping", "decided") and, once decided, the winning title.
+**Expected:** Its row shows the status ("picking slots", "swiping", "decided")
+while in flight with the domain emoji as its icon; once decided, the emoji is
+replaced by a **poster thumbnail of what won** plus the winning title in gold.
 
 ---
 

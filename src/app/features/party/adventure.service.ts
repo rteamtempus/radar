@@ -134,12 +134,12 @@ export class AdventureService {
 
   // ------------------------------------------------------------------ actions
 
-  /** "Make it an adventure!" — promotes a quest and its roster. */
-  async createFromParty(partyId: string, name: string): Promise<string | null> {
-    const { data, error } = await getSupabase().rpc('adventure_create_from_party', {
-      p_party_id: partyId,
-      p_name: name,
-    });
+  /**
+   * "Make it an adventure!" — a standalone itinerary, created BEFORE any
+   * quests exist. Planning-first: name it, then add quests to it.
+   */
+  async create(name: string): Promise<string | null> {
+    const { data, error } = await getSupabase().rpc('adventure_create', { p_name: name });
     if (error) {
       this.toast.error(error.message);
       return null;

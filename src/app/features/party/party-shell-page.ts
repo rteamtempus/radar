@@ -1,12 +1,11 @@
 import { Component, OnDestroy, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { DOMAINS, Domain } from '../../core/domain.service';
 import { PlatformService } from '../../core/platform/platform.service';
 import { SERVICE_HOMEPAGES } from '../../core/streaming-links';
 import { SubscriptionsService } from '../../core/subscriptions.service';
 import { ServiceBadges } from '../../shared/ui/service-badges';
-import { AdventureService } from './adventure.service';
 import { PartyPooperModal } from './party-pooper-modal';
 import { PartyCandidate, PartyService } from './party.service';
 import { QuestSlotPicker } from './quest-slot-picker';
@@ -273,18 +272,6 @@ import { SwipeDeck } from './swipe-deck';
               }
 
               <div class="mt-auto flex w-full flex-col items-center gap-3 pt-8">
-                @if (!p.adventure_id && party.isHost()) {
-                  <button
-                    (click)="makeAdventure()"
-                    [disabled]="busy()"
-                    class="font-display w-full rounded-2xl border-2 border-violet py-3.5 text-lg font-semibold text-violet disabled:opacity-50"
-                  >
-                    🗺️ Make it an adventure!
-                  </button>
-                  <p class="text-center text-[11px] text-muted">
-                    Turn tonight into an itinerary — add more quests, set times, keep the crew.
-                  </p>
-                }
                 @if (p.adventure_id) {
                   <a
                     [routerLink]="['/adventure', p.adventure_id]"
@@ -353,8 +340,6 @@ export class PartyShellPage implements OnDestroy {
   protected readonly party = inject(PartyService);
   protected readonly subs = inject(SubscriptionsService);
   protected readonly platform = inject(PlatformService);
-  private readonly adventures = inject(AdventureService);
-  private readonly router = inject(Router);
 
   /** Route param. */
   readonly id = input.required<string>();
@@ -447,16 +432,6 @@ export class PartyShellPage implements OnDestroy {
     const { error } = await this.party.cancelQuest();
     this.confirmCancel.set(false);
     if (error) this.error.set(error);
-  }
-
-  protected async makeAdventure() {
-    const partyId = this.party.party()?.id;
-    if (!partyId) return;
-    this.busy.set(true);
-    const name = this.party.party()?.title?.trim() || 'Our adventure';
-    const id = await this.adventures.createFromParty(partyId, name);
-    this.busy.set(false);
-    if (id) await this.router.navigate(['/adventure', id]);
   }
 
   protected myPoints(candidateId: string): number {

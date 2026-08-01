@@ -8,6 +8,17 @@ See `CLAUDE.md` → *Release notes & regression testing*.
 
 ---
 
+## v0.12 — Adventures, planning-first (2026-07-31)
+
+**Retest:**
+
+| File | Why |
+| --- | --- |
+| `adventures.md` | RT-ADV-01/02 rewritten (creation moved to the Quests tab, standalone `adventure_create` RPC), RT-ADV-06/08/10 rewritten (Whenever bucket + explicit picker), RT-ADV-14 gains the poster-thumbnail check. Run the whole file. |
+| `quests.md` | The decided screen lost its make-it-an-adventure button — confirm reveal/start-over/back-to-adventure still behave (RT-QUEST-18/19). Nothing else touched. |
+
+---
+
 ## v0.11 — Quests, rebuilt — and adventures (2026-07-31)
 
 **New:** `adventures.md`. **Rewritten:** `quests.md` (the flow changed
