@@ -104,27 +104,34 @@ kicks in within the genre.
 
 ## Eat / Do (explicit, billable)
 
-### RT-EXPL-11 — Google pulls are explicit + paginated [live data]
+### RT-EXPL-11 — Live search: submit-only text, per-filter calls (v0.16) [live data]
 
-**Steps:** In Eat, type a search and press **Search Google**. Then press
-**Show 20 more from Google**.
-**Expected:** Nothing hits Google until pressed. The first pull returns up to
-20; Show-20-more appends the next page and disappears when Google runs out
-(~60 results max — Google provides no total count, so none is claimed).
+**Steps:** In Eat, type a query — watch the list while typing — then press
+Enter (or **Search Google**). Then toggle cuisine, price, ★4+ and Open now
+chips. Then press **Show 20 more from Google**.
+**Expected:** Typing only narrows the local catalog (NO Google call per
+keystroke). Submitting runs a live Google search; after that, every mappable
+chip change re-queries Google (debounced) with the filters applied BY GOOGLE
+— a Chinese + ★4+ + $$ search returns real matches even in a city Radar has
+never seen. The count reads "N live" / "N+ live" (Google has no totals);
+sort shows "Best match". Show-20-more is a button (never auto-scroll) and
+disappears when Google runs out (~60).
 
-### RT-EXPL-12 — Cuisine-narrowed pulls [live data]
+### RT-EXPL-12 — Ambient pulls still work [live data]
 
-**Steps:** Select the Sushi chip, then press **Pull nearby Sushi**.
-**Expected:** The nearby button names the cuisine and Google returns that kind
-of place. New places carry at most ONE curated cuisine/theme tag (from their
-primary category); places with only a generic category get none.
+**Steps:** With no filters and no submitted query, press **Pull nearby
+spots**.
+**Expected:** One popularity-ranked nearby pull joins the catalog. New places
+carry at most ONE curated cuisine/theme tag (from their primary category);
+places with only a generic category get none.
 
-### RT-EXPL-13 — Eat filters + the anchored radius (v0.15)
+### RT-EXPL-13 — Local-only filters + the anchored radius
 
-**Steps:** Exercise open-now, distance rings, price, rating floor, hide-been,
-friends chips, cuisine chips against the local catalog.
-**Expected:** Each narrows the list client-side, count updates, Clear all
-restores.
+**Steps:** In ambient (no live search) mode, exercise distance rings,
+hide-been and friends chips against the local catalog.
+**Expected:** Those narrow client-side for free. Cuisine/price/rating/open-now
+now flip to live mode instead (RT-EXPL-11). In live mode, hide-been and
+friend chips still apply locally on top of Google's results.
 
 ### RT-EXPL-16 — Anchored catalog defaults to 30 miles (v0.15)
 
@@ -144,15 +151,25 @@ Compare with a near-me (no city) name search for a distant specific place.
 (~40 km fence — hard restriction). Without a picked city, name searches still
 find far-away places (GPS stays a soft bias).
 
-### RT-EXPL-18 — Empty chip results offer the targeted pull (v0.15)
+### RT-EXPL-18 — Empty states tell the truth (v0.16)
 
-**Steps:** In Eat with a city picked, select a cuisine (± price chips) that
-yields zero catalog matches.
-**Expected:** The empty state explains Radar may not have scouted that
-cuisine here and offers "📍 Pull nearby <cuisine> from Google" inline — a
-single explicit call (filters themselves never call Google). Tapping it
-populates the list when Google has matches. Watch/Read empty states are
-unchanged ("Loosen a filter").
+**Steps:** Force a zero-result LIVE search (obscure cuisine + $$$$ in a small
+town). Separately, in ambient mode with an anchor, find an empty
+local-filter combination.
+**Expected:** Live mode: "Google found nothing matching near <city>" — no
+pull button (Google already looked). Ambient mode: "Radar may just not have
+scouted this…" with the one-tap **Pull nearby spots** button. Watch/Read
+empty states are unchanged ("Loosen a filter").
+
+### RT-EXPL-19 — Nightly places sweep (v0.16) [backend]
+
+**Steps:** As postgres: check `cron.job` has `places-refresh-daily`; invoke
+`places-refresh` with the service key; try it with a user token.
+**Expected:** Service-role call returns `{refreshed, backfilled, scanned}`
+counts over ACTIVE places only (in slots/engagements); rows older than 25
+days get fresh coords + business_status; active rows missing a rating gain
+one (capped per run). A user token gets 403. The Vault secret
+`service_role_key` must exist for the cron path.
 
 ## Rows (all domains)
 

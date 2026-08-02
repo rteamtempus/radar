@@ -32,8 +32,15 @@ Vercel, no Dockerfile). Gemini/AI was removed in v0.11 (quests run on slots).
    return real totals. Books = **Open Library** (never Google Books for new
    work; `external_source` distinguishes legacy rows), popularity sort only
    when a query narrows, quoted `subject` for genre browses. Places text
-   search paginates by token, has NO total count, and stays behind explicit
-   billable-action buttons. **Field masks set the Places billing tier**
+   search paginates by token, has NO total count. **Eat/do search is LIVE as
+   of v0.16** (Rory-approved cost model, 2026-08-02): cuisine/price/rating/
+   open-now chips and SUBMITTED text (Enter/button — never per keystroke)
+   each fire one Places call with Google-side filters (`minRating`,
+   `priceLevels`, `openNow`); pagination stays behind an explicit button;
+   the ambient no-filter view is the free local catalog. A nightly
+   `places-refresh` sweep (pg_cron + Vault, migration 0020) keeps active
+   rows ToS-fresh (lean Essentials-tier calls) and backfills missing
+   ratings (capped rich calls). **Field masks set the Places billing tier**
    (Essentials ~10K free/mo > Pro ~5K > Enterprise ~1K): search masks stay
    PRO-TIER (no rating/price/hours/editorialSummary — those come from
    place-detail, and `upsertPlace` MERGES metadata so search hits never null

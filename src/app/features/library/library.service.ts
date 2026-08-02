@@ -129,7 +129,14 @@ export class LibraryService {
     query: string,
     location: { lat: number; lng: number } | null,
     kind: 'eat' | 'do' = 'eat',
-    opts: { cuisine?: string | null; pageToken?: string | null; restrict?: boolean } = {},
+    opts: {
+      cuisine?: string | null;
+      pageToken?: string | null;
+      restrict?: boolean;
+      minRating?: number | null;
+      priceLevels?: number[] | null;
+      openNow?: boolean;
+    } = {},
   ): Promise<{ rows: ActivitySummary[]; nextPageToken: string | null }> {
     const { data, error } = await getSupabase().functions.invoke<{
       results: ActivitySummary[];
@@ -144,6 +151,10 @@ export class LibraryService {
         page_token: opts.pageToken || undefined,
         // Hard geo fence — set when the user explicitly picked a city.
         restrict: opts.restrict || undefined,
+        // Live filters (v0.16) — Google applies these server-side.
+        min_rating: opts.minRating || undefined,
+        price_levels: opts.priceLevels?.length ? opts.priceLevels : undefined,
+        open_now: opts.openNow || undefined,
       },
     });
     if (error) throw error;

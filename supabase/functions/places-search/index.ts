@@ -1,6 +1,10 @@
 // places-search — Eat + Do domains
 //
-// POST { query?, lat?, lng?, kind?: 'eat'|'do', cuisine?, page_token?, restrict? }
+// POST { query?, lat?, lng?, kind?: 'eat'|'do', cuisine?, page_token?, restrict?,
+//        min_rating?, price_levels?, open_now? }
+// v0.16 live search: rating/price/open-now are applied BY GOOGLE (searchText
+// filter params), so filtered results are correct even though our Pro-tier
+// masks don't fetch those fields for storage.
 // With a query → Places text search: location-biased when lat/lng present,
 // HARD-restricted to a ~40 km box when `restrict` is true (the user picked a
 // city — results must actually be there). Paginated via page_token (Google
@@ -18,7 +22,8 @@ import { includedTypeFor } from '../_shared/vocab.ts';
 serve(async (req) => {
   await requireUser(req);
 
-  const { query, lat, lng, kind, cuisine, page_token, restrict } = await req.json().catch(() => ({}));
+  const { query, lat, lng, kind, cuisine, page_token, restrict, min_rating, price_levels, open_now } =
+    await req.json().catch(() => ({}));
   const placeKind: PlaceKind = kind === 'do' ? 'do' : 'eat';
   const location =
     typeof lat === 'number' && typeof lng === 'number' ? { lat, lng } : null;
@@ -30,14 +35,31 @@ serve(async (req) => {
 
   const includedType =
     typeof cuisine === 'string' && cuisine ? includedTypeFor(cuisine, placeKind) : null;
+  const minRating = typeof min_rating === 'number' ? Math.max(1, Math.min(5, min_rating)) : null;
+  const priceLevels = Array.isArray(price_levels)
+    ? price_levels.filter((p): p is number => typeof p === 'number' && p >= 1 && p <= 4)
+    : null;
+  const hasLiveFilters = !!(minRating || priceLevels?.length || open_now === true);
 
   let places;
   let nextPageToken: string | null = null;
-  if (trimmed || token) {
-    const page = await placesTextSearch(trimmed, location, placeKind, {
+  if (trimmed || token || hasLiveFilters) {
+    // Filter-only live searches still need a textQuery — the cuisine label or
+    // a generic one stands in ("chinese restaurant" / "restaurants").
+    const effectiveQuery =
+      trimmed ||
+      (typeof cuisine === 'string' && cuisine
+        ? cuisine.replace(/-/g, ' ') + (placeKind === 'eat' ? ' restaurant' : '')
+        : placeKind === 'eat'
+          ? 'restaurants'
+          : 'things to do');
+    const page = await placesTextSearch(effectiveQuery, location, placeKind, {
       includedType,
       pageToken: token,
       restrict: restrict === true,
+      minRating,
+      priceLevels,
+      openNow: open_now === true,
     });
     places = page.places;
     nextPageToken = page.nextPageToken;

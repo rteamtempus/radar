@@ -104,11 +104,27 @@ const NEARBY_TYPES: Record<PlaceKind, string[]> = {
  * total-count field in the response — the API simply doesn't have one
  * (docs/API-CAPABILITIES.md).
  */
+const PRICE_LEVEL_NAMES = [
+  '',
+  'PRICE_LEVEL_INEXPENSIVE',
+  'PRICE_LEVEL_MODERATE',
+  'PRICE_LEVEL_EXPENSIVE',
+  'PRICE_LEVEL_VERY_EXPENSIVE',
+];
+
 export async function placesTextSearch(
   query: string,
   location: { lat: number; lng: number } | null,
   kind: PlaceKind,
-  opts: { includedType?: string | null; pageToken?: string | null; restrict?: boolean } = {},
+  opts: {
+    includedType?: string | null;
+    pageToken?: string | null;
+    restrict?: boolean;
+    // v0.16 live-search filters — applied by GOOGLE, not client-side
+    minRating?: number | null; // 1.0–5.0, 0.5 steps
+    priceLevels?: number[] | null; // 1–4 ($–$$$$)
+    openNow?: boolean;
+  } = {},
 ): Promise<{ places: GooglePlace[]; nextPageToken: string | null }> {
   // v0.15: `restrict` (set when the user explicitly picked a city) fences
   // results to a ~40 km rectangle — locationRestriction is a hard filter,
@@ -143,6 +159,11 @@ export async function placesTextSearch(
           ? { includedType: 'restaurant' }
           : {}),
       pageSize: 20,
+      ...(opts.minRating ? { minRating: Math.round(opts.minRating * 2) / 2 } : {}),
+      ...(opts.openNow ? { openNow: true } : {}),
+      ...(opts.priceLevels?.length
+        ? { priceLevels: opts.priceLevels.map((p) => PRICE_LEVEL_NAMES[p]).filter(Boolean) }
+        : {}),
       ...(opts.pageToken ? { pageToken: opts.pageToken } : {}),
       ...(restriction ??
         (location

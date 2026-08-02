@@ -101,6 +101,7 @@ const PAGE = 40;
         "
         [ngModel]="query()"
         (ngModelChange)="onQuery($event)"
+        (keydown.enter)="submitPlacesSearch()"
         class="mt-4 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-cream placeholder:text-muted focus:border-coral focus:outline-none"
       />
 
@@ -391,7 +392,7 @@ const PAGE = 40;
       <!-- sort + count + clear -->
       <div class="mt-2.5 flex items-center gap-2">
         <div class="no-scrollbar flex flex-1 gap-2 overflow-x-auto">
-          @if (serverSearchKind() === 'text') {
+          @if (serverIsRelevance()) {
             <span class="flex-none py-1.5 text-xs font-bold text-muted">↕ Best match</span>
           } @else {
             @for (s of sortChips(); track s.value) {
@@ -401,7 +402,12 @@ const PAGE = 40;
         </div>
         <span class="flex-none text-xs font-bold text-muted">
           @if (serverMode()) {
-            {{ serverTotal() === null ? '…' : (serverTotal() | number) + ' results' }}
+            @if (isEat()) {
+              <!-- Places has no total count — show what we've fetched -->
+              {{ serverLoading() && !serverIds().length ? '…' : serverIds().length + (serverHasMore() ? '+' : '') + ' live' }}
+            } @else {
+              {{ serverTotal() === null ? '…' : (serverTotal() | number) + ' results' }}
+            }
             @if (serverShownNote(); as note) {
               · {{ note }}
             }
@@ -457,13 +463,16 @@ const PAGE = 40;
         <div class="mt-10 flex flex-col items-center gap-3 text-center">
           <div class="text-4xl">🔭</div>
           <p class="font-bold">Nothing matches</p>
-          @if (isEat()) {
-            <!-- An empty chip result here means RADAR hasn't scouted this,
-                 not that the city lacks it — offer the one-call fix inline
-                 instead of letting "no Chinese in Austin" stand. -->
+          @if (isEat() && serverMode()) {
+            <!-- Live mode: Google itself came up empty — that's an answer. -->
             <p class="max-w-72 text-sm text-muted-2">
-              Radar may just not have scouted
-              {{ selectedCuisineLabel() ?? 'this kind of thing' }} near
+              Google found nothing matching near
+              {{ location.custom()?.name ?? 'you' }} — loosen a filter or try
+              different words.
+            </p>
+          } @else if (isEat()) {
+            <p class="max-w-72 text-sm text-muted-2">
+              Radar may just not have scouted this near
               {{ location.custom()?.name ?? 'you' }} yet — one Google pull
               fills it in for everyone, or loosen a filter.
             </p>
@@ -472,7 +481,7 @@ const PAGE = 40;
               [disabled]="pulling()"
               class="rounded-2xl border border-gold/50 px-5 py-2.5 text-sm font-bold text-gold disabled:opacity-50"
             >
-              {{ pulling() ? 'Fetching…' : '📍 Pull nearby ' + (selectedCuisineLabel() ?? 'spots') + ' from Google' }}
+              {{ pulling() ? 'Fetching…' : '📍 Pull nearby spots from Google' }}
             </button>
           } @else {
             <p class="max-w-64 text-sm text-muted-2">Loosen a filter.</p>
@@ -523,11 +532,21 @@ const PAGE = 40;
         }
       </div>
 
-      <!-- server mode: infinite scroll sentinel (TMDB / Open Library are free) -->
-      @if (serverMode() && serverHasMore()) {
+      <!-- server mode: infinite scroll sentinel (TMDB / Open Library are free;
+           Places pages stay behind an explicit button — each one bills) -->
+      @if (serverMode() && serverHasMore() && !isEat()) {
         <div #sentinel class="mt-3 flex justify-center py-3">
           <div class="size-6 animate-spin rounded-full border-3 border-surface-2 border-t-coral"></div>
         </div>
+      }
+      @if (isEat() && serverMode() && serverHasMore()) {
+        <button
+          (click)="morePlacesLive()"
+          [disabled]="serverLoading()"
+          class="mt-3 w-full rounded-2xl border border-dashed border-gold/50 py-2.5 text-sm font-bold text-gold disabled:opacity-50"
+        >
+          {{ serverLoading() ? 'Fetching…' : '⤵ Show 20 more from Google' }}
+        </button>
       }
 
       @if (!serverMode() && filtered().length > shown()) {
@@ -539,42 +558,34 @@ const PAGE = 40;
         </button>
       }
 
-      <!-- eat/do: explicit external pulls (Places calls are billable) -->
-      @if (isEat()) {
+      <!-- eat/do: ambient-mode pulls (live mode has its own controls above) -->
+      @if (isEat() && !serverMode()) {
         <div class="mt-4 flex gap-2">
           <button
             (click)="nearby()"
             [disabled]="pulling()"
             class="flex-1 rounded-2xl border border-dashed border-line py-2.5 text-sm font-bold text-muted-2 disabled:opacity-50"
           >
-            📍 Pull nearby{{ selectedCuisineLabel() ? ' ' + selectedCuisineLabel() : ' spots' }}
+            📍 Pull nearby spots
           </button>
           @if (query().trim().length >= 2) {
             <button
-              (click)="placesSearch()"
-              [disabled]="pulling()"
-              class="flex-1 rounded-2xl border border-dashed border-gold/50 py-2.5 text-sm font-bold text-gold disabled:opacity-50"
+              (click)="submitPlacesSearch()"
+              class="flex-1 rounded-2xl border border-dashed border-gold/50 py-2.5 text-sm font-bold text-gold"
             >
               🔎 Search Google
             </button>
           }
         </div>
-        @if (placesToken()) {
-          <button
-            (click)="morePlaces()"
-            [disabled]="pulling()"
-            class="mt-2 w-full rounded-2xl border border-dashed border-gold/50 py-2.5 text-sm font-bold text-gold disabled:opacity-50"
-          >
-            {{ pulling() ? 'Fetching…' : '⤵ Show 20 more from Google' }}
-          </button>
-        }
       }
       <p class="mt-3 text-center text-[10px] text-muted">
         {{
           isEat()
-            ? myLoc() && !everywhere() && !maxMiles()
-              ? 'Places within 30 mi of ' + (location.custom()?.name ?? 'you') + ' — 🌍 Everywhere shows the whole catalog.'
-              : 'Showing every place Radar knows — pulls add fresh ones from Google.'
+            ? serverMode()
+              ? 'Live from Google — filters run on all of Places, best match first.'
+              : myLoc() && !everywhere() && !maxMiles()
+                ? 'Places within 30 mi of ' + (location.custom()?.name ?? 'you') + ' — 🌍 Everywhere shows the whole catalog. Filters go live against Google.'
+                : 'Showing every place Radar knows — pulls add fresh ones from Google.'
             : serverMode()
               ? isRead()
                 ? 'Live from Open Library — most-wanted books first.'
@@ -804,7 +815,15 @@ export class ExplorePage implements OnDestroy {
     { rootMargin: '600px' },
   );
 
-  /** Server mode: watch/read with a query or any API-mappable filter active. */
+  /**
+   * Submitted eat/do text — live Google search runs on SUBMIT (Enter or the
+   * button), never per keystroke (v0.16 — Rory's cost model).
+   */
+  protected readonly submittedQuery = signal('');
+
+  /** Server mode: watch/read with a query or any API-mappable filter active;
+   * eat/do (v0.16) with a submitted query or any Google-mappable filter —
+   * cuisine, price, rating floor, open-now all run live against Places. */
   protected readonly serverMode = computed(() => {
     if (this.mode() !== 'things') return false;
     const q = this.query().trim().length >= 2;
@@ -821,12 +840,20 @@ export class ExplorePage implements OnDestroy {
       );
     }
     if (this.isRead()) return q || this.tagSel().size > 0;
-    return false;
+    // eat/do: live mode on submitted text or any mappable filter
+    return (
+      this.submittedQuery().trim().length >= 2 ||
+      this.tagSel().size > 0 ||
+      this.priceSel().size > 0 ||
+      this.minRating() !== null ||
+      this.openNow()
+    );
   });
 
-  /** 'text' = TMDB free-text (relevance order) · 'discover' · 'read' · null */
+  /** 'text' = TMDB free-text · 'discover' · 'read' · 'places' · null */
   protected readonly serverSearchKind = computed(() => {
     if (!this.serverMode()) return null;
+    if (this.isEat()) return 'places';
     if (this.isRead()) return 'read';
     const filterless =
       !this.personSel() &&
@@ -837,6 +864,12 @@ export class ExplorePage implements OnDestroy {
       this.typeFilter() === 'all' &&
       !this.mineOnly();
     return filterless ? 'text' : 'discover';
+  });
+
+  /** Relevance-ordered result sets hide the sort chips ("Best match"). */
+  protected readonly serverIsRelevance = computed(() => {
+    const kind = this.serverSearchKind();
+    return kind === 'text' || kind === 'places';
   });
 
   protected readonly typeChips = [
@@ -1051,10 +1084,11 @@ export class ExplorePage implements OnDestroy {
   // and chip-tapping both land here). Catalog mode clears server state.
   private readonly serverRefresh = effect(() => {
     const on = this.serverMode();
-    // read everything that should trigger a refetch
+    // read everything that should trigger a refetch. NOTE eat/do reads
+    // submittedQuery, not query — typing is free, submitting costs a call.
     const inputs = JSON.stringify({
       d: this.domain.domain(),
-      q: this.query().trim(),
+      q: this.isEat() ? this.submittedQuery().trim() : this.query().trim(),
       tags: [...this.tagSel()].sort(),
       type: this.typeFilter(),
       dec: this.decade(),
@@ -1063,6 +1097,10 @@ export class ExplorePage implements OnDestroy {
       mine: this.mineOnly(),
       sort: this.sort(),
       person: this.personSel()?.id ?? null,
+      price: [...this.priceSel()].sort(),
+      minR: this.minRating(),
+      open: this.openNow(),
+      loc: this.location.custom()?.place_id ?? null,
     });
     void inputs;
     clearTimeout(this.serverDebounce);
@@ -1073,7 +1111,7 @@ export class ExplorePage implements OnDestroy {
       this.serverPage.set(0);
       return;
     }
-    this.serverDebounce = setTimeout(() => void this.fetchServer(1), 350);
+    this.serverDebounce = setTimeout(() => void this.fetchServer(1), 400);
   });
 
   // (Re)attach the infinite-scroll sentinel as it enters/leaves the DOM.
@@ -1091,6 +1129,35 @@ export class ExplorePage implements OnDestroy {
       this.personHint.set(null);
     }
     try {
+      // ---- eat/do live search (v0.16): Google applies the filters ----
+      if (this.isEat()) {
+        const token = page === 1 ? null : this.placesToken();
+        const { rows, nextPageToken } = await this.lib.searchPlaces(
+          this.submittedQuery().trim(),
+          await this.location.effective(),
+          this.placeKind(),
+          {
+            cuisine: [...this.tagSel()][0] ?? null,
+            restrict: !!this.location.custom(),
+            minRating: this.minRating() ? this.minRating()! : null,
+            priceLevels: [...this.priceSel()],
+            openNow: this.openNow(),
+            pageToken: token ?? undefined,
+          },
+        );
+        if (serial !== this.serverSerial) return;
+        this.explore.merge(rows);
+        const ids = rows.map((r) => r.id);
+        this.serverIds.update((prev) =>
+          page === 1 ? ids : [...prev, ...ids.filter((id) => !prev.includes(id))],
+        );
+        this.serverTotal.set(null); // Places has no total count (API limit)
+        this.serverHasMore.set(!!nextPageToken);
+        this.placesToken.set(nextPageToken);
+        this.serverPage.set(page);
+        return;
+      }
+
       const result = this.isRead()
         ? await this.explore.searchRead({
             query: this.query(),
@@ -1200,6 +1267,7 @@ export class ExplorePage implements OnDestroy {
     this.personHint.set(null);
     this.placesToken.set(null);
     this.everywhere.set(false);
+    this.submittedQuery.set('');
   }
 
   protected clearFilters() {
@@ -1218,14 +1286,16 @@ export class ExplorePage implements OnDestroy {
     this.shown.set(PAGE);
     this.personSel.set(null);
     this.placesToken.set(null);
+    this.submittedQuery.set('');
   }
 
   protected onQuery(q: string) {
     this.query.set(q);
     this.shown.set(this.pageSize);
-    this.placesToken.set(null); // a new query invalidates the old Google page token
     clearTimeout(this.debounce);
     const trimmed = q.trim();
+    // Clearing the box exits a submitted eat/do search.
+    if (this.isEat() && !trimmed) this.submittedQuery.set('');
     if (this.mode() === 'people') {
       if (trimmed.length < 2) return;
       this.debounce = setTimeout(async () => {
@@ -1259,49 +1329,18 @@ export class ExplorePage implements OnDestroy {
     }
   }
 
-  protected async placesSearch() {
-    this.pulling.set(true);
-    try {
-      const { rows, nextPageToken } = await this.lib.searchPlaces(
-        this.query().trim(),
-        await this.location.effective(),
-        this.placeKind(),
-        // A picked city is a hard fence; GPS stays a soft bias so long-range
-        // name searches ("that place in Chicago") keep working.
-        { cuisine: [...this.tagSel()][0] ?? null, restrict: !!this.location.custom() },
-      );
-      this.explore.merge(rows);
-      this.placesToken.set(nextPageToken);
-    } catch {
-      this.toast.error('Google search failed — try again.');
-    } finally {
-      this.pulling.set(false);
-    }
+  /** Enter or the button submits eat/do text — the ONLY way typing reaches
+   * Google (v0.16: no per-keystroke calls, per Rory's cost model). */
+  protected submitPlacesSearch() {
+    if (!this.isEat()) return;
+    const q = this.query().trim();
+    if (q.length >= 2) this.submittedQuery.set(q);
   }
 
-  /** Next 20 from Google via the continuation token (same query, same chip). */
-  protected async morePlaces() {
-    const token = this.placesToken();
-    if (!token) return;
-    this.pulling.set(true);
-    try {
-      const { rows, nextPageToken } = await this.lib.searchPlaces(
-        this.query().trim(),
-        await this.location.effective(),
-        this.placeKind(),
-        {
-          cuisine: [...this.tagSel()][0] ?? null,
-          pageToken: token,
-          restrict: !!this.location.custom(),
-        },
-      );
-      this.explore.merge(rows);
-      this.placesToken.set(nextPageToken);
-    } catch {
-      this.toast.error('Could not fetch more — try again.');
-    } finally {
-      this.pulling.set(false);
-    }
+  /** Next 20 live results (explicit — every Places page bills). */
+  protected async morePlacesLive() {
+    if (this.serverLoading() || !this.serverHasMore()) return;
+    await this.fetchServer(this.serverPage() + 1);
   }
 
   private placeKind(): 'eat' | 'do' {

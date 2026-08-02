@@ -8,6 +8,24 @@ See `CLAUDE.md` → *Release notes & regression testing*.
 
 ---
 
+## v0.16 — Eat & Do search goes live (2026-08-02)
+
+**Retest:**
+
+| File | Why |
+| --- | --- |
+| `explore.md` | RT-EXPL-11/12/13 rewritten (live search: submit-only text, per-filter Google calls with Google-side minRating/priceLevels/openNow; ambient pulls; local-only filters); RT-EXPL-18 rewritten (live vs ambient empty states); RT-EXPL-19 new (nightly sweep). Run the whole Eat/Do section. |
+| `location-and-safety.md` | Live searches inherit the city fence (restrict) — re-run RT-LOC-01…04. City guide (RT-LOC-09) unaffected but shares the page. |
+| `titles-and-statuses.md` | place-detail gained a 6h shared freshness gate; upsertPlace skips photo re-resolution. Open a place page twice — second view must render identically from cache. |
+
+**Also:** `places-refresh` is a NEW cron-only edge function (daily 09:17 UTC
+via pg_cron, migration 0020; auth = service-role JWT claim; Vault secret
+`service_role_key` set out-of-band via Management API). Cost model recorded
+in LOCATION-ANALYSIS (photo-resolution fix + detail gate + live-call math).
+`radar-auto`'s catalog got sweep-backfilled rows (test data).
+
+---
+
 ## v0.15 — Search results that stay where you're looking (2026-08-02)
 
 **Retest:**

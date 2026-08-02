@@ -201,6 +201,34 @@ text/nearby search bills at the ~1K-free tier today.
   phases in order, with Playwright verification standing in for his usual
   UI reviews (screenshots = the review artifact; he can veto after landing).
 
+## COST MODEL & LIVE SEARCH (decided 2026-08-02, v0.15–0.16)
+
+Rory's scalability review reset the search architecture. Decisions:
+
+- **Live search model (approved & built):** eat/do cuisine/price/rating/
+  open-now chips + SUBMITTED text (Enter/button, never per keystroke) each
+  fire one Places call with **Google-side filters** (`minRating`,
+  `priceLevels`, `openNow` on searchText — verified live). Ambient no-filter
+  view = the free local catalog (30-mi anchored default). Pagination stays
+  behind an explicit button. Rationale: at 4 users the free tier allows ~41
+  calls/user/day — UX no longer needs to be traded away.
+- **"Keep + heal" for place data:** rating/price/open-now stay in the UI;
+  gaps heal via detail-on-view and the nightly sweep backfill.
+- **ToS sweep (G3 plan-of-record) BUILT:** `places-refresh` edge fn, daily
+  09:17 UTC via pg_cron + pg_net (migration 0020), service-role-only (JWT
+  role claim), key in Supabase Vault (`service_role_key`, set out-of-band —
+  never in the repo). Lean Essentials-tier compliance refresh (150/run cap)
+  + rich rating backfill (25/run cap) over ACTIVE rows only. There is NO
+  bulk-by-id Places endpoint (confirmed) — lean masks make singles ~free.
+- **Cost math (approximate, verify against console):** search Pro ~$32/1K
+  after 5K free · rich details ~$25/1K after 1K free · photos ~$7/1K ·
+  autocomplete ~$3/1K. Worst-case heavy user ≈ $2.30/mo, typical ≈ $0.70.
+  Free tier ≈ 100 heavy / 300 typical users. Premium floor $2.99/mo
+  (break-even after Stripe), sensible minimum $4.99 (margin + future IAP
+  cut). Hidden multipliers fixed 2026-08-02: photo re-resolution on every
+  search upsert (now new/imageless only) and per-view detail calls (now a
+  6h shared gate — detail spend scales with distinct stale places).
+
 ## BUILT (2026-08-01, v0.14) — status & deviations
 
 All four phases shipped in one session (migrations 0016–0019, edge fn
