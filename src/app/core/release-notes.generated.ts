@@ -5,6 +5,23 @@ import type { ReleaseNote } from './release-notes';
 /** Newest first. */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    seq: 15,
+    version: "0.15",
+    date: "2026-08-02",
+    title: "Search results that stay where you're looking",
+    summary: "Eat & Do results stick to your area (or your picked city) by default, city searches stop drifting to other towns, and book search only matches titles and authors.",
+    sections: [
+      {
+        heading: "Fixed",
+        items: [
+          { lead: "No more New York restaurants in Kansas City", text: "With a location (yours or a picked city), Eat and Do now show places within 30 miles by default instead of the whole catalog sorted by rating. A 🌍 Everywhere chip brings the full catalog back when you want it." },
+          { lead: "City searches stay in the city", text: "Searching Google with a picked city now hard-limits results to that area. Before, the city was only a \"suggestion\" Google would happily ignore for far-away places it liked better. Plain near-me searches are unchanged, so looking a place up by name still works from any distance." },
+          { lead: "Book search stops wandering", text: "Searching Read now matches book titles and author names only. No more results dragged in because your words appeared somewhere in a book's subject tags or description. Author search (\"brandon sanderson\") works exactly as before." },
+        ],
+      },
+    ],
+  },
+  {
     seq: 14,
     version: "0.14",
     date: "2026-08-01",
@@ -411,4 +428,4 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
 ];
 
 /** Highest sequence in this build — compared against profiles.last_seen_release_seq. */
-export const LATEST_RELEASE_SEQ = 14;
+export const LATEST_RELEASE_SEQ = 15;

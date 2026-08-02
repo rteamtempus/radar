@@ -129,7 +129,7 @@ export class LibraryService {
     query: string,
     location: { lat: number; lng: number } | null,
     kind: 'eat' | 'do' = 'eat',
-    opts: { cuisine?: string | null; pageToken?: string | null } = {},
+    opts: { cuisine?: string | null; pageToken?: string | null; restrict?: boolean } = {},
   ): Promise<{ rows: ActivitySummary[]; nextPageToken: string | null }> {
     const { data, error } = await getSupabase().functions.invoke<{
       results: ActivitySummary[];
@@ -142,6 +142,8 @@ export class LibraryService {
         kind,
         cuisine: opts.cuisine || undefined,
         page_token: opts.pageToken || undefined,
+        // Hard geo fence — set when the user explicitly picked a city.
+        restrict: opts.restrict || undefined,
       },
     });
     if (error) throw error;

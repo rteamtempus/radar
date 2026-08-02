@@ -1,10 +1,12 @@
 // places-search — Eat + Do domains
 //
-// POST { query?, lat?, lng?, kind?: 'eat'|'do', cuisine?, page_token? }
-// With a query → Places text search (location-biased when lat/lng present),
-// paginated via page_token (Google caps text search around 60 results, and
-// provides NO total count — the response carries next_page_token when more
-// exist). Without a query → popularity-ranked nearby (one page, API limit).
+// POST { query?, lat?, lng?, kind?: 'eat'|'do', cuisine?, page_token?, restrict? }
+// With a query → Places text search: location-biased when lat/lng present,
+// HARD-restricted to a ~40 km box when `restrict` is true (the user picked a
+// city — results must actually be there). Paginated via page_token (Google
+// caps text search around 60 results, and provides NO total count — the
+// response carries next_page_token when more exist). Without a query →
+// popularity-ranked nearby (one page, API limit).
 // `cuisine` is a curated chip slug (vocab.ts) → Places includedType.
 // Everything touched is upserted into activities with a primaryType-derived
 // curated tag.
@@ -16,7 +18,7 @@ import { includedTypeFor } from '../_shared/vocab.ts';
 serve(async (req) => {
   await requireUser(req);
 
-  const { query, lat, lng, kind, cuisine, page_token } = await req.json().catch(() => ({}));
+  const { query, lat, lng, kind, cuisine, page_token, restrict } = await req.json().catch(() => ({}));
   const placeKind: PlaceKind = kind === 'do' ? 'do' : 'eat';
   const location =
     typeof lat === 'number' && typeof lng === 'number' ? { lat, lng } : null;
@@ -35,6 +37,7 @@ serve(async (req) => {
     const page = await placesTextSearch(trimmed, location, placeKind, {
       includedType,
       pageToken: token,
+      restrict: restrict === true,
     });
     places = page.places;
     nextPageToken = page.nextPageToken;

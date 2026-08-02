@@ -338,6 +338,11 @@ const PAGE = 40;
               {{ m.label }}
             </button>
           }
+          @if (myLoc()) {
+            <button (click)="everywhere.set(!everywhere())" [class]="chip(everywhere(), 'violet')">
+              🌍 Everywhere
+            </button>
+          }
           @for (p of priceChips; track p.value) {
             <button (click)="togglePrice(p.value)" [class]="chip(priceSel().has(p.value))">
               {{ p.label }}
@@ -550,7 +555,9 @@ const PAGE = 40;
       <p class="mt-3 text-center text-[10px] text-muted">
         {{
           isEat()
-            ? 'Showing every place Radar knows — pulls add fresh ones from Google.'
+            ? myLoc() && !everywhere() && !maxMiles()
+              ? 'Places within 30 mi of ' + (location.custom()?.name ?? 'you') + ' — 🌍 Everywhere shows the whole catalog.'
+              : 'Showing every place Radar knows — pulls add fresh ones from Google.'
             : serverMode()
               ? isRead()
                 ? 'Live from Open Library — most-wanted books first.'
@@ -742,6 +749,14 @@ export class ExplorePage implements OnDestroy {
   protected readonly minRating = signal<number | null>(null);
   protected readonly openNow = signal(false);
   protected readonly maxMiles = signal<number | null>(null);
+  /**
+   * v0.15: with a location anchor, the eat/do catalog defaults to a 30-mile
+   * radius — the pre-anchor behavior (global catalog sorted by rating) read
+   * as "restaurants in New York while I'm near Kansas City". 🌍 Everywhere
+   * lifts it back to the whole catalog.
+   */
+  protected readonly everywhere = signal(false);
+  private readonly DEFAULT_MILES = 30;
   protected readonly sort = signal<WatchSort | EatSort>('popular');
   protected readonly shown = signal(PAGE);
   protected readonly pulling = signal(false);
@@ -944,7 +959,9 @@ export class ExplorePage implements OnDestroy {
         if (this.priceSel().size && !this.priceSel().has(item.metadata?.price_level ?? 0)) continue;
         if (this.minRating() && (item.metadata?.rating ?? 0) < this.minRating()!) continue;
         if (this.openNow() && item.metadata?.open_now !== true) continue;
-        const cap = this.maxMiles();
+        // Explicit chip > anchored 30-mile default > no cap (🌍 or no anchor).
+        const cap =
+          this.maxMiles() ?? (myLoc && !this.everywhere() ? this.DEFAULT_MILES : null);
         if (cap) {
           const mi = myLoc && item.location ? distanceMiles(myLoc, item.location) : null;
           if (mi == null || mi > cap) continue;
@@ -1165,6 +1182,7 @@ export class ExplorePage implements OnDestroy {
     this.personSel.set(null);
     this.personHint.set(null);
     this.placesToken.set(null);
+    this.everywhere.set(false);
   }
 
   protected clearFilters() {
@@ -1179,6 +1197,7 @@ export class ExplorePage implements OnDestroy {
     this.minRating.set(null);
     this.openNow.set(false);
     this.maxMiles.set(null);
+    this.everywhere.set(false);
     this.shown.set(PAGE);
     this.personSel.set(null);
     this.placesToken.set(null);
@@ -1230,7 +1249,9 @@ export class ExplorePage implements OnDestroy {
         this.query().trim(),
         await this.location.effective(),
         this.placeKind(),
-        { cuisine: [...this.tagSel()][0] ?? null },
+        // A picked city is a hard fence; GPS stays a soft bias so long-range
+        // name searches ("that place in Chicago") keep working.
+        { cuisine: [...this.tagSel()][0] ?? null, restrict: !!this.location.custom() },
       );
       this.explore.merge(rows);
       this.placesToken.set(nextPageToken);
@@ -1251,7 +1272,11 @@ export class ExplorePage implements OnDestroy {
         this.query().trim(),
         await this.location.effective(),
         this.placeKind(),
-        { cuisine: [...this.tagSel()][0] ?? null, pageToken: token },
+        {
+          cuisine: [...this.tagSel()][0] ?? null,
+          pageToken: token,
+          restrict: !!this.location.custom(),
+        },
       );
       this.explore.merge(rows);
       this.placesToken.set(nextPageToken);

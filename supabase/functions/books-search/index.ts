@@ -7,13 +7,22 @@
 //   has_more } — Google Books' totalItems was a constant-300 lie, Open
 //   Library's numFound is an actual count.
 //
-// A plain `query` matches titles AND authors (OL's q searches both), so
-// "brandon sanderson" just works. `subject` narrows to a curated bucket.
+// v0.15: `query` is scoped to TITLE and AUTHOR only. OL's bare `q` also
+// matches subjects and full text, which made basic searches feel random
+// ("dragon cooking" surfacing subject-matched sprawl). Fielded Solr syntax
+// keeps "brandon sanderson" working (author field) while killing the noise.
+// `subject` still narrows to a curated bucket.
 import { HttpError, json, serve } from '../_shared/http.ts';
 import { requireUser, serviceClient } from '../_shared/supabase.ts';
 import { OL_PAGE_SIZE, OlSort, olSearch, upsertOlBook } from '../_shared/openlibrary.ts';
 
 const SORTS: OlSort[] = ['want_to_read', 'rating', 'new'];
+
+/** User text → `title:(…) OR author:(…)`, with Solr syntax chars stripped. */
+function fieldedQuery(raw: string): string {
+  const safe = raw.replace(/["():+\-^~*?[\]{}\\/]/g, ' ').replace(/\s+/g, ' ').trim();
+  return `title:(${safe}) OR author:(${safe})`;
+}
 
 serve(async (req) => {
   await requireUser(req);
@@ -31,7 +40,7 @@ serve(async (req) => {
   let effectiveSort: OlSort | undefined = SORTS.includes(sort) ? sort : 'want_to_read';
   if (!q && effectiveSort === 'want_to_read') effectiveSort = undefined;
   const { docs, total } = await olSearch({
-    query: q || undefined,
+    query: q ? fieldedQuery(q) : undefined,
     subject: subj || undefined,
     page: pageNum,
     sort: effectiveSort,

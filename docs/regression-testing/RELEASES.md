@@ -8,6 +8,23 @@ See `CLAUDE.md` → *Release notes & regression testing*.
 
 ---
 
+## v0.15 — Search results that stay where you're looking (2026-08-02)
+
+**Retest:**
+
+| File | Why |
+| --- | --- |
+| `explore.md` | RT-EXPL-09 rewritten (books title/author-scoped); RT-EXPL-16/17 new (anchored 30-mi catalog default + 🌍 Everywhere; hard city fence on Google searches). Run the Eat/Do and Read sections. |
+| `location-and-safety.md` | RT-LOC-03 (precedence) now interacts with the 30-mi default — with a city picked the *list* changes, not just the distances. Re-run RT-LOC-01…04. |
+| `domains.md` | books-search query construction changed (fielded Solr syntax) — confirm book detail/hydration unaffected. |
+
+**Also:** `books-search` and `places-search` redeployed. `placesTextSearch`
+gained a `restrict` mode (rectangle `locationRestriction`, ~40 km) used only
+when the client passes `restrict: true` (= a custom city is picked); GPS
+searches keep the 15 km soft bias. No schema changes.
+
+---
+
 ## v0.14 — Radar learns where things are (2026-08-01)
 
 **New:** `location-and-safety.md` — the whole file is this release's core

@@ -108,8 +108,28 @@ export async function placesTextSearch(
   query: string,
   location: { lat: number; lng: number } | null,
   kind: PlaceKind,
-  opts: { includedType?: string | null; pageToken?: string | null } = {},
+  opts: { includedType?: string | null; pageToken?: string | null; restrict?: boolean } = {},
 ): Promise<{ places: GooglePlace[]; nextPageToken: string | null }> {
+  // v0.15: `restrict` (set when the user explicitly picked a city) fences
+  // results to a ~40 km rectangle — locationRestriction is a hard filter,
+  // while locationBias is only a suggestion Google happily ignores for
+  // "relevant" far-away results (docs/API-CAPABILITIES.md). GPS "near me"
+  // searches keep the soft bias so long-range name searches still work.
+  const restriction =
+    location && opts.restrict
+      ? (() => {
+          const dLat = 40 / 111.32;
+          const dLng = 40 / (111.32 * Math.max(0.2, Math.cos((location.lat * Math.PI) / 180)));
+          return {
+            locationRestriction: {
+              rectangle: {
+                low: { latitude: location.lat - dLat, longitude: location.lng - dLng },
+                high: { latitude: location.lat + dLat, longitude: location.lng + dLng },
+              },
+            },
+          };
+        })()
+      : null;
   const res = await fetch(`${PLACES_BASE}/places:searchText`, {
     method: 'POST',
     headers: headers(SEARCH_FIELD_MASK),
@@ -124,16 +144,17 @@ export async function placesTextSearch(
           : {}),
       pageSize: 20,
       ...(opts.pageToken ? { pageToken: opts.pageToken } : {}),
-      ...(location
-        ? {
-            locationBias: {
-              circle: {
-                center: { latitude: location.lat, longitude: location.lng },
-                radius: 15000,
+      ...(restriction ??
+        (location
+          ? {
+              locationBias: {
+                circle: {
+                  center: { latitude: location.lat, longitude: location.lng },
+                  radius: 15000,
+                },
               },
-            },
-          }
-        : {}),
+            }
+          : {})),
     }),
   });
   if (!res.ok) throw new Error(`Places searchText ${res.status}: ${await res.text()}`);

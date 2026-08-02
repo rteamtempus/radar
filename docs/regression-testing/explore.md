@@ -84,13 +84,16 @@ count showing the catalog matches and the old Show-more paging.
 
 ## Server mode (Read)
 
-### RT-EXPL-09 — Book search is popularity-first and junk-free
+### RT-EXPL-09 — Book search is popularity-first, junk-free, title/author-scoped
 
-**Steps:** In Read, search "harry potter".
+**Steps:** In Read, search "harry potter". Then search something generic like
+"dragon cooking". Then try syntax-hostile input (`dune (deluxe) "edition" +x:`).
 **Expected:** One row per actual book (no duplicate house editions, no blank
 titles, no 7-page pamphlets), the real books first in want-to-read order, a
 real total, and infinite scroll. Searching an author's name ("brandon
-sanderson") finds their books without any special syntax.
+sanderson") finds their books without any special syntax. Since v0.15 the
+query matches **titles and authors only** — no results dragged in by subject
+tags or description text — and weird punctuation must not error.
 
 ### RT-EXPL-10 — Genre browsing finds the genre
 
@@ -116,12 +119,30 @@ kicks in within the genre.
 of place. New places carry at most ONE curated cuisine/theme tag (from their
 primary category); places with only a generic category get none.
 
-### RT-EXPL-13 — Eat filters (unchanged)
+### RT-EXPL-13 — Eat filters + the anchored radius (v0.15)
 
 **Steps:** Exercise open-now, distance rings, price, rating floor, hide-been,
 friends chips, cuisine chips against the local catalog.
 **Expected:** Each narrows the list client-side, count updates, Clear all
 restores.
+
+### RT-EXPL-16 — Anchored catalog defaults to 30 miles (v0.15)
+
+**Steps:** In Eat with a location anchor (GPS allowed OR a 📍 city picked),
+note the list and the footer. Tap **🌍 Everywhere**. Then tap a distance ring.
+**Expected:** By default only places within ~30 mi of the anchor show, and
+the footer says so ("Places within 30 mi of Austin…"). 🌍 Everywhere restores
+the full multi-city catalog (footer flips back). An explicit distance ring
+always wins over both. With no anchor at all (GPS denied, no city), the full
+catalog shows — never an empty list. Clear resets 🌍.
+
+### RT-EXPL-17 — City-picked Google searches stay in the city (v0.15) [live data]
+
+**Steps:** Pick a city (📍), type a generic query ("ramen"), Search Google.
+Compare with a near-me (no city) name search for a distant specific place.
+**Expected:** With a city picked, every Google result is inside that metro
+(~40 km fence — hard restriction). Without a picked city, name searches still
+find far-away places (GPS stays a soft bias).
 
 ## Rows (all domains)
 

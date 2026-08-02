@@ -35,6 +35,14 @@ direct pruning himself.
 
 ## Right now
 
+- **v0.15 search-sanity fixes SHIPPED (2026-08-02)** after Rory's morning
+  review of v0.14 flagged geo-weird results: (1) anchored eat/do catalog now
+  defaults to 30 mi + 🌍 Everywhere chip (root cause: catalog was global,
+  rating-sorted, distance-blind); (2) city-picked Google searches use hard
+  `locationRestriction` (~40 km box) — GPS keeps soft bias so long-range name
+  search still works; (3) books-search scoped to `title:(q) OR author:(q)`
+  (OL bare `q` also matched subjects/text). All three REST- and
+  browser-verified. Rory's remaining v0.14 review points still open (below).
 - **Location suite v0.14 SHIPPED (2026-08-01, autonomous flight session).**
   All four phases from `docs/LOCATION-ANALYSIS.md` (see its BUILT section for
   the 7 deviations/gaps — notably: no PostGIS, lean saved-places, and the
