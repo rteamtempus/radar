@@ -241,18 +241,23 @@ export async function upsertPlace(
   service: SupabaseClient,
   place: GooglePlace,
   kind: PlaceKind = 'eat',
+  opts: { detail?: boolean } = {},
 ): Promise<ActivityRow> {
-  const photoUri = await resolvePhoto(place);
   const lat = place.location?.latitude ?? null;
   const lng = place.location?.longitude ?? null;
 
   const { data: existing } = await service
     .from('activities')
-    .select('id, description, cost_level, metadata')
+    .select('id, description, cost_level, image_url, metadata')
     .eq('external_source', 'google_places')
     .eq('external_id', place.id)
     .maybeSingle();
   const prior = (existing?.metadata ?? {}) as Record<string, unknown>;
+
+  // Photo media is its own billable SKU, and a 20-result search used to fire
+  // 20 of them EVERY time — even for places we'd seen before (v0.15 fix).
+  // Only resolve when the place is new to us or has no image yet.
+  const photoUri = existing?.image_url ? null : await resolvePhoto(place);
 
   // Only fields this response actually carried; undefined = keep prior value.
   const incoming: Record<string, unknown> = {
@@ -267,6 +272,9 @@ export async function upsertPlace(
     phone: place.nationalPhoneNumber,
     website: place.websiteUri,
     coords_refreshed_at: new Date().toISOString(), // ToS: 30-day coord cache (G3)
+    // Stamped only by rich detail calls — place-detail's 6h freshness gate
+    // reads this, so search-upserts must never touch it.
+    detail_refreshed_at: opts.detail ? new Date().toISOString() : undefined,
   };
   const metadata = { ...prior };
   for (const [k, v] of Object.entries(incoming)) if (v !== undefined) metadata[k] = v;
