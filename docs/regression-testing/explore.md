@@ -144,6 +144,16 @@ Compare with a near-me (no city) name search for a distant specific place.
 (~40 km fence — hard restriction). Without a picked city, name searches still
 find far-away places (GPS stays a soft bias).
 
+### RT-EXPL-18 — Empty chip results offer the targeted pull (v0.15)
+
+**Steps:** In Eat with a city picked, select a cuisine (± price chips) that
+yields zero catalog matches.
+**Expected:** The empty state explains Radar may not have scouted that
+cuisine here and offers "📍 Pull nearby <cuisine> from Google" inline — a
+single explicit call (filters themselves never call Google). Tapping it
+populates the list when Google has matches. Watch/Read empty states are
+unchanged ("Loosen a filter").
+
 ## Rows (all domains)
 
 ### RT-EXPL-14 — Rows read well

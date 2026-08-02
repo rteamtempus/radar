@@ -457,9 +457,26 @@ const PAGE = 40;
         <div class="mt-10 flex flex-col items-center gap-3 text-center">
           <div class="text-4xl">🔭</div>
           <p class="font-bold">Nothing matches</p>
-          <p class="max-w-64 text-sm text-muted-2">
-            Loosen a filter{{ isEat() ? ' or pull in fresh spots below' : '' }}.
-          </p>
+          @if (isEat()) {
+            <!-- An empty chip result here means RADAR hasn't scouted this,
+                 not that the city lacks it — offer the one-call fix inline
+                 instead of letting "no Chinese in Austin" stand. -->
+            <p class="max-w-72 text-sm text-muted-2">
+              Radar may just not have scouted
+              {{ selectedCuisineLabel() ?? 'this kind of thing' }} near
+              {{ location.custom()?.name ?? 'you' }} yet — one Google pull
+              fills it in for everyone, or loosen a filter.
+            </p>
+            <button
+              (click)="nearby()"
+              [disabled]="pulling()"
+              class="rounded-2xl border border-gold/50 px-5 py-2.5 text-sm font-bold text-gold disabled:opacity-50"
+            >
+              {{ pulling() ? 'Fetching…' : '📍 Pull nearby ' + (selectedCuisineLabel() ?? 'spots') + ' from Google' }}
+            </button>
+          } @else {
+            <p class="max-w-64 text-sm text-muted-2">Loosen a filter.</p>
+          }
         </div>
       }
 

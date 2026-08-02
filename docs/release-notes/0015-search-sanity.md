@@ -20,3 +20,8 @@ summary: Eat & Do results stick to your area (or your picked city) by default, c
   and author names only. No more results dragged in because your words
   appeared somewhere in a book's subject tags or description. Author search
   ("brandon sanderson") works exactly as before.
+- **Empty results explain themselves** — When a cuisine or filter comes up
+  empty in Eat & Do, the app now says why (Radar may simply not have scouted
+  that here yet) and offers a one-tap "Pull nearby from Google" right there —
+  one call, and the answer is remembered for everyone. Filters themselves
+  never call Google; they narrow what Radar already knows.

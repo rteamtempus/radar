@@ -17,6 +17,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
           { lead: "No more New York restaurants in Kansas City", text: "With a location (yours or a picked city), Eat and Do now show places within 30 miles by default instead of the whole catalog sorted by rating. A 🌍 Everywhere chip brings the full catalog back when you want it." },
           { lead: "City searches stay in the city", text: "Searching Google with a picked city now hard-limits results to that area. Before, the city was only a \"suggestion\" Google would happily ignore for far-away places it liked better. Plain near-me searches are unchanged, so looking a place up by name still works from any distance." },
           { lead: "Book search stops wandering", text: "Searching Read now matches book titles and author names only. No more results dragged in because your words appeared somewhere in a book's subject tags or description. Author search (\"brandon sanderson\") works exactly as before." },
+          { lead: "Empty results explain themselves", text: "When a cuisine or filter comes up empty in Eat & Do, the app now says why (Radar may simply not have scouted that here yet) and offers a one-tap \"Pull nearby from Google\" right there — one call, and the answer is remembered for everyone. Filters themselves never call Google; they narrow what Radar already knows." },
         ],
       },
     ],

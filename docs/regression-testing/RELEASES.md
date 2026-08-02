@@ -14,7 +14,7 @@ See `CLAUDE.md` → *Release notes & regression testing*.
 
 | File | Why |
 | --- | --- |
-| `explore.md` | RT-EXPL-09 rewritten (books title/author-scoped); RT-EXPL-16/17 new (anchored 30-mi catalog default + 🌍 Everywhere; hard city fence on Google searches). Run the Eat/Do and Read sections. |
+| `explore.md` | RT-EXPL-09 rewritten (books title/author-scoped); RT-EXPL-16/17/18 new (anchored 30-mi catalog default + 🌍 Everywhere; hard city fence on Google searches). Run the Eat/Do and Read sections. |
 | `location-and-safety.md` | RT-LOC-03 (precedence) now interacts with the 30-mi default — with a city picked the *list* changes, not just the distances. Re-run RT-LOC-01…04. |
 | `domains.md` | books-search query construction changed (fielded Solr syntax) — confirm book detail/hydration unaffected. |
 
